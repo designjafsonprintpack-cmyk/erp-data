@@ -1,0 +1,101 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
+
+export async function GET(req: NextRequest) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const search   = searchParams.get('search') || ''
+  const status   = searchParams.get('status') || ''
+  const priority = searchParams.get('priority') || ''
+  const customer = searchParams.get('customer_id') || ''
+  const page     = parseInt(searchParams.get('page') || '1')
+  const limit    = parseInt(searchParams.get('limit') || '25')
+  const offset   = (page - 1) * limit
+
+  let q = supabase
+    .from('jobs' as any)
+    .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
+    .is('deleted_at', null)
+    .eq('is_active', true)
+
+  if (status)   q = q.eq('status', status)
+  if (priority) q = q.eq('priority', priority)
+  if (customer) q = q.eq('customer_id', customer)
+  if (search)   q = q.or(`job_number.ilike.%${search}%,job_title.ilike.%${search}%`)
+
+  const { data, error, count } = await q
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
+}
+
+export async function POST(req: NextRequest) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const companyId = await getCompanyId(user, supabase)
+  const body = await req.json()
+
+  // Generate job number
+  const { data: jobNumber } = await (supabase as any).rpc('get_next_sequence_number', {
+    p_company_id: companyId,
+    p_document_type: 'JOB',
+  })
+
+  const { data: job, error } = await supabase.from('jobs' as any).insert({
+    company_id:           companyId,
+    job_number:           jobNumber,
+    customer_id:          body.customer_id,
+    sales_order_id:       body.sales_order_id || null,
+    job_title:            body.job_title,
+    description:          body.description || null,
+    size_l:               body.size_l ? parseFloat(body.size_l) : null,
+    size_w:               body.size_w ? parseFloat(body.size_w) : null,
+    size_h:               body.size_h ? parseFloat(body.size_h) : null,
+    sheet_size:           body.sheet_size || null,
+    quantity:             parseFloat(body.quantity || '0'),
+    no_of_colors:         body.no_of_colors ? parseInt(body.no_of_colors) : 4,
+    die_number:           body.die_number || null,
+    board_type_id:        body.board_type_id || null,
+    paper_type_id:        body.paper_type_id || null,
+    lamination_type_id:   body.lamination_type_id || null,
+    uv_coating:           body.uv_coating || false,
+    foil_type_id:         body.foil_type_id || null,
+    special_finishing:    body.special_finishing || null,
+    pasting:              body.pasting || null,
+    workflow_template_id: body.workflow_template_id || null,
+    priority:             body.priority || 'normal',
+    required_date:        body.required_date || null,
+    quoted_amount:        body.quoted_amount ? parseFloat(body.quoted_amount) : null,
+    internal_remarks:     body.internal_remarks || null,
+    status:               'new',
+  }).select().single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const jobData = job as any
+
+  // Initialize workflow stages if template assigned
+  if (body.workflow_template_id) {
+    await initializeJobWorkflow(jobData.id, body.workflow_template_id, companyId, supabase)
+  }
+
+  // Record creation event
+  await recordJobEvent({
+    company_id: companyId,
+    job_id: jobData.id,
+    event_type: 'created',
+    new_value: jobData.job_number,
+    notes: `Job created: ${jobData.job_title}`,
+  }, supabase)
+
+  return NextResponse.json({ data: jobData })
+}

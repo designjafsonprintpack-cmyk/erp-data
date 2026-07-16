@@ -1,0 +1,51 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
+
+export async function GET(req: NextRequest) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { searchParams } = new URL(req.url)
+  const search = searchParams.get('search') || ''
+  const status = searchParams.get('status') || ''
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = 25; const offset = (page - 1) * limit
+
+  let q = supabase.from('quotations' as any)
+    .select('*, customers(name, customer_code)', { count: 'exact' })
+    .is('deleted_at', null)
+  if (status) q = q.eq('status', status)
+  if (search) q = q.ilike('quotation_number', `%${search}%`)
+
+  const { data, error, count } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
+}
+
+export async function POST(req: NextRequest) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
+  const { items, ...body } = await req.json()
+
+  const { data: seqData } = await (supabase as any).rpc('get_next_sequence_number', {
+    p_company_id: companyId, p_document_type: 'QT',
+  })
+
+  const { data: qt, error } = await supabase.from('quotations' as any).insert({
+    ...body, company_id: companyId, quotation_number: seqData,
+  }).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (items?.length) {
+    const lineItems = items.map((item: any, idx: number) => ({
+      ...item, quotation_id: (qt as any).id, company_id: companyId,
+      line_no: idx + 1, sort_order: idx + 1,
+      subtotal: parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0),
+    }))
+    await supabase.from('quotation_items' as any).insert(lineItems)
+  }
+  return NextResponse.json({ data: qt })
+}

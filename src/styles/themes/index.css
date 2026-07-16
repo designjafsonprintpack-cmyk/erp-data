@@ -1,0 +1,116 @@
+/* ─── JAFSON ERP — THEME SYSTEM ───────────────────────────────────────── */
+/* All components reference CSS variables only. Never hardcode hex values. */
+
+:root[data-theme="github-dark"],
+:root {
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-elevated: #1c2128;
+  --color-border: #30363d;
+  --color-border-subtle: #21262d;
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-muted: #6e7681;
+  --color-accent: #2f81f7;
+  --color-accent-hover: #4c94ff;
+  --color-success: #3fb950;
+  --color-warning: #d29922;
+  --color-danger: #f85149;
+  --color-info: #58a6ff;
+  --color-muted: #6e7681;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+:root[data-theme="dark-blue"] {
+  --color-bg-primary: #0a1929;
+  --color-bg-secondary: #132f4c;
+  --color-bg-elevated: #193a5c;
+  --color-border: #1e4976;
+  --color-border-subtle: #163d61;
+  --color-text-primary: #e7ebf0;
+  --color-text-secondary: #90a4b8;
+  --color-text-muted: #607d8b;
+  --color-accent: #3399ff;
+  --color-accent-hover: #5aadff;
+  --color-success: #4caf50;
+  --color-warning: #ffa726;
+  --color-danger: #f44336;
+  --color-info: #29b6f6;
+  --color-muted: #607d8b;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+:root[data-theme="dark-orange"] {
+  --color-bg-primary: #1a1108;
+  --color-bg-secondary: #241a0d;
+  --color-bg-elevated: #2e2210;
+  --color-border: #4a3418;
+  --color-border-subtle: #3d2b13;
+  --color-text-primary: #f7ede0;
+  --color-text-secondary: #c4a882;
+  --color-text-muted: #8a6e4a;
+  --color-accent: #f07a1a;
+  --color-accent-hover: #f59340;
+  --color-success: #4caf82;
+  --color-warning: #e0c940;
+  --color-danger: #e0546f;
+  --color-info: #7cb8e0;
+  --color-muted: #8a6e4a;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+:root[data-theme="dark-green"] {
+  --color-bg-primary: #0d1912;
+  --color-bg-secondary: #14261b;
+  --color-bg-elevated: #1b3324;
+  --color-border: #234a32;
+  --color-border-subtle: #1c3d29;
+  --color-text-primary: #e3f3e8;
+  --color-text-secondary: #93b8a0;
+  --color-text-muted: #5e7d68;
+  --color-accent: #3fb96a;
+  --color-accent-hover: #5ece83;
+  --color-success: #4caf50;
+  --color-warning: #d2a622;
+  --color-danger: #e05a5a;
+  --color-info: #4fa8d8;
+  --color-muted: #5e7d68;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+:root[data-theme="light"] {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f6f8fa;
+  --color-bg-elevated: #ffffff;
+  --color-border: #d0d7de;
+  --color-border-subtle: #e1e7ed;
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #57606a;
+  --color-text-muted: #6e7781;
+  --color-accent: #0969da;
+  --color-accent-hover: #0860ca;
+  --color-success: #1a7f37;
+  --color-warning: #9a6700;
+  --color-danger: #cf222e;
+  --color-info: #0969da;
+  --color-muted: #6e7781;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+/* Print always forces light theme */
+@media print {
+  :root {
+    --color-bg-primary: #ffffff !important;
+    --color-bg-secondary: #f6f8fa !important;
+    --color-bg-elevated: #ffffff !important;
+    --color-border: #d0d7de !important;
+    --color-text-primary: #1f2328 !important;
+    --color-text-secondary: #57606a !important;
+    --color-accent: #0969da !important;
+  }
+}
