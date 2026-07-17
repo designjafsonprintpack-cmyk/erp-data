@@ -320,7 +320,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
               </div>
             ))}
             <p className="text-xs text-[var(--color-text-muted)]">
-              Link an item to inventory to auto-deduct stock when issued. Leave unlinked for materials you don't track (ink, glue, etc.).
+              Link an item to inventory to auto-deduct stock when issued. Leave unlinked for materials you don&apos;t track (ink, glue, etc.).
             </p>
           </div>
         </Modal>
