@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -31,13 +32,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { machines, ...body } = await req.json()
 
   const { data: plan, error } = await supabase.from('job_plans' as any).insert({
     company_id:  companyId,
     job_id:      body.job_id,
     planned_date: body.planned_date,
-    planned_by:  user.id,
+    planned_by:  userTableId,
     notes:       body.notes || null,
     status:      'scheduled',
   }).select().single()

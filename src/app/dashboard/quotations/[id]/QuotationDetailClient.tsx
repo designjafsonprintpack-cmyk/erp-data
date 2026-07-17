@@ -32,10 +32,11 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
     setLoading(true)
     try {
       const res = await fetch(`/api/v1/quotations/${qt.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setQt(prev => ({ ...prev, status: data.status }))
       toast.success('Status updated')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 

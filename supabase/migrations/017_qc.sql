@@ -112,7 +112,7 @@ CREATE POLICY qcr_tenant ON qc_checklist_responses
 CREATE TABLE qc_defects (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      UUID NOT NULL REFERENCES companies(id),
-  inspection_id   UUID NOT NULL REFERENCES qc_inspections(id) ON DELETE CASCADE,
+  inspection_id   UUID REFERENCES qc_inspections(id) ON DELETE CASCADE,
   job_id          UUID NOT NULL REFERENCES jobs(id),
   defect_type     TEXT NOT NULL,
   -- 'colour_shift','misregister','scumming','hickey','fold_crack','cut_short',
@@ -122,6 +122,7 @@ CREATE TABLE qc_defects (
   quantity_affected INTEGER DEFAULT 0,
   description     TEXT,
   photo_url       TEXT,
+  photo_urls      TEXT[] NOT NULL DEFAULT '{}',
   reported_by     UUID REFERENCES users(id),
   resolved        BOOLEAN NOT NULL DEFAULT FALSE,
   resolved_notes  TEXT,

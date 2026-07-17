@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // Get current state for event recording
   const { data: current } = await supabase.from('jobs' as any)
-    .select('status, priority').eq('id', params.id).single()
+    .select('status, priority, quantity, ups').eq('id', params.id).single()
 
   const updateData: Record<string, any> = { ...body }
   if (body.size_l !== undefined) updateData.size_l = body.size_l ? parseFloat(body.size_l) : null
@@ -50,6 +50,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.quantity !== undefined) updateData.quantity = parseFloat(body.quantity || '0')
   if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(body.no_of_colors)
   if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(body.quoted_amount) : null
+  if (body.ups !== undefined) updateData.ups = body.ups ? parseInt(body.ups) : null
+
+  // Sheet Qty = ceil(Quantity / Ups) — recompute whenever either input changes,
+  // using whichever value wasn't part of this particular update.
+  if (body.quantity !== undefined || body.ups !== undefined) {
+    const effectiveQty = body.quantity !== undefined ? updateData.quantity : (current as any)?.quantity
+    const effectiveUps = body.ups !== undefined ? updateData.ups : (current as any)?.ups
+    updateData.sheet_qty = effectiveUps && effectiveUps > 0 ? Math.ceil((effectiveQty || 0) / effectiveUps) : null
+  }
 
   const { data, error } = await supabase.from('jobs' as any)
     .update(updateData).eq('id', params.id).select().single()

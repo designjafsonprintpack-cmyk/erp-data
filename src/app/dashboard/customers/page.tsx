@@ -5,7 +5,9 @@ import CustomersClient from './CustomersClient'
 export default async function CustomersPage() {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
+  if (!user) return null // dashboard/layout.tsx already redirects unauthenticated requests to /login
+
+  const companyId = await getCompanyId(user, supabase)
 
   const { data, count } = await supabase.from('customers' as any)
     .select('*', { count: 'exact' })

@@ -1,0 +1,65 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data, error } = await supabase
+    .from('job_wastage' as any)
+    .select('*, wastage_reasons(name,category), machines(name), users(full_name)')
+    .eq('job_id', params.id)
+    .is('deleted_at', null)
+    .order('occurred_at', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data: data ?? [] })
+}
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const companyId = await getCompanyId(user, supabase)
+  const body = await req.json()
+
+  if (!body.wastage_reason_id) return NextResponse.json({ error: 'Reason is required' }, { status: 400 })
+  const quantity = parseFloat(body.quantity)
+  if (!quantity || quantity <= 0) return NextResponse.json({ error: 'Quantity must be greater than 0' }, { status: 400 })
+
+  // recorded_by / actor_id below are FKs to public.users(id) — NOT the same UUID
+  // as user.id (the Supabase auth id). Resolve the real public.users.id from the
+  // JWT's user_table_id claim (set by custom_access_token_hook) so this insert
+  // doesn't fail a foreign key check for any user created the correct way.
+  const userTableId = await getUserTableId(user, supabase)
+
+  const { data, error } = await supabase.from('job_wastage' as any).insert({
+    company_id:        companyId,
+    job_id:             params.id,
+    stage_progress_id:  body.stage_progress_id || null,
+    machine_id:         body.machine_id || null,
+    wastage_reason_id:  body.wastage_reason_id,
+    quantity,
+    notes:              body.notes || null,
+    recorded_by:        userTableId || null,
+  }).select('*, wastage_reasons(name,category), machines(name)').single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const reasonName = (data as any)?.wastage_reasons?.name || 'Unknown reason'
+  await recordJobEvent({
+    company_id: companyId,
+    job_id: params.id,
+    event_type: 'wastage_recorded',
+    new_value: `${quantity} (${reasonName})`,
+    notes: body.notes || null,
+    actor_id: userTableId || null,
+  }, supabase)
+
+  return NextResponse.json({ data })
+}

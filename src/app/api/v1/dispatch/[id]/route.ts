@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { sendWhatsApp } from '@/lib/utils/sendWhatsApp'
+import { notify } from '@/modules/notifications/services/notificationService'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -27,11 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   // Fetch current dispatch + items for event recording
   const { data: current } = await supabase.from('dispatch_orders' as any)
-    .select('status, dispatch_number, dispatch_items(job_id)')
+    .select('status, dispatch_number, customer_id, customers(name,phone,mobile), dispatch_items(job_id)')
     .eq('id', params.id).single()
 
   const updateData: Record<string, any> = { ...body }
@@ -63,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           job_id:     item.job_id,
           event_type: 'status_changed',
           new_value:  `Dispatched — ${curr.dispatch_number}`,
-          actor_id:   user.id,
+          actor_id:   userTableId,
         }, supabase)
         // Mark job as dispatched
         await supabase.from('jobs' as any)
@@ -77,8 +81,39 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           job_id:     item.job_id,
           event_type: 'status_changed',
           new_value:  `Delivered — POD confirmed`,
-          actor_id:   user.id,
+          actor_id:   userTableId,
         }, supabase)
+      }
+    }
+
+    // Respect the "Send WhatsApp message on dispatch" system setting. Fires
+    // once per dispatch order (not once per item) when it first transitions
+    // to 'dispatched'. sendWhatsApp() returns { sent: false, reason:
+    // 'not_configured' } until Meta WhatsApp Cloud API credentials are added
+    // as env vars — this records that outcome as a notification rather than
+    // silently doing nothing, so it's visible that the setting is on but not
+    // yet wired to a real provider.
+    if (newStatus === 'dispatched') {
+      const { data: smsSetting } = await supabase.from('system_settings' as any)
+        .select('value').eq('company_id', companyId).eq('key', 'dispatch_sms').maybeSingle()
+
+      if ((smsSetting as any)?.value === 'true') {
+        const customerPhone = curr.customers?.mobile || curr.customers?.phone
+        const result = await sendWhatsApp(
+          customerPhone,
+          `Your order ${curr.dispatch_number} has been dispatched. Thank you for choosing us.`
+        )
+        if (!result.sent && userTableId) {
+          await notify({
+            user_id: userTableId,
+            company_id: companyId,
+            title: 'Dispatch WhatsApp message not sent',
+            message: result.reason === 'not_configured'
+              ? `WhatsApp notifications are enabled in Settings but Meta WhatsApp Cloud API is not configured yet (dispatch ${curr.dispatch_number}).`
+              : `Could not send dispatch WhatsApp message for ${curr.dispatch_number}: ${result.reason}`,
+            type: 'warning',
+          }).catch(() => {})
+        }
       }
     }
   }

@@ -133,8 +133,25 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
             <input className={inputCls} value={form.sheet_size} onChange={e => set('sheet_size', e.target.value)} placeholder='e.g. 25"×36"' />
           </div>
           <div className="space-y-1.5">
+            <label className={labelCls}>Grain Direction</label>
+            <select className={inputCls} value={form.grain_direction} onChange={e => set('grain_direction', e.target.value)}>
+              <option value="">Not specified</option>
+              <option value="long_grain">Long Grain</option>
+              <option value="short_grain">Short Grain</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
             <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Ups <span className="text-xs text-[var(--color-text-muted)]">(impressions/sheet)</span></label>
+            <input type="number" className={inputCls} value={form.ups} onChange={e => set('ups', e.target.value)} placeholder="e.g. 8" min="1" />
+            {form.ups && parseInt(form.ups) > 0 && form.quantity && (
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Sheet Qty: {Math.ceil(parseFloat(form.quantity) / parseInt(form.ups)).toLocaleString()}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>No. of Colors</label>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
@@ -28,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   // Sign-off action — Phase 40
@@ -36,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .select('job_id, result, inspection_no').eq('id', params.id).single()
 
     const { data, error } = await supabase.from('qc_inspections' as any).update({
-      signed_off_by: user.id,
+      signed_off_by: userTableId,
       signed_off_at: new Date().toISOString(),
       result:        body.result || (current as any)?.result,
       notes:         body.notes || null,
@@ -60,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       job_id:     curr.job_id,
       event_type: 'status_changed',
       new_value:  `QC Sign-off #${curr.inspection_no}: ${result?.toUpperCase()}`,
-      actor_id:   user.id,
+      actor_id:   userTableId,
     }, supabase)
 
     return NextResponse.json({ data })

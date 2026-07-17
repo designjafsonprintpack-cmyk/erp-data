@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDateTime, formatTimeAgo } from '@/lib/utils/format'
+import { createSupabaseClient } from '@/lib/supabase/client'
+import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 
 interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
@@ -23,11 +25,12 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function ArtworkClient({ initialArtworks, jobs }: { initialArtworks: Artwork[]; jobs: Job[] }) {
+export default function ArtworkClient({ initialArtworks, jobs, companyId }: { initialArtworks: Artwork[]; jobs: Job[]; companyId: string }) {
   const [artworks, setArtworks] = useState(initialArtworks)
   const [filterJob, setFilterJob] = useState('')
   const [uploadModal, setUploadModal] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     job_id: '', file_name: '', file_url: '', file_size: '', file_type: '', designer_notes: '',
   })
@@ -41,15 +44,36 @@ export default function ArtworkClient({ initialArtworks, jobs }: { initialArtwor
     return acc
   }, {} as Record<string, Artwork[]>)
 
+  const pickFile = (file: File | null) => {
+    setSelectedFile(file)
+    if (file) {
+      const ext = file.name.split('.').pop()?.toUpperCase() || ''
+      setForm(p => ({ ...p, file_name: file.name, file_type: ext, file_size: String(file.size) }))
+    }
+  }
+
+  const viewFile = async (path: string) => {
+    const supabase = createSupabaseClient()
+    const url = await getSignedUrl(supabase, 'artwork', path)
+    if (!url) { toast.error('Could not open file'); return }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   const upload = async () => {
-    if (!form.job_id || !form.file_name || !form.file_url) {
-      toast.error('Job, filename, and file URL are required'); return
+    if (!form.job_id || !selectedFile) {
+      toast.error('Job and a file are required'); return
     }
     setLoading(true)
     try {
+      const supabase = createSupabaseClient()
+      const { path, error: uploadErr } = await uploadFile(
+        supabase, 'artwork', companyId, `${form.job_id}/${Date.now()}-${selectedFile.name}`, selectedFile
+      )
+      if (uploadErr || !path) throw new Error(uploadErr || 'Upload failed')
+
       const res = await fetch('/api/v1/artwork', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, file_size: form.file_size ? parseInt(form.file_size) : null }),
+        body: JSON.stringify({ ...form, file_url: path, file_size: form.file_size ? parseInt(form.file_size) : null }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
@@ -58,6 +82,7 @@ export default function ArtworkClient({ initialArtworks, jobs }: { initialArtwor
       setArtworks(prev => [{ ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title, customers: job.customers } : null }, ...prev])
       setUploadModal(false)
       setForm({ job_id: '', file_name: '', file_url: '', file_size: '', file_type: '', designer_notes: '' })
+      setSelectedFile(null)
       toast.success(`Artwork v${data.version} added`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -162,10 +187,10 @@ export default function ArtworkClient({ initialArtworks, jobs }: { initialArtwor
 
                     {/* Actions */}
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <a href={art.file_url} target="_blank" rel="noopener noreferrer"
+                      <button onClick={() => viewFile(art.file_url)}
                         className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                         <ExternalLink size={13} />
-                      </a>
+                      </button>
                       <button onClick={() => markReady(art.id, !art.is_production_ready)}
                         className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
                           art.is_production_ready
@@ -192,7 +217,7 @@ export default function ArtworkClient({ initialArtworks, jobs }: { initialArtwor
         footer={
           <>
             <button onClick={() => setUploadModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
-            <button onClick={upload} disabled={loading || !form.job_id || !form.file_name || !form.file_url}
+            <button onClick={upload} disabled={loading || !form.job_id || !selectedFile}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Upload size={14} /> {loading ? 'Uploading…' : 'Add Artwork'}
             </button>
@@ -206,23 +231,12 @@ export default function ArtworkClient({ initialArtworks, jobs }: { initialArtwor
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">File Name <span className="text-[var(--color-danger)]">*</span></label>
-              <input className={inputCls} value={form.file_name} onChange={e => setForm(p => ({ ...p, file_name: e.target.value }))} placeholder="artwork_v1.pdf" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">File Type</label>
-              <select className={inputCls} value={form.file_type} onChange={e => setForm(p => ({ ...p, file_type: e.target.value }))}>
-                <option value="">Select…</option>
-                {['PDF','AI','PSD','CDR','PNG','JPG','TIFF','EPS'].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">File URL <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={form.file_url} onChange={e => setForm(p => ({ ...p, file_url: e.target.value }))} placeholder="https://storage.example.com/artwork.pdf" />
-            <p className="text-xs text-[var(--color-text-muted)]">Paste the Supabase Storage URL after uploading the file</p>
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
+            <input type="file" accept=".pdf,.ai,.psd,.cdr,.png,.jpg,.jpeg,.tif,.tiff,.eps"
+              onChange={e => pickFile(e.target.files?.[0] || null)}
+              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-white hover:file:bg-[var(--color-accent-hover)]" />
+            {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>

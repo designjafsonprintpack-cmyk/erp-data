@@ -85,26 +85,27 @@ export default function UsersClient({ initialUsers, departments, roles }: {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       setUsers(prev => prev.map(u => u.id === editModal.id ? {
         ...u, ...editForm,
         departments: departments.find(d => d.id === editForm.department_id) || u.departments,
       } : u))
       setEditModal(null)
       toast.success('User updated')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
   const toggleActive = async (u: User) => {
     try {
-      await fetch(`/api/v1/admin/users/${u.id}`, {
+      const res = await fetch(`/api/v1/admin/users/${u.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !u.is_active }),
       })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !u.is_active } : x))
       toast.success(u.is_active ? 'User deactivated' : 'User activated')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
   }
 
   return (

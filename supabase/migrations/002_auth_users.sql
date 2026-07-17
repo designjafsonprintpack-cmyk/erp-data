@@ -121,14 +121,32 @@ BEGIN
     AND u.is_active = TRUE
   LIMIT 1;
 
-  claims := event -> 'claims';
+  claims := COALESCE(event -> 'claims', '{}'::jsonb);
 
   IF user_rec.company_id IS NOT NULL THEN
-    claims := jsonb_set(claims, '{company_id}', to_jsonb(user_rec.company_id::TEXT));
-    claims := jsonb_set(claims, '{role}', to_jsonb(user_rec.role));
-    claims := jsonb_set(claims, '{department_id}', to_jsonb(user_rec.department_id::TEXT));
-    claims := jsonb_set(claims, '{full_name}', to_jsonb(user_rec.full_name));
-    claims := jsonb_set(claims, '{user_table_id}', to_jsonb(user_rec.user_table_id::TEXT));
+    -- NOTE: previously this used chained jsonb_set() calls. jsonb_set() is a
+    -- STRICT function — if ANY argument is NULL (e.g. department_id is NULL,
+    -- which is normal for a user with no department assigned), the ENTIRE
+    -- call returns NULL, which then poisons every subsequent jsonb_set() in
+    -- the chain and makes this whole function return NULL — causing login to
+    -- fail for that user with "output claims do not conform to the expected
+    -- schema". jsonb_build_object + the || merge operator handle NULL field
+    -- values correctly (encoding them as JSON null) instead of erroring.
+    --
+    -- NOTE 2: the claim is named 'app_role', NOT 'role'. The top-level 'role'
+    -- claim in a Supabase JWT is RESERVED — PostgREST uses it to select which
+    -- Postgres database role to connect as (e.g. 'authenticated'). Setting it
+    -- to an application role like 'superadmin' makes PostgREST try to
+    -- `SET ROLE superadmin`, which fails with "role superadmin does not
+    -- exist" because no such Postgres role exists — breaking every query for
+    -- that user.
+    claims := claims || jsonb_build_object(
+      'company_id',    user_rec.company_id::TEXT,
+      'app_role',      user_rec.role,
+      'department_id', user_rec.department_id::TEXT,
+      'full_name',     user_rec.full_name,
+      'user_table_id', user_rec.user_table_id::TEXT
+    );
   END IF;
 
   RETURN jsonb_set(event, '{claims}', claims);

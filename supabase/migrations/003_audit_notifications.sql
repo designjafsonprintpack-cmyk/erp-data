@@ -126,7 +126,7 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY notifications_own ON notifications
   USING (
     company_id = (auth.jwt() ->> 'company_id')::UUID
-    AND user_id = auth.uid()
+    AND user_id = (auth.jwt() ->> 'user_table_id')::UUID
   );
 
 -- Enable Realtime for notifications

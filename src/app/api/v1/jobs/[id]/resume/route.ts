@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -8,9 +9,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const companyId = user.app_metadata?.company_id
-    || user.user_metadata?.company_id
-    || (user.app_metadata as any)?.claims?.app_metadata?.company_id
+  const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
 
   const { notes } = await req.json()
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     old_value: 'on_hold',
     new_value: 'in_progress',
     notes: notes || null,
-    actor_id: user.id,
+    actor_id: userTableId,
   }, supabase)
 
   return NextResponse.json({ data })

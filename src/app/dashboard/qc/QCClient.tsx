@@ -2,18 +2,20 @@
 import { useState } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, ClipboardList, RefreshCw,
-  Plus, Shield, Pen, ThumbsUp, ThumbsDown
+  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
+import { createSupabaseClient } from '@/lib/supabase/client'
+import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 import Link from 'next/link'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface TemplateItem { id: string; question: string; category: string; is_critical: boolean; sort_order: number }
 interface Template { id: string; name: string; qc_template_items: TemplateItem[] }
-interface Defect { id: string; job_id: string; defect_type: string; severity: string; quantity_affected: number; description: string | null; resolved: boolean; created_at: string; jobs?: { job_number: string; job_title: string } | null }
+interface Defect { id: string; job_id: string; defect_type: string; severity: string; quantity_affected: number; description: string | null; resolved: boolean; created_at: string; photo_urls?: string[]; jobs?: { job_number: string; job_title: string } | null }
 interface Inspection {
   id: string; job_id: string; inspection_no: number; result: string | null
   sample_size: number | null; defect_count: number; notes: string | null
@@ -53,10 +55,12 @@ const REPRINT_STATUS_CFG = {
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
+interface BoardInventoryItem { id: string; description: string; current_stock: number }
+
 /* ─── Component ──────────────────────────────────────────────────────────────── */
-export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs }: {
+export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId }: {
   initialInspections: Inspection[]; openDefects: Defect[]; reprintRequests: ReprintReq[]
-  templates: Template[]; jobs: Job[]
+  templates: Template[]; jobs: Job[]; boardInventory: BoardInventoryItem[]; companyId: string
 }) {
   const [inspections, setInspections] = useState(initialInspections)
   const [defects,     setDefects]     = useState(openDefects)
@@ -77,6 +81,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   /* Defect modal */
   const [defectModal, setDefectModal] = useState(false)
   const [defectForm,  setDefectForm]  = useState({ job_id: '', inspection_id: '', defect_type: '', severity: 'minor', quantity_affected: '', description: '' })
+  const [defectPhotos, setDefectPhotos] = useState<File[]>([])
 
   /* Reprint modal */
   const [reprintModal, setReprintModal] = useState(false)
@@ -94,6 +99,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   /* Reprint action */
   const [reprintAction, setReprintAction] = useState<{ rpr: ReprintReq; action: 'approve'|'reject' } | null>(null)
   const [reprintActionNotes, setReprintActionNotes] = useState('')
+  const [reprintBoardItem, setReprintBoardItem] = useState('')
+  const [reprintMaterialQty, setReprintMaterialQty] = useState('')
 
   /* ─── Handlers ─────────────────────────────────────────────────────────────── */
   const setResponse = (itemId: string, field: 'response'|'notes', val: string) =>
@@ -126,21 +133,41 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
     finally { setLoading(false) }
   }
 
+  const viewDefectPhotos = async (paths: string[]) => {
+    const supabase = createSupabaseClient()
+    for (const path of paths) {
+      const url = await getSignedUrl(supabase, 'qc-photos', path)
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   const submitDefect = async () => {
     if (!defectForm.job_id || !defectForm.defect_type) { toast.error('Job and defect type required'); return }
     setLoading(true)
     try {
+      const supabase = createSupabaseClient()
+      const photoUrls: string[] = []
+      for (const file of defectPhotos) {
+        const { path, error: uploadErr } = await uploadFile(
+          supabase, 'qc-photos', companyId, `${defectForm.job_id}/${Date.now()}-${file.name}`, file
+        )
+        if (uploadErr) { toast.error(`Photo upload failed: ${uploadErr}`); continue }
+        if (path) photoUrls.push(path)
+      }
+
       const res = await fetch('/api/v1/qc/defects', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(defectForm),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...defectForm, photo_urls: photoUrls }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       const job = jobs.find(j => j.id === defectForm.job_id)
       setDefects(prev => [{ ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title } : null }, ...prev])
       setDefectModal(false)
       setDefectForm({ job_id: '', inspection_id: '', defect_type: '', severity: 'minor', quantity_affected: '', description: '' })
+      setDefectPhotos([])
       toast.success('Defect logged')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
@@ -200,14 +227,21 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
     try {
       const res = await fetch(`/api/v1/qc/reprint/${reprintAction.rpr.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: reprintAction.action, notes: reprintActionNotes }),
+        body: JSON.stringify({
+          action: reprintAction.action,
+          notes: reprintActionNotes,
+          board_item_id: reprintAction.action === 'approve' ? (reprintBoardItem || null) : undefined,
+          material_quantity: reprintAction.action === 'approve' ? (reprintMaterialQty || null) : undefined,
+        }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const newStatus = reprintAction.action === 'approve' ? 'approved' : 'rejected'
       setReprints(prev => prev.map(r => r.id === reprintAction.rpr.id ? { ...r, status: newStatus } : r))
       setReprintAction(null)
+      setReprintBoardItem('')
+      setReprintMaterialQty('')
       toast.success(reprintAction.action === 'approve' ? '✅ Re-print approved — new job created' : 'Request rejected')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
@@ -368,7 +402,15 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                         <Link href={`/dashboard/jobs/${d.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{d.jobs?.job_number}</Link>
                       </div>
                       <div className="col-span-3">
-                        <p className="text-sm text-[var(--color-text-primary)] capitalize">{d.defect_type.replace(/_/g, ' ')}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-[var(--color-text-primary)] capitalize">{d.defect_type.replace(/_/g, ' ')}</p>
+                          {(d.photo_urls?.length ?? 0) > 0 && (
+                            <button onClick={() => viewDefectPhotos(d.photo_urls!)}
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors flex-shrink-0">
+                              <Camera size={10} /> {d.photo_urls!.length}
+                            </button>
+                          )}
+                        </div>
                         {d.description && <p className="text-xs text-[var(--color-text-muted)] truncate">{d.description}</p>}
                       </div>
                       <div className="col-span-2">
@@ -575,6 +617,13 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
             <input className={inputCls} value={defectForm.description} onChange={e => setDefectForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe the defect in detail…" />
           </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Photos (optional)</label>
+            <input type="file" accept="image/*" multiple
+              onChange={e => setDefectPhotos(Array.from(e.target.files || []))}
+              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-white hover:file:bg-[var(--color-accent-hover)]" />
+            {defectPhotos.length > 0 && <p className="text-xs text-[var(--color-text-muted)]">{defectPhotos.length} photo(s) selected</p>}
+          </div>
         </div>
       </Modal>
 
@@ -719,6 +768,20 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             {reprintAction.action === 'approve' && (
               <div className="rounded-lg bg-[var(--color-success)]/5 border border-[var(--color-success)]/20 p-3 text-xs text-[var(--color-success)]">
                 A new repeat job will be created automatically with the same specifications.
+              </div>
+            )}
+            {reprintAction.action === 'approve' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Material consumed (optional)</label>
+                <p className="text-xs text-[var(--color-text-muted)] mb-1">Link an inventory item to auto-deduct stock for the extra material this re-print uses.</p>
+                <div className="flex items-center gap-2">
+                  <select className={inputCls} value={reprintBoardItem} onChange={e => setReprintBoardItem(e.target.value)}>
+                    <option value="">Not tracked in inventory</option>
+                    {boardInventory.map(b => <option key={b.id} value={b.id}>{b.description} ({b.current_stock} in stock)</option>)}
+                  </select>
+                  <input type="number" className="w-24 h-9 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none flex-shrink-0"
+                    value={reprintMaterialQty} onChange={e => setReprintMaterialQty(e.target.value)} placeholder="Qty" />
+                </div>
               </div>
             )}
             <div className="space-y-1.5">

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 
 export async function GET() {
   const supabase = createSupabaseServerClient()
@@ -27,18 +29,10 @@ export async function PATCH(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Get company_id from JWT claims, or fallback to user's company from DB
-  let companyId = user.app_metadata?.company_id || user.user_metadata?.company_id
-
-  // If no company_id in JWT (Auth Hook not registered yet), get from users table
-  if (!companyId) {
-    const { data: dbUser } = await supabase
-      .from('users' as any).select('company_id').eq('id', user.id).maybeSingle()
-    companyId = (dbUser as any)?.company_id
-  }
-
-  // Final fallback to seed company
-  if (!companyId) companyId = '00000000-0000-0000-0000-000000000001'
+  const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
+  if (denied) return denied
 
   const body = await req.json()
   const { name, ntn, address } = body

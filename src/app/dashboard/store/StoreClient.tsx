@@ -7,10 +7,11 @@ import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import Link from 'next/link'
 
-interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null }
+interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null; board_item_id: string | null }
 interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string } | null; material_requisition_items?: MRNItem[] }
 interface Job { id: string; job_number: string; job_title: string }
 interface Unit { id: string; name: string; symbol: string }
+interface BoardInventoryItem { id: string; description: string; current_stock: number; unit_id: string | null }
 
 const STATUS_CFG = {
   pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
@@ -24,7 +25,7 @@ const MATERIAL_TYPES = ['board','paper','ink','lamination','foil','glue','chemic
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', quantity_required: '1', unit_id: '', notes: '' }
 
-export default function StoreClient({ initialMRNs, jobs, units }: { initialMRNs: MRN[]; jobs: Job[]; units: Unit[] }) {
+export default function StoreClient({ initialMRNs, jobs, units, boardInventory }: { initialMRNs: MRN[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
   const [mrns, setMRNs] = useState(initialMRNs)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState('')
@@ -33,6 +34,7 @@ export default function StoreClient({ initialMRNs, jobs, units }: { initialMRNs:
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ job_id: '', required_date: '', notes: '' })
   const [lineItems, setLineItems] = useState([{ ...EMPTY_ITEM }])
+  const [issueBoardLinks, setIssueBoardLinks] = useState<Record<string, string>>({})
   const [issueQtys, setIssueQtys] = useState<Record<string, string>>({})
 
   const toggle = (id: string) => setExpanded(prev => {
@@ -93,18 +95,20 @@ export default function StoreClient({ initialMRNs, jobs, units }: { initialMRNs:
       const items = (issueModal.material_requisition_items || []).map(item => ({
         id: item.id,
         quantity_issued: parseFloat(issueQtys[item.id] ?? String(item.quantity_required)),
+        board_item_id: issueBoardLinks[item.id] ?? item.board_item_id ?? null,
       }))
       const res = await fetch(`/api/v1/store/${issueModal.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'issue', items }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setMRNs(prev => prev.map(m => m.id === issueModal.id ? { ...m, status: data.status, material_requisition_items: m.material_requisition_items?.map(i => ({ ...i, quantity_issued: parseFloat(issueQtys[i.id] ?? String(i.quantity_required)) })) } : m))
       setIssueModal(null)
       setIssueQtys({})
+      setIssueBoardLinks({})
       toast.success('Materials issued')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
@@ -294,11 +298,20 @@ export default function StoreClient({ initialMRNs, jobs, units }: { initialMRNs:
           }>
           <div className="space-y-3">
             {(issueModal.material_requisition_items || []).map(item => (
-              <div key={item.id} className="flex items-center gap-3">
-                <div className="flex-1">
+              <div key={item.id} className="flex items-center gap-3 flex-wrap">
+                <div className="flex-1 min-w-[140px]">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.material_name}</p>
                   <p className="text-xs text-[var(--color-text-muted)]">Required: {item.quantity_required} | Issued so far: {item.quantity_issued}</p>
                 </div>
+                <select
+                  className="h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors max-w-[180px]"
+                  value={issueBoardLinks[item.id] ?? item.board_item_id ?? ''}
+                  onChange={e => setIssueBoardLinks(prev => ({ ...prev, [item.id]: e.target.value }))}>
+                  <option value="">Not tracked in inventory</option>
+                  {boardInventory.map(b => (
+                    <option key={b.id} value={b.id}>{b.description} ({b.current_stock} in stock)</option>
+                  ))}
+                </select>
                 <input type="number"
                   className="w-24 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
                   value={issueQtys[item.id] ?? ''}
@@ -306,6 +319,9 @@ export default function StoreClient({ initialMRNs, jobs, units }: { initialMRNs:
                   placeholder="Qty" />
               </div>
             ))}
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Link an item to inventory to auto-deduct stock when issued. Leave unlinked for materials you don't track (ink, glue, etc.).
+            </p>
           </div>
         </Modal>
       )}

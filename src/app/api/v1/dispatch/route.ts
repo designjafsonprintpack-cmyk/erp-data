@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest) {
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { items, ...body } = await req.json()
 
   // Auto dispatch number
@@ -70,6 +72,65 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const disp = dispatch as any
 
+  // Respect the "QC mandatory before dispatch" system setting (Settings →
+  // Company → System Settings). It existed in the settings UI but nothing
+  // ever actually checked it.
+  const { data: qcSetting } = await supabase.from('system_settings' as any)
+    .select('value').eq('company_id', companyId).eq('key', 'qc_mandatory').maybeSingle()
+  const qcMandatory = (qcSetting as any)?.value === 'true'
+
+  if (qcMandatory && items?.length) {
+    for (const item of items) {
+      const { data: passedInspection } = await supabase.from('qc_inspections' as any)
+        .select('id').eq('job_id', item.job_id).is('deleted_at', null)
+        .in('result', ['pass', 'conditional_pass'])
+        .limit(1).maybeSingle()
+
+      if (!passedInspection) {
+        const { data: jobRow } = await supabase.from('jobs' as any)
+          .select('job_number').eq('id', item.job_id).single()
+        await supabase.from('dispatch_orders' as any).delete().eq('id', disp.id)
+        return NextResponse.json({
+          error: `Cannot dispatch job ${(jobRow as any)?.job_number || item.job_id} — QC is mandatory before dispatch ` +
+                 `(Settings → System Settings) and this job has no passed QC inspection yet.`,
+        }, { status: 400 })
+      }
+    }
+  }
+
+  // Validate quantities before committing any line items: total dispatched
+  // (this dispatch + everything already dispatched for the job, excluding
+  // cancelled dispatch orders) must not exceed the job's ordered quantity.
+  if (items?.length) {
+    for (const item of items) {
+      const qty = parseFloat(item.quantity_dispatched || item.quantity_ordered || '0')
+      if (qty <= 0) continue
+
+      const { data: jobRow } = await supabase.from('jobs' as any)
+        .select('job_number, quantity').eq('id', item.job_id).single()
+      if (!jobRow) continue
+
+      const { data: priorItems } = await supabase.from('dispatch_items' as any)
+        .select('quantity_dispatched, dispatch_orders!inner(status)')
+        .eq('job_id', item.job_id)
+        .eq('is_active', true)
+        .neq('dispatch_orders.status', 'cancelled')
+
+      const alreadyDispatched = ((priorItems ?? []) as any[])
+        .reduce((sum, r) => sum + Number(r.quantity_dispatched || 0), 0)
+
+      const jobQty = Number((jobRow as any).quantity || 0)
+      if (alreadyDispatched + qty > jobQty) {
+        // Roll back the dispatch order header since we're rejecting before any items are saved.
+        await supabase.from('dispatch_orders' as any).delete().eq('id', disp.id)
+        return NextResponse.json({
+          error: `Cannot dispatch ${qty} for job ${(jobRow as any).job_number} — job quantity is ${jobQty}, ` +
+                 `already dispatched ${alreadyDispatched}. Only ${Math.max(0, jobQty - alreadyDispatched)} remaining.`,
+        }, { status: 400 })
+      }
+    }
+  }
+
   // Insert line items
   if (items?.length) {
     await supabase.from('dispatch_items' as any).insert(
@@ -93,7 +154,7 @@ export async function POST(req: NextRequest) {
         job_id:     item.job_id,
         event_type: 'status_changed',
         new_value:  `Dispatch challan ${dispNumber} created`,
-        actor_id:   user.id,
+        actor_id:   userTableId,
       }, supabase)
     }
   }

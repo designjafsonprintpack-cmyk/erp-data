@@ -40,8 +40,10 @@ const PAY_METHODS = ['cash','cheque','bank_transfer','online','other']
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const EMPTY_LINE = { description: '', job_id: '', quantity: '1', unit_price: '0' }
 
-export default function FinanceClient({ initialInvoices, customers, completedJobs, stats }: {
-  initialInvoices: Invoice[]; customers: Customer[]; completedJobs: Job[]
+interface Tax { id: string; name: string; rate_percent: number }
+
+export default function FinanceClient({ initialInvoices, customers, completedJobs, taxes, stats }: {
+  initialInvoices: Invoice[]; customers: Customer[]; completedJobs: Job[]; taxes: Tax[]
   stats: { totalBilled: number; totalReceived: number; totalOverdue: number; monthlyCollected: number }
 }) {
   const [invoices, setInvoices] = useState(initialInvoices)
@@ -54,7 +56,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
   const [invModal, setInvModal] = useState(false)
   const [invForm, setInvForm] = useState({
     customer_id: '', invoice_date: new Date().toISOString().slice(0,10),
-    payment_terms: '30', discount_pct: '0', tax_pct: '0', notes: '',
+    payment_terms: '30', discount_pct: '0', tax_id: '', tax_pct: '0', notes: '',
     terms: 'Payment due within 30 days of invoice date.',
   })
   const [invLines, setInvLines] = useState([{ ...EMPTY_LINE }])
@@ -123,7 +125,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       setInvoices(prev => [{ ...data, customers: cust || null, invoice_items: [], payments: [] }, ...prev])
       setInvModal(false)
       setInvLines([{ ...EMPTY_LINE }])
-      setInvForm({ customer_id: '', invoice_date: new Date().toISOString().slice(0,10), payment_terms: '30', discount_pct: '0', tax_pct: '0', notes: '', terms: 'Payment due within 30 days of invoice date.' })
+      setInvForm({ customer_id: '', invoice_date: new Date().toISOString().slice(0,10), payment_terms: '30', discount_pct: '0', tax_id: '', tax_pct: '0', notes: '', terms: 'Payment due within 30 days of invoice date.' })
       toast.success(`Invoice ${data.invoice_number} created`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -439,8 +441,22 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                   <input type="number" className="w-20 h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none" value={invForm.discount_pct} onChange={e => setInvForm(p => ({ ...p, discount_pct: e.target.value }))} />
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[var(--color-text-secondary)] flex-shrink-0">Tax %</span>
-                  <input type="number" className="w-20 h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none" value={invForm.tax_pct} onChange={e => setInvForm(p => ({ ...p, tax_pct: e.target.value }))} />
+                  <span className="text-[var(--color-text-secondary)] flex-shrink-0">Tax</span>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      className="h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none max-w-[110px]"
+                      value={invForm.tax_id}
+                      onChange={e => {
+                        const t = taxes.find(x => x.id === e.target.value)
+                        setInvForm(p => ({ ...p, tax_id: e.target.value, tax_pct: t ? String(t.rate_percent) : p.tax_pct }))
+                      }}>
+                      <option value="">Custom %</option>
+                      {taxes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rate_percent}%)</option>)}
+                    </select>
+                    <input type="number" className="w-16 h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none"
+                      value={invForm.tax_pct}
+                      onChange={e => setInvForm(p => ({ ...p, tax_pct: e.target.value, tax_id: '' }))} />
+                  </div>
                 </div>
                 <div className="flex justify-between font-bold text-[var(--color-text-primary)] border-t border-[var(--color-border)] pt-1.5"><span>Total</span><span>{PKR(invTotal)}</span></div>
               </div>

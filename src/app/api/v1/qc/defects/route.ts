@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -35,18 +36,20 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   const { data, error } = await supabase.from('qc_defects' as any).insert({
     company_id:        companyId,
-    inspection_id:     body.inspection_id,
+    inspection_id:     body.inspection_id || null,
     job_id:            body.job_id,
     defect_type:       body.defect_type,
     severity:          body.severity || 'minor',
     quantity_affected: body.quantity_affected ? parseInt(body.quantity_affected) : 0,
     description:       body.description || null,
-    photo_url:         body.photo_url || null,
-    reported_by:       user.id,
+    photo_url:         Array.isArray(body.photo_urls) && body.photo_urls[0] ? body.photo_urls[0] : (body.photo_url || null),
+    photo_urls:        Array.isArray(body.photo_urls) ? body.photo_urls : [],
+    reported_by:       userTableId,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

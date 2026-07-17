@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -8,6 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   // Upsert POD
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     photo_url:     body.photo_url || null,
     condition:     body.condition || 'good',
     damage_notes:  body.damage_notes || null,
-    confirmed_by:  user.id,
+    confirmed_by:  userTableId,
     notes:         body.notes || null,
   }, { onConflict: 'company_id,dispatch_id' }).select().single()
 

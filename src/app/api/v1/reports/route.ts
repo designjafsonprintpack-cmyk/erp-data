@@ -96,6 +96,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: data ?? [] })
     }
 
+    // ── Wastage Summary ───────────────────────────────────────────────────────
+    case 'wastage': {
+      const { data, error } = await supabase
+        .from('report_wastage_summary' as any)
+        .select('*')
+        .eq('company_id', companyId)
+        .limit(50)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ data: data ?? [] })
+    }
+
     // ── Jobs by Status (for pie chart) ────────────────────────────────────────
     case 'jobs_status': {
       const { data, error } = await supabase

@@ -1,10 +1,17 @@
 export type JobStatus = 'new' | 'in_progress' | 'on_hold' | 'completed' | 'dispatched' | 'cancelled'
 export type JobPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type StageStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
+export type GrainDirection = 'long_grain' | 'short_grain'
 export type EventType =
   | 'created' | 'status_changed' | 'stage_started' | 'stage_completed'
   | 'stage_skipped' | 'hold_started' | 'hold_ended' | 'remark_added'
   | 'artwork_uploaded' | 'repeat_created' | 'assigned' | 'priority_changed'
+  | 'wastage_recorded'
+
+export const GRAIN_DIRECTION_CONFIG: Record<GrainDirection, { label: string }> = {
+  long_grain:  { label: 'Long Grain' },
+  short_grain: { label: 'Short Grain' },
+}
 
 export const JOB_STATUS_CONFIG: Record<JobStatus, { label: string; color: string; dot: string }> = {
   new:         { label: 'New',         color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/30',      dot: 'bg-[var(--color-accent)]' },
@@ -28,7 +35,8 @@ export interface Job {
   job_title: string; description: string | null
   size_l: number | null; size_w: number | null; size_h: number | null
   sheet_size: string | null; quantity: number; no_of_colors: number | null
-  die_number: string | null; board_type_id: string | null
+  die_number: string | null; grain_direction: GrainDirection | null; board_type_id: string | null
+  ups: number | null; sheet_qty: number | null
   paper_type_id: string | null; lamination_type_id: string | null
   uv_coating: boolean; foil_type_id: string | null
   special_finishing: string | null; pasting: string | null
@@ -59,11 +67,24 @@ export interface JobEvent {
   users?: { full_name: string } | null
 }
 
+export interface WastageReason { id: string; name: string; category: string }
+
+export interface JobWastage {
+  id: string; job_id: string; stage_progress_id: string | null
+  machine_id: string | null; wastage_reason_id: string
+  quantity: number; notes: string | null
+  recorded_by: string | null; occurred_at: string
+  wastage_reasons?: { name: string; category: string } | null
+  machines?: { name: string } | null
+  users?: { full_name: string } | null
+}
+
 export interface JobFormData {
   customer_id: string; job_title: string; description: string
   sales_order_id: string
   size_l: string; size_w: string; size_h: string; sheet_size: string
-  quantity: string; no_of_colors: string; die_number: string
+  quantity: string; no_of_colors: string; die_number: string; grain_direction: string
+  ups: string
   board_type_id: string; paper_type_id: string
   lamination_type_id: string; uv_coating: boolean
   foil_type_id: string; special_finishing: string; pasting: string
@@ -74,7 +95,7 @@ export interface JobFormData {
 export const EMPTY_JOB_FORM: JobFormData = {
   customer_id: '', job_title: '', description: '', sales_order_id: '',
   size_l: '', size_w: '', size_h: '', sheet_size: '', quantity: '1000',
-  no_of_colors: '4', die_number: '', board_type_id: '', paper_type_id: '',
+  no_of_colors: '4', die_number: '', grain_direction: '', ups: '', board_type_id: '', paper_type_id: '',
   lamination_type_id: '', uv_coating: false, foil_type_id: '',
   special_finishing: '', pasting: '', workflow_template_id: '',
   priority: 'normal', required_date: '', quoted_amount: '', internal_remarks: '',

@@ -31,12 +31,12 @@ export default function CompanySettingsClient({ company: initialCompany, branche
     setLoading(true)
     try {
       const res = await fetch('/api/v1/company', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(companyForm) })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setCompany(data)
       setEditingCompany(false)
       toast.success('Company profile updated')
-    } catch { toast.error('Failed to save company') }
+    } catch (e: any) { toast.error(e.message || 'Failed to save company') }
     finally { setLoading(false) }
   }
 

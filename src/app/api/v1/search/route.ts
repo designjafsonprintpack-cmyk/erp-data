@@ -18,7 +18,12 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from('global_search_index' as any)
     .select('id, entity_type, code, title, status, customer_name, created_at, required_date')
-    .textSearch('search_vector', tsQuery, { type: 'websearch', config: 'simple' })
+    // No `type` here on purpose: tsQuery above is built with `word:*` prefix
+    // syntax, which only to_tsquery understands. `type: 'websearch'` (or
+    // 'plain'/'phrase') would route through websearch_to_tsquery/
+    // plainto_tsquery instead, neither of which parses `:*` — so prefix
+    // matching silently wouldn't work if that option were set.
+    .textSearch('search_vector', tsQuery, { config: 'simple' })
     .limit(20)
 
   if (type) q = q.eq('entity_type', type)

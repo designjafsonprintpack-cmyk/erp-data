@@ -40,6 +40,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'job_id and machine_id required' }, { status: 400 })
   }
 
+  // Overlap check: only meaningful when both a start time and an estimated
+  // duration are given — a queue-only assignment with no specific time has
+  // no window to conflict with.
+  if (body.scheduled_start && body.estimated_minutes) {
+    const newStart = new Date(body.scheduled_start)
+    const newEnd = new Date(newStart.getTime() + parseInt(body.estimated_minutes) * 60000)
+
+    const { data: existing } = await supabase.from('production_assignments' as any)
+      .select('scheduled_start, estimated_minutes, jobs(job_number)')
+      .eq('machine_id', body.machine_id)
+      .in('status', ['queued', 'running', 'paused'])
+      .is('deleted_at', null)
+      .not('scheduled_start', 'is', null)
+      .not('estimated_minutes', 'is', null)
+
+    const conflict = ((existing ?? []) as any[]).find(a => {
+      const aStart = new Date(a.scheduled_start)
+      const aEnd = new Date(aStart.getTime() + a.estimated_minutes * 60000)
+      return newStart < aEnd && aStart < newEnd // standard interval-overlap test
+    })
+
+    if (conflict) {
+      return NextResponse.json({
+        error: `This machine is already scheduled for job ${conflict.jobs?.job_number || 'another job'} ` +
+               `from ${new Date(conflict.scheduled_start).toLocaleString()} for ${conflict.estimated_minutes} min — overlaps with the requested time.`,
+      }, { status: 400 })
+    }
+  }
+
   const { data, error } = await supabase.from('production_assignments' as any).insert({
     company_id:         companyId,
     job_id:             body.job_id,

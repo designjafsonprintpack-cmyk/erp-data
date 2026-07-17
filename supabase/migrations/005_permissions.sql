@@ -109,7 +109,8 @@ DECLARE
     'dashboard','customers','quotations','sales_orders','jobs',
     'artwork','planning','store','board_inventory','purchase',
     'vendors','printing','lamination','die_cutting','hot_foil',
-    'folder_gluing','packing','dispatch','reports','users','settings'
+    'folder_gluing','packing','dispatch','reports','users','settings',
+    'finance','qc','workflow','machines','production','admin'
   ];
   actions TEXT[] := ARRAY['view','create','edit','delete','approve','reject','print','export','settings'];
   m TEXT; a TEXT;

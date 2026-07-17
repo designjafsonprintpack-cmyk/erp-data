@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest) {
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   const { data, error } = await supabase.from('reprint_requests' as any).insert({
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
     quantity:        parseFloat(body.quantity || '0'),
     priority:        body.priority || 'normal',
     notes:           body.notes || null,
-    requested_by:    user.id,
+    requested_by:    userTableId,
     status:          'pending',
   }).select().single()
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
     event_type: 'status_changed',
     new_value:  'Re-print requested',
     notes:      body.reason,
-    actor_id:   user.id,
+    actor_id:   userTableId,
   }, supabase)
 
   return NextResponse.json({ data })

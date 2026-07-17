@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   // Validate amount against balance
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     reference:      body.reference || null,
     bank_name:      body.bank_name || null,
     notes:          body.notes || null,
-    received_by:    user.id,
+    received_by:    userTableId,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

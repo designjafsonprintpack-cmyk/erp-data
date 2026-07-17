@@ -4,18 +4,27 @@ import { formatDate } from '@/lib/utils/format'
 
 export default async function PrintJobCard({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
-  const { data: job } = await supabase
-    .from('jobs' as any)
-    .select('*, customers(name,customer_code,phone), workflow_templates(name)')
-    .eq('id', params.id)
-    .maybeSingle()
+  const [{ data: job }, { data: stages }] = await Promise.all([
+    supabase.from('jobs' as any)
+      .select('*, customers(name,customer_code,phone), workflow_templates(name)')
+      .eq('id', params.id)
+      .maybeSingle(),
+    supabase.from('job_stage_progress' as any)
+      .select('status, sequence_order, workflow_stages(name)')
+      .eq('job_id', params.id)
+      .order('sequence_order'),
+  ])
 
   if (!job) notFound()
   const j = job as any
+  const jobStages = (stages ?? []) as any[]
 
   const specs = [
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
     { label: 'Sheet Size', value: j.sheet_size || '—' },
+    { label: 'Grain Direction', value: j.grain_direction === 'long_grain' ? 'Long Grain' : j.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
+    { label: 'Ups', value: j.ups || '—' },
+    { label: 'Sheet Qty', value: j.sheet_qty?.toLocaleString() || '—' },
     { label: 'Quantity', value: j.quantity?.toLocaleString() || '—' },
     { label: 'No. of Colors', value: j.no_of_colors || '—' },
     { label: 'Die Number', value: j.die_number || '—' },
@@ -127,12 +136,14 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           </div>
 
           {/* Workflow */}
-          {j.workflow_templates && (
+          {j.workflow_templates && jobStages.length > 0 && (
             <div className="section">
               <div className="section-title">Production Workflow — {j.workflow_templates.name}</div>
               <div className="workflow-stages">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="stage-badge">□ Stage {i + 1}</div>
+                {jobStages.map((s, i) => (
+                  <div key={i} className="stage-badge">
+                    {s.status === 'completed' ? '☑' : s.status === 'skipped' ? '⊘' : '□'} {s.workflow_stages?.name || `Stage ${i + 1}`}
+                  </div>
                 ))}
               </div>
             </div>

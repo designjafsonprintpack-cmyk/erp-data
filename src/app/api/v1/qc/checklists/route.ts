@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest) {
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { responses, ...body } = await req.json()
 
   // Count existing inspections for this job
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
       job_id:         body.job_id,
       template_id:    body.template_id || null,
       inspection_no:  (existingCount ?? 0) + 1,
-      inspector_id:   user.id,
+      inspector_id:   userTableId,
       sample_size:    body.sample_size ? parseInt(body.sample_size) : null,
       notes:          body.notes || null,
       inspected_at:   new Date().toISOString(),
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
     event_type: 'status_changed',
     new_value:  `QC Inspection #${insp.inspection_no}: ${insp.result || 'pending'}`,
     notes:      body.notes || null,
-    actor_id:   user.id,
+    actor_id:   userTableId,
   }, supabase)
 
   return NextResponse.json({ data: insp })

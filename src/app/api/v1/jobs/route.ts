@@ -44,6 +44,22 @@ export async function POST(req: NextRequest) {
   const companyId = await getCompanyId(user, supabase)
   const body = await req.json()
 
+  // Respect the "Auto-assign jobs to default workflow" system setting
+  // (Settings → System Settings). It existed in the UI but nothing checked
+  // it — the New Job form's own dropdown default only applies when someone
+  // uses that specific form, not for jobs created any other way.
+  let workflowTemplateId = body.workflow_template_id || null
+  if (!workflowTemplateId) {
+    const { data: autoAssignSetting } = await supabase.from('system_settings' as any)
+      .select('value').eq('company_id', companyId).eq('key', 'job_auto_assign').maybeSingle()
+    if ((autoAssignSetting as any)?.value === 'true') {
+      const { data: defaultTemplate } = await supabase.from('workflow_templates' as any)
+        .select('id').eq('company_id', companyId).eq('is_default', true)
+        .is('deleted_at', null).eq('is_active', true).maybeSingle()
+      workflowTemplateId = (defaultTemplate as any)?.id ?? null
+    }
+  }
+
   // Generate job number
   const { data: jobNumber } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId,
@@ -64,6 +80,11 @@ export async function POST(req: NextRequest) {
     quantity:             parseFloat(body.quantity || '0'),
     no_of_colors:         body.no_of_colors ? parseInt(body.no_of_colors) : 4,
     die_number:           body.die_number || null,
+    grain_direction:      body.grain_direction || null,
+    ups:                  body.ups ? parseInt(body.ups) : null,
+    sheet_qty:            body.ups && parseInt(body.ups) > 0
+                             ? Math.ceil(parseFloat(body.quantity || '0') / parseInt(body.ups))
+                             : null,
     board_type_id:        body.board_type_id || null,
     paper_type_id:        body.paper_type_id || null,
     lamination_type_id:   body.lamination_type_id || null,
@@ -71,7 +92,7 @@ export async function POST(req: NextRequest) {
     foil_type_id:         body.foil_type_id || null,
     special_finishing:    body.special_finishing || null,
     pasting:              body.pasting || null,
-    workflow_template_id: body.workflow_template_id || null,
+    workflow_template_id: workflowTemplateId,
     priority:             body.priority || 'normal',
     required_date:        body.required_date || null,
     quoted_amount:        body.quoted_amount ? parseFloat(body.quoted_amount) : null,
@@ -84,8 +105,8 @@ export async function POST(req: NextRequest) {
   const jobData = job as any
 
   // Initialize workflow stages if template assigned
-  if (body.workflow_template_id) {
-    await initializeJobWorkflow(jobData.id, body.workflow_template_id, companyId, supabase)
+  if (workflowTemplateId) {
+    await initializeJobWorkflow(jobData.id, workflowTemplateId, companyId, supabase)
   }
 
   // Record creation event

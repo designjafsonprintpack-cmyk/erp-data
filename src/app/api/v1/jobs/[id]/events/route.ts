@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { notes } = await req.json()
   if (!notes?.trim()) return NextResponse.json({ error: 'Notes required' }, { status: 400 })
 
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     job_id: params.id,
     event_type: 'remark_added',
     notes: notes.trim(),
-    actor_id: user.id,
+    actor_id: userTableId,
   }, supabase)
 
   return NextResponse.json({ success: true })

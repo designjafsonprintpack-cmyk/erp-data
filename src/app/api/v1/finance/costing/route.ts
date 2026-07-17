@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { extra_lines, ...body } = await req.json()
 
   // Compute totals
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     margin_amount:    margin,
     margin_pct:       marginPct,
     costing_notes:    body.costing_notes || null,
-    costed_by:        user.id,
+    costed_by:        userTableId,
     costed_at:        new Date().toISOString(),
   }, { onConflict: 'company_id,job_id' }).select().single()
 

@@ -5,11 +5,13 @@ import UsersClient from './UsersClient'
 export default async function UsersPage() {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
+  if (!user) return null // dashboard/layout.tsx already redirects unauthenticated requests to /login
+
+  const companyId = await getCompanyId(user, supabase)
 
   const [usersRes, depsRes, rolesRes] = await Promise.all([
     supabase.from('users' as any)
-      .select('id,full_name,email,employee_code,app_role,is_active,mobile,created_at,departments(name)', { count: 'exact' })
+      .select('id,full_name,email,employee_code,app_role:role,is_active,mobile:phone,created_at,departments(name)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).order('full_name'),
     supabase.from('departments' as any)
       .select('id,name').eq('company_id', companyId).eq('is_active', true).order('name'),

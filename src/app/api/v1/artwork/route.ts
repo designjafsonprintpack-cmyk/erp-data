@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest) {
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
   // Get next version number for this job
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
     company_id: companyId, job_id: body.job_id,
     event_type: 'artwork_uploaded',
     new_value: `v${nextVersion} — ${body.file_name}`,
-    actor_id: user.id,
+    actor_id: userTableId,
   }, supabase)
 
   return NextResponse.json({ data })

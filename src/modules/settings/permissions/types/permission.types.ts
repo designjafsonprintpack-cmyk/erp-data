@@ -38,6 +38,12 @@ export const ERP_MODULES = [
   { key: 'reports',        label: 'Reports' },
   { key: 'users',          label: 'Users' },
   { key: 'settings',       label: 'Settings' },
+  { key: 'finance',        label: 'Finance' },
+  { key: 'qc',             label: 'Quality Control' },
+  { key: 'workflow',       label: 'Workflow' },
+  { key: 'machines',       label: 'Machines' },
+  { key: 'production',     label: 'Production Floor' },
+  { key: 'admin',          label: 'Admin' },
 ] as const
 
 export type ModuleKey = typeof ERP_MODULES[number]['key']

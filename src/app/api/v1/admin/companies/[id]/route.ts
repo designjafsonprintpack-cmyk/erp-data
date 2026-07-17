@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 
 export async function GET(_req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -28,13 +30,17 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
+  if (denied) return denied
+
   const body = await req.json() // { key: value, key: value, ... }
 
   const updates = Object.entries(body).map(([key, value]) => ({
     company_id: companyId,
     key,
     value:      String(value),
-    updated_by: user.id,
+    updated_by: userTableId,
   }))
 
   const { error } = await supabase.from('system_settings' as any)

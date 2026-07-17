@@ -1,6 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+// Allowed quotation status transitions. 'converted' is intentionally excluded
+// as a target here — it can only be reached via the dedicated /convert
+// endpoint, which also creates the linked Sales Order. Allowing a direct
+// PATCH to 'converted' would mark a quotation converted with no SO behind it.
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  draft:     ['sent'],
+  sent:      ['approved', 'rejected', 'expired', 'draft'],
+  approved:  ['expired'],
+  rejected:  ['sent', 'draft'],
+  expired:   ['sent', 'draft'],
+  converted: [],
+}
+
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -19,6 +32,32 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
+
+  if (body.status !== undefined) {
+    if (body.status === 'converted') {
+      return NextResponse.json(
+        { error: 'A quotation cannot be marked converted directly — use the Convert to Sales Order action instead.' },
+        { status: 400 }
+      )
+    }
+
+    const { data: current, error: currentErr } = await supabase.from('quotations' as any)
+      .select('status').eq('id', params.id).single()
+    if (currentErr || !current) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 })
+
+    const currentStatus = (current as any).status as string
+    if (currentStatus !== body.status) {
+      const allowed = ALLOWED_TRANSITIONS[currentStatus] || []
+      if (!allowed.includes(body.status)) {
+        return NextResponse.json(
+          { error: `Cannot move quotation from "${currentStatus}" to "${body.status}".` +
+                   (allowed.length ? ` Allowed next status(es): ${allowed.join(', ')}.` : ' This status is final.') },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
   const { data, error } = await supabase.from('quotations' as any).update(body).eq('id', params.id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

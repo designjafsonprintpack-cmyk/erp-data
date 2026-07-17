@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const { items, ...body } = await req.json()
 
   const { data: mrnNumber } = await (supabase as any).rpc('get_next_sequence_number', {
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
     company_id:    companyId,
     mrn_number:    mrnNumber,
     job_id:        body.job_id || null,
-    requested_by:  user.id,
+    requested_by:  userTableId,
     required_date: body.required_date || null,
     notes:         body.notes || null,
     status:        'pending',

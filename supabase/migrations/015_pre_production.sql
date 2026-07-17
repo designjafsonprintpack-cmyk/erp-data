@@ -208,6 +208,12 @@ CREATE TABLE vendors (
   UNIQUE (company_id, vendor_code)
 );
 
+-- board_inventory.vendor_id references vendors(id) — added here as an ALTER
+-- rather than inline above, since vendors is defined after board_inventory
+-- in this file and an inline forward-reference would fail on a fresh install.
+ALTER TABLE board_inventory ADD CONSTRAINT board_inventory_vendor_id_fkey
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+
 CREATE INDEX idx_vendors_company ON vendors(company_id);
 CREATE TRIGGER trg_vendors_upd BEFORE UPDATE ON vendors FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;

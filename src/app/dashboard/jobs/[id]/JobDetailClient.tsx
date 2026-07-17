@@ -13,20 +13,25 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import {
   JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG,
-  type Job, type JobStageProgress, type JobEvent, type JobStatus
+  type Job, type JobStageProgress, type JobEvent, type JobStatus,
+  type WastageReason, type JobWastage
 } from '@/modules/jobs/types/job.types'
 
 interface DelayReason { id: string; name: string; category: string }
-interface Props { job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[] }
+interface Machine { id: string; name: string }
+interface Props {
+  job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
+  wastageReasons: WastageReason[]; machines: Machine[]; wastageEntries: JobWastage[]
+}
 
-type Tab = 'overview' | 'workflow' | 'timeline' | 'remarks'
+type Tab = 'overview' | 'workflow' | 'timeline' | 'remarks' | 'wastage'
 
 const EVENT_LABELS: Record<string, string> = {
   created: 'Job Created', status_changed: 'Status Changed', stage_started: 'Stage Started',
   stage_completed: 'Stage Completed', stage_skipped: 'Stage Skipped',
   hold_started: 'Put On Hold', hold_ended: 'Resumed', remark_added: 'Remark Added',
   artwork_uploaded: 'Artwork Uploaded', repeat_created: 'Repeat Job Created',
-  assigned: 'Assigned', priority_changed: 'Priority Changed',
+  assigned: 'Assigned', priority_changed: 'Priority Changed', wastage_recorded: 'Wastage Recorded',
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -35,6 +40,7 @@ const EVENT_COLORS: Record<string, string> = {
   hold_started: 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]',
   hold_ended: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
   remark_added: 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)]',
+  wastage_recorded: 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
 }
 
 function daysUrgency(required_date: string | null, status: JobStatus) {
@@ -46,11 +52,12 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage }: Props) {
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
   const [stages, setStages] = useState(initialStages)
   const [events, setEvents] = useState(initialEvents)
+  const [wastage, setWastage] = useState(initialWastage)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(false)
 
@@ -69,6 +76,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   // Remark
   const [remark, setRemark] = useState('')
   const [addingRemark, setAddingRemark] = useState(false)
+
+  // Wastage modal
+  const [wastageModal, setWastageModal] = useState(false)
+  const [wastageForm, setWastageForm] = useState({ wastage_reason_id: '', machine_id: '', quantity: '', notes: '' })
+  const [recordingWastage, setRecordingWastage] = useState(false)
 
   const statusCfg = JOB_STATUS_CONFIG[job.status] || JOB_STATUS_CONFIG.new
   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
@@ -133,11 +145,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage_progress_id: stageId, action, notes }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setStages(prev => prev.map(s => s.id === data.id ? { ...s, ...data } : s))
       toast.success(action === 'start' ? 'Stage started' : action === 'complete' ? 'Stage completed' : 'Stage skipped')
-    } catch { toast.error('Failed') }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
@@ -161,6 +173,28 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
     } catch { toast.error('Failed') }
     finally { setAddingRemark(false) }
   }
+
+  const recordWastage = async () => {
+    if (!wastageForm.wastage_reason_id) { toast.error('Please select a reason'); return }
+    if (!wastageForm.quantity || parseFloat(wastageForm.quantity) <= 0) { toast.error('Quantity must be greater than 0'); return }
+    setRecordingWastage(true)
+    try {
+      const res = await fetch(`/api/v1/jobs/${job.id}/wastage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wastageForm),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setWastage(prev => [data, ...prev])
+      setWastageModal(false)
+      setWastageForm({ wastage_reason_id: '', machine_id: '', quantity: '', notes: '' })
+      toast.success('Wastage recorded')
+      router.refresh()
+    } catch (e: any) { toast.error(e.message || 'Failed to record wastage') }
+    finally { setRecordingWastage(false) }
+  }
+
+  const totalWastage = wastage.reduce((sum, w) => sum + Number(w.quantity), 0)
 
   const completedStages = stages.filter(s => s.status === 'completed').length
   const totalStages = stages.length
@@ -266,6 +300,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           { key: 'workflow', label: 'Workflow', icon: Layers },
           { key: 'timeline', label: 'Timeline', icon: Activity },
           { key: 'remarks',  label: 'Remarks',  icon: MessageSquare },
+          { key: 'wastage',  label: 'Wastage',  icon: AlertTriangle },
         ] as const).map(tab => {
           const Icon = tab.icon
           return (
@@ -277,6 +312,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <Icon size={14} />{tab.label}
               {tab.key === 'timeline' && events.length > 0 && (
                 <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{events.length}</span>
+              )}
+              {tab.key === 'wastage' && wastage.length > 0 && (
+                <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{wastage.length}</span>
               )}
             </button>
           )
@@ -295,6 +333,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               {[
                 { label: 'Size (L×W×H)', value: [job.size_l, job.size_w, job.size_h].filter(Boolean).join(' × ') + (job.size_l ? ' mm' : '') || '—' },
                 { label: 'Sheet Size', value: job.sheet_size || '—' },
+                { label: 'Grain Direction', value: job.grain_direction === 'long_grain' ? 'Long Grain' : job.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
+                { label: 'Ups', value: job.ups || '—' },
+                { label: 'Sheet Qty', value: job.sheet_qty?.toLocaleString() || '—' },
                 { label: 'Quantity', value: job.quantity.toLocaleString() },
                 { label: 'No. of Colors', value: job.no_of_colors || '—' },
                 { label: 'Die Number', value: job.die_number || '—' },
@@ -526,6 +567,47 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         </div>
       )}
 
+      {/* ─── Tab: Wastage ────────────────────────────────────────────────────── */}
+      {activeTab === 'wastage' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)]">Total Wastage Recorded</p>
+              <p className="text-xl font-bold text-[var(--color-text-primary)] mt-0.5">{totalWastage.toLocaleString()}</p>
+            </div>
+            <button onClick={() => setWastageModal(true)}
+              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              <AlertTriangle size={14} /> Record Wastage
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+            {wastage.length === 0 ? (
+              <div className="p-10 text-center text-sm text-[var(--color-text-muted)]">No wastage recorded for this job.</div>
+            ) : (
+              <div className="divide-y divide-[var(--color-border-subtle)]">
+                {wastage.map(w => (
+                  <div key={w.id} className="flex items-start gap-4 px-5 py-3.5">
+                    <div className="flex-shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                      {w.quantity.toLocaleString()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{w.wastage_reasons?.name || 'Unknown reason'}</p>
+                      {w.machines?.name && <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">Machine: {w.machines.name}</p>}
+                      {w.notes && <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">{w.notes}</p>}
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-xs text-[var(--color-text-muted)]">{formatDateTime(w.occurred_at)}</p>
+                      {w.users?.full_name && <p className="text-xs text-[var(--color-text-muted)]">{w.users.full_name}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ─── HOLD MODAL ──────────────────────────────────────────────────────── */}
       <Modal open={holdModal} onClose={() => setHoldModal(false)} title="Put Job On Hold" size="sm"
         footer={
@@ -605,6 +687,45 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             <input type="checkbox" checked={repeatForm.same_artwork} onChange={e => setRepeatForm(p => ({ ...p, same_artwork: e.target.checked }))} className="w-4 h-4" />
             <span className="text-sm text-[var(--color-text-primary)]">Link artwork from original job (same artwork, no new artwork needed)</span>
           </label>
+        </div>
+      </Modal>
+
+      {/* ─── WASTAGE MODAL ───────────────────────────────────────────────────── */}
+      <Modal open={wastageModal} onClose={() => setWastageModal(false)} title="Record Wastage" size="sm"
+        footer={
+          <>
+            <button onClick={() => setWastageModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={recordWastage} disabled={recordingWastage || !wastageForm.wastage_reason_id || !wastageForm.quantity}
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              {recordingWastage ? 'Saving…' : 'Record Wastage'}
+            </button>
+          </>
+        }>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reason <span className="text-[var(--color-danger)]">*</span></label>
+            <select className={inputCls} value={wastageForm.wastage_reason_id} onChange={e => setWastageForm(p => ({ ...p, wastage_reason_id: e.target.value }))}>
+              <option value="">Select reason…</option>
+              {wastageReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Wasted <span className="text-[var(--color-danger)]">*</span></label>
+              <input type="number" className={inputCls} value={wastageForm.quantity} onChange={e => setWastageForm(p => ({ ...p, quantity: e.target.value }))} placeholder="0" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine (optional)</label>
+              <select className={inputCls} value={wastageForm.machine_id} onChange={e => setWastageForm(p => ({ ...p, machine_id: e.target.value }))}>
+                <option value="">Not specified</option>
+                {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
+            <input className={inputCls} value={wastageForm.notes} onChange={e => setWastageForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional details…" />
+          </div>
         </div>
       </Modal>
     </div>

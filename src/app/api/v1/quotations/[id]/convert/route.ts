@@ -14,6 +14,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .select('*, quotation_items(*)').eq('id', params.id).single()
   if (qtErr || !qt) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 })
   if ((qt as any).status === 'converted') return NextResponse.json({ error: 'Already converted' }, { status: 400 })
+  if ((qt as any).status !== 'approved') {
+    return NextResponse.json(
+      { error: `Only an approved quotation can be converted to a Sales Order (current status: "${(qt as any).status}").` },
+      { status: 400 }
+    )
+  }
 
   // Generate SO number
   const { data: soNumber } = await (supabase as any).rpc('get_next_sequence_number', {

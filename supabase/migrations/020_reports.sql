@@ -149,26 +149,52 @@ WHERE m.is_active = TRUE
 GROUP BY m.id, m.company_id, m.name, m.machine_type;
 
 -- ─── REPORT: QC DEFECT ANALYSIS ──────────────────────────────────────────────
+-- Aggregates qc_inspections and reprint_requests independently (each to one
+-- row per company+month) before joining, so a job with multiple reprints
+-- can't fan out and inflate the inspection/defect counts, and a reprint is
+-- always attributed to the month it was actually requested.
 CREATE OR REPLACE VIEW report_qc_analysis AS
+WITH inspections_agg AS (
+  SELECT
+    qi.company_id,
+    DATE_TRUNC('month', qi.created_at)              AS month,
+    TO_CHAR(qi.created_at, 'Mon YYYY')              AS month_label,
+    COUNT(*)                                         AS total_inspections,
+    COUNT(*) FILTER (WHERE qi.result = 'pass')       AS passed,
+    COUNT(*) FILTER (WHERE qi.result = 'fail')       AS failed,
+    COUNT(*) FILTER (WHERE qi.result = 'conditional_pass') AS conditional,
+    ROUND(
+      100.0 * COUNT(*) FILTER (WHERE qi.result = 'pass')
+      / NULLIF(COUNT(*) FILTER (WHERE qi.result IS NOT NULL), 0), 1
+    )                                                AS pass_rate_pct,
+    COALESCE(SUM(qi.defect_count), 0)               AS total_defects
+  FROM qc_inspections qi
+  WHERE qi.deleted_at IS NULL
+  GROUP BY qi.company_id, DATE_TRUNC('month', qi.created_at), TO_CHAR(qi.created_at, 'Mon YYYY')
+),
+reprints_agg AS (
+  SELECT
+    rpr.company_id,
+    DATE_TRUNC('month', rpr.created_at) AS month,
+    COUNT(*)                            AS reprint_requests
+  FROM reprint_requests rpr
+  WHERE rpr.deleted_at IS NULL
+  GROUP BY rpr.company_id, DATE_TRUNC('month', rpr.created_at)
+)
 SELECT
-  qi.company_id,
-  DATE_TRUNC('month', qi.created_at)              AS month,
-  TO_CHAR(qi.created_at, 'Mon YYYY')              AS month_label,
-  COUNT(*)                                         AS total_inspections,
-  COUNT(*) FILTER (WHERE qi.result = 'pass')       AS passed,
-  COUNT(*) FILTER (WHERE qi.result = 'fail')       AS failed,
-  COUNT(*) FILTER (WHERE qi.result = 'conditional_pass') AS conditional,
-  ROUND(
-    100.0 * COUNT(*) FILTER (WHERE qi.result = 'pass')
-    / NULLIF(COUNT(*) FILTER (WHERE qi.result IS NOT NULL), 0), 1
-  )                                                AS pass_rate_pct,
-  COALESCE(SUM(qi.defect_count), 0)               AS total_defects,
-  COUNT(DISTINCT rpr.id)                           AS reprint_requests
-FROM qc_inspections qi
-LEFT JOIN reprint_requests rpr ON rpr.original_job_id = qi.job_id
-WHERE qi.deleted_at IS NULL
-GROUP BY qi.company_id, DATE_TRUNC('month', qi.created_at), TO_CHAR(qi.created_at, 'Mon YYYY')
-ORDER BY month DESC;
+  ia.company_id,
+  ia.month,
+  ia.month_label,
+  ia.total_inspections,
+  ia.passed,
+  ia.failed,
+  ia.conditional,
+  ia.pass_rate_pct,
+  ia.total_defects,
+  COALESCE(ra.reprint_requests, 0) AS reprint_requests
+FROM inspections_agg ia
+LEFT JOIN reprints_agg ra ON ra.company_id = ia.company_id AND ra.month = ia.month
+ORDER BY ia.month DESC;
 
 -- ─── ANALYTICS FUNCTION: DASHBOARD KPIs ──────────────────────────────────────
 CREATE OR REPLACE FUNCTION get_dashboard_kpis(p_company_id UUID, p_days INTEGER DEFAULT 30)

@@ -9,13 +9,19 @@ import { ConfirmDialog } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui'
 import { INDUSTRIES } from '@/modules/crm/customers/types/customer.types'
 
-interface Customer { id: string; customer_code: string; name: string; business_type: string; ntn: string | null; strn: string | null; email: string | null; phone: string | null; mobile: string | null; website: string | null; industry: string | null; credit_limit: number; payment_terms: number; notes: string | null }
+interface Customer { id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string; ntn: string | null; strn: string | null; email: string | null; phone: string | null; mobile: string | null; website: string | null; industry: string | null; credit_limit: number; payment_terms: number; notes: string | null }
 interface Contact { id: string; name: string; designation: string | null; email: string | null; phone: string | null; mobile: string | null; is_primary: boolean }
 interface Address { id: string; label: string; address_type: string; address_line1: string; address_line2: string | null; city: string | null; country: string; is_default: boolean }
 
 interface Props { customer: Customer; contacts: Contact[]; addresses: Address[] }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+
+const STAGE_CFG: Record<string, { label: string; color: string; next: string | null; nextLabel: string }> = {
+  lead:     { label: 'Lead',     color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]', next: 'prospect', nextLabel: 'Mark as Prospect' },
+  prospect: { label: 'Prospect', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', next: 'customer', nextLabel: 'Mark as Customer' },
+  customer: { label: 'Customer', color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', next: null, nextLabel: '' },
+}
 
 export default function CustomerDetailClient({ customer: initial, contacts: initialContacts, addresses: initialAddresses }: Props) {
   const router = useRouter()
@@ -29,6 +35,21 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'contact' | 'address' | 'customer'; id: string; name: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'addresses'>('info')
+
+  const promoteStage = async (nextStage: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/customers/${customer.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pipeline_stage: nextStage }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setCustomer(data)
+      toast.success(`Moved to ${STAGE_CFG[nextStage]?.label || nextStage}`)
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setLoading(false) }
+  }
 
   const saveInfo = async () => {
     setLoading(true)
@@ -99,9 +120,18 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{customer.name}</h1>
             <span className="text-sm font-mono text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-2 py-0.5 rounded">{customer.customer_code}</span>
+            <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium', (STAGE_CFG[customer.pipeline_stage] || STAGE_CFG.customer).color)}>
+              {(STAGE_CFG[customer.pipeline_stage] || STAGE_CFG.customer).label}
+            </span>
           </div>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5 capitalize">{customer.business_type} · {customer.industry || 'No industry'}</p>
         </div>
+        {STAGE_CFG[customer.pipeline_stage]?.next && (
+          <button onClick={() => promoteStage(STAGE_CFG[customer.pipeline_stage].next!)} disabled={loading}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-accent)]/30 text-[var(--color-accent)] text-sm hover:bg-[var(--color-accent)]/10 transition-colors disabled:opacity-50">
+            <Check size={13} /> {STAGE_CFG[customer.pipeline_stage].nextLabel}
+          </button>
+        )}
         <button onClick={() => setDeleteTarget({ type: 'customer', id: customer.id, name: customer.name })}
           className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-danger)]/30 text-[var(--color-danger)] text-sm hover:bg-[var(--color-danger)]/10 transition-colors">
           <Trash2 size={13} /> Delete

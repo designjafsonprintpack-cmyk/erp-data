@@ -5,9 +5,11 @@ import FinanceClient from './FinanceClient'
 export default async function FinancePage() {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
+  if (!user) return null // dashboard/layout.tsx already redirects unauthenticated requests to /login
 
-  const [invRes, payRes, customersRes, jobsRes] = await Promise.all([
+  const companyId = await getCompanyId(user, supabase)
+
+  const [invRes, payRes, customersRes, jobsRes, taxesRes] = await Promise.all([
     supabase.from('invoices' as any)
       .select('*, customers(name,customer_code), invoice_items(id), payments(id,amount)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
@@ -21,6 +23,8 @@ export default async function FinancePage() {
       .select('id,job_number,job_title,quoted_amount,customers(name)')
       .eq('company_id', companyId).is('deleted_at', null)
       .in('status', ['completed','dispatched']).order('job_number').limit(100),
+    supabase.from('taxes' as any).select('id,name,rate_percent')
+      .eq('company_id', companyId).eq('is_active', true).order('name'),
   ])
 
   const invoices = invRes.data ?? []
@@ -39,6 +43,7 @@ export default async function FinancePage() {
         initialInvoices={invoices as any[]}
         customers={(customersRes.data ?? []) as any[]}
         completedJobs={(jobsRes.data ?? []) as any[]}
+        taxes={(taxesRes.data ?? []) as any[]}
         stats={{ totalBilled, totalReceived, totalOverdue, monthlyCollected }}
       />
     </div>

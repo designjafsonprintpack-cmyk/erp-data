@@ -42,6 +42,17 @@ export async function POST(req: NextRequest) {
     p_company_id: companyId, p_document_type: 'INV',
   })
 
+  // If a specific tax was selected, trust the DB's configured rate over
+  // whatever percentage the client sent — the dropdown already fills tax_pct
+  // client-side, but re-deriving it server-side prevents a stale/tampered
+  // value from ever being stored against a real tax_id.
+  let taxPct = parseFloat(body.tax_pct || '0')
+  if (body.tax_id) {
+    const { data: taxRow } = await supabase.from('taxes' as any)
+      .select('rate_percent').eq('id', body.tax_id).single()
+    if (taxRow) taxPct = Number((taxRow as any).rate_percent)
+  }
+
   // Compute totals
   const lineItems = (items || []).map((item: any) => ({
     ...item,
@@ -51,7 +62,6 @@ export async function POST(req: NextRequest) {
   const discPct  = parseFloat(body.discount_pct || '0')
   const discAmt  = subtotal * discPct / 100
   const afterDisc = subtotal - discAmt
-  const taxPct   = parseFloat(body.tax_pct || '0')
   const taxAmt   = afterDisc * taxPct / 100
   const total    = afterDisc + taxAmt
 
@@ -71,6 +81,7 @@ export async function POST(req: NextRequest) {
     subtotal,
     discount_pct:    discPct,
     discount_amount: discAmt,
+    tax_id:          body.tax_id || null,
     tax_pct:         taxPct,
     tax_amount:      taxAmt,
     total_amount:    total,

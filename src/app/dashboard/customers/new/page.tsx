@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { INDUSTRIES } from '@/modules/crm/customers/types/customer.types'
 
-const EMPTY = { name: '', business_type: 'company', ntn: '', strn: '', email: '', phone: '', mobile: '', website: '', industry: '', credit_limit: '0', payment_terms: '30', notes: '' }
+const EMPTY = { name: '', business_type: 'company', pipeline_stage: 'customer', ntn: '', strn: '', email: '', phone: '', mobile: '', website: '', industry: '', credit_limit: '0', payment_terms: '30', notes: '' }
 
 export default function NewCustomerPage() {
   const router = useRouter()
@@ -23,6 +23,23 @@ export default function NewCustomerPage() {
     setLoading(true)
     try {
       const res = await fetch('/api/v1/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+
+      if (res.status === 409) {
+        const e = await res.json()
+        const names = (e.duplicates || []).map((d: any) => `${d.name} (${d.customer_code})`).join(', ')
+        const proceed = window.confirm(`${e.error}\n\nPossible match: ${names}\n\nCreate this customer anyway?`)
+        if (!proceed) { setLoading(false); return }
+        const retryRes = await fetch('/api/v1/customers', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, force: true }),
+        })
+        if (!retryRes.ok) { const e2 = await retryRes.json(); throw new Error(e2.error) }
+        const { data } = await retryRes.json()
+        toast.success('Customer created')
+        router.push(`/dashboard/customers/${data.id}`)
+        return
+      }
+
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       toast.success('Customer created')
@@ -38,7 +55,9 @@ export default function NewCustomerPage() {
           <ArrowLeft size={15} />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">New Customer</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            {form.pipeline_stage === 'lead' ? 'New Lead' : form.pipeline_stage === 'prospect' ? 'New Prospect' : 'New Customer'}
+          </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Customer code will be auto-generated</p>
         </div>
       </div>
@@ -51,6 +70,14 @@ export default function NewCustomerPage() {
           <div className="col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Name <span className="text-[var(--color-danger)]">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Unilever Pakistan" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Pipeline Stage</label>
+            <select className={inputCls} value={form.pipeline_stage} onChange={e => set('pipeline_stage', e.target.value)}>
+              <option value="lead">Lead — early interest, not yet qualified</option>
+              <option value="prospect">Prospect — qualified, in discussion</option>
+              <option value="customer">Customer — active/won</option>
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Business Type</label>
@@ -121,7 +148,7 @@ export default function NewCustomerPage() {
         <Link href="/dashboard/customers" className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</Link>
         <button onClick={save} disabled={loading || !form.name}
           className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-          <Save size={15} /> {loading ? 'Creating…' : 'Create Customer'}
+          <Save size={15} /> {loading ? 'Creating…' : form.pipeline_stage === 'lead' ? 'Create Lead' : form.pipeline_stage === 'prospect' ? 'Create Prospect' : 'Create Customer'}
         </button>
       </div>
     </div>

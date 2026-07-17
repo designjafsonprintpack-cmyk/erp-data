@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui'
 
 interface Customer {
-  id: string; customer_code: string; name: string; business_type: string
+  id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string
   email: string | null; phone: string | null; mobile: string | null
   industry: string | null; payment_terms: number; is_active: boolean
 }
@@ -19,18 +19,33 @@ const BIZ_COLORS: Record<string, string> = {
   government: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20',
 }
 
+const STAGE_TABS = [
+  { value: '', label: 'All' },
+  { value: 'lead', label: 'Leads' },
+  { value: 'prospect', label: 'Prospects' },
+  { value: 'customer', label: 'Customers' },
+]
+const STAGE_BADGE: Record<string, string> = {
+  lead: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',
+  prospect: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20',
+  customer: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20',
+}
+
 export default function CustomersClient({ initialCustomers, initialTotal }: { initialCustomers: Customer[]; initialTotal: number }) {
   const router = useRouter()
   const [customers, setCustomers] = useState(initialCustomers)
   const [total, setTotal] = useState(initialTotal)
   const [search, setSearch] = useState('')
+  const [stageFilter, setStageFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
-  const doSearch = useCallback(async (q: string) => {
+  const doSearch = useCallback(async (q: string, stage: string) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/v1/customers?search=${encodeURIComponent(q)}&limit=50`)
+      const params = new URLSearchParams({ search: q, limit: '50' })
+      if (stage) params.set('stage', stage)
+      const res = await fetch(`/api/v1/customers?${params.toString()}`)
       const json = await res.json()
       setCustomers(json.data ?? [])
       setTotal(json.total ?? 0)
@@ -41,8 +56,13 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setSearch(val)
-    const timer = setTimeout(() => doSearch(val), 350)
+    const timer = setTimeout(() => doSearch(val, stageFilter), 350)
     return () => clearTimeout(timer)
+  }
+
+  const handleStageFilter = (stage: string) => {
+    setStageFilter(stage)
+    doSearch(search, stage)
   }
 
   return (
@@ -62,6 +82,19 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
           className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={15} /> New Customer
         </Link>
+      </div>
+
+      {/* Stage filter tabs */}
+      <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-1 w-fit">
+        {STAGE_TABS.map(t => (
+          <button key={t.value} onClick={() => handleStageFilter(t.value)}
+            className={cn('px-3 h-7 rounded-md text-xs font-medium transition-colors',
+              stageFilter === t.value
+                ? 'bg-[var(--color-accent)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Table */}
@@ -93,9 +126,16 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
                 </div>
               </div>
               <div className="col-span-2">
-                <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium capitalize', BIZ_COLORS[c.business_type] || BIZ_COLORS.company)}>
-                  {c.business_type}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium capitalize', BIZ_COLORS[c.business_type] || BIZ_COLORS.company)}>
+                    {c.business_type}
+                  </span>
+                  {c.pipeline_stage !== 'customer' && (
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium capitalize', STAGE_BADGE[c.pipeline_stage] || STAGE_BADGE.lead)}>
+                      {c.pipeline_stage}
+                    </span>
+                  )}
+                </div>
                 {c.industry && <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">{c.industry}</p>}
               </div>
               <div className="col-span-2 text-sm text-[var(--color-text-secondary)]">

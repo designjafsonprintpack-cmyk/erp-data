@@ -93,7 +93,7 @@ BEGIN
     c.id,
     c.name,
     (u.company_id = c.id) AS is_primary,
-    u.app_role
+    u.role
   FROM users u
   JOIN companies c ON c.id = u.company_id
   WHERE u.id = p_user_id
@@ -107,7 +107,7 @@ BEGIN
   FROM companies c2
   WHERE EXISTS (
     SELECT 1 FROM users u2
-    WHERE u2.id = p_user_id AND u2.app_role IN ('superadmin','super_admin')
+    WHERE u2.id = p_user_id AND u2.role IN ('superadmin','super_admin')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -124,7 +124,7 @@ INSERT INTO system_settings (company_id, key, value, category, description) VALU
   ('00000000-0000-0000-0000-000000000001', 'default_payment_terms','30',                'finance',      'Default payment terms (days)'),
   ('00000000-0000-0000-0000-000000000001', 'low_stock_alerts',    'true',               'production',   'Enable low stock notifications'),
   ('00000000-0000-0000-0000-000000000001', 'job_auto_assign',     'false',              'production',   'Auto-assign jobs to default workflow'),
-  ('00000000-0000-0000-0000-000000000001', 'dispatch_sms',        'false',              'dispatch',     'Send SMS on dispatch'),
+  ('00000000-0000-0000-0000-000000000001', 'dispatch_sms',        'false',              'dispatch',     'Send WhatsApp message on dispatch (via Meta WhatsApp Cloud API)'),
   ('00000000-0000-0000-0000-000000000001', 'qc_mandatory',        'true',               'production',   'QC mandatory before dispatch'),
   ('00000000-0000-0000-0000-000000000001', 'currency_symbol',     'PKR',                'finance',      'Currency symbol'),
   ('00000000-0000-0000-0000-000000000001', 'date_format',         'DD/MM/YYYY',         'general',      'Display date format'),

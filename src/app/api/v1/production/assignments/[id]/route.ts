@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
@@ -28,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
   const { action, notes, quantity_done } = body
 
@@ -95,7 +97,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       event_type:    logEvent,
       notes:         notes || null,
       quantity_done: quantity_done ? parseFloat(quantity_done) : null,
-      actor_id:      user.id,
+      actor_id:      userTableId,
     })
 
     // Mirror to job timeline for key events
@@ -108,7 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                     logEvent === 'completed' ? 'stage_completed' : 'status_changed',
         new_value:  machineName,
         notes:      notes || null,
-        actor_id:   user.id,
+        actor_id:   userTableId,
       }, supabase)
     }
   }

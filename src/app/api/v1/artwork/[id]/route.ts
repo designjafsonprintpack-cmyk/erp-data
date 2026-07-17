@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -19,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         .neq('id', params.id)
     }
     body.approved_at = new Date().toISOString()
-    body.approved_by = user.id
+    body.approved_by = await getUserTableId(user, supabase)
   }
 
   const { data, error } = await supabase.from('job_artworks' as any)
