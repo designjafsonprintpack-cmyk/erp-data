@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 
@@ -14,9 +15,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
+  const denied = await requirePermission(
+    userTableId, 'qc', body.action === 'approve' ? 'approve' : body.action === 'reject' ? 'reject' : 'edit', supabase
+  )
+  if (denied) return denied
+
   const { data: rpr } = await supabase.from('reprint_requests' as any)
     .select('*, jobs!reprint_requests_original_job_id_fkey(*)')
-    .eq('id', params.id).single()
+    .eq('id', params.id).eq('company_id', companyId).single()
   if (!rpr) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const req_ = rpr as any
@@ -65,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       approved_by:    userTableId,
       approved_at:    new Date().toISOString(),
       reprint_job_id: (newJob as any)?.id || null,
-    }).eq('id', params.id).select().single()
+    }).eq('id', params.id).eq('company_id', companyId).select().single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -74,7 +80,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const qty = parseFloat(body.material_quantity || '0')
     if (body.board_item_id && qty > 0) {
       const { data: boardItem } = await supabase.from('board_inventory' as any)
-        .select('current_stock').eq('id', body.board_item_id).single()
+        .select('current_stock').eq('id', body.board_item_id).eq('company_id', companyId).single()
 
       const stockBefore = Number((boardItem as any)?.current_stock ?? 0)
       if (stockBefore < qty) {
@@ -85,7 +91,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       const stockAfter = stockBefore - qty
       await supabase.from('board_inventory' as any)
-        .update({ current_stock: stockAfter }).eq('id', body.board_item_id)
+        .update({ current_stock: stockAfter }).eq('id', body.board_item_id).eq('company_id', companyId)
 
       await checkLowStockAndNotify(supabase, companyId, body.board_item_id, stockAfter)
 
@@ -118,13 +124,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { data, error } = await supabase.from('reprint_requests' as any).update({
       status: 'rejected',
       notes:  body.notes || null,
-    }).eq('id', params.id).select().single()
+    }).eq('id', params.id).eq('company_id', companyId).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   }
 
   const { data, error } = await supabase.from('reprint_requests' as any)
-    .update(body).eq('id', params.id).select().single()
+    .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }

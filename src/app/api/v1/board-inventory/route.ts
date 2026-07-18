@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const search   = searchParams.get('search') || ''
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase.from('board_inventory' as any)
     .select('*, board_types(name)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
 
   if (search) q = q.ilike('description', `%${search}%`)

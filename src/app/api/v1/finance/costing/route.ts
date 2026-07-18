@@ -2,17 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const jobId = searchParams.get('job_id') || ''
 
   let q = supabase.from('job_costings' as any)
     .select('*, jobs(job_number,job_title,quoted_amount,customers(name)), job_costing_lines(*)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('is_active', true)
 
   if (jobId) q = q.eq('job_id', jobId)
@@ -29,6 +32,9 @@ export async function POST(req: NextRequest) {
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'finance', 'create', supabase)
+  if (denied) return denied
+
   const { extra_lines, ...body } = await req.json()
 
   // Compute totals
@@ -79,7 +85,7 @@ export async function POST(req: NextRequest) {
 
   // Replace extra lines
   await supabase.from('job_costing_lines' as any)
-    .update({ is_active: false }).eq('costing_id', cost.id)
+    .update({ is_active: false }).eq('costing_id', cost.id).eq('company_id', companyId)
 
   if (extra_lines?.length) {
     await supabase.from('job_costing_lines' as any).insert(

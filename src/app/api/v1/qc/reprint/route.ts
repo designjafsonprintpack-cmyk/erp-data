@@ -2,18 +2,21 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || ''
 
   let q = supabase.from('reprint_requests' as any)
     .select('*, jobs!reprint_requests_original_job_id_fkey(job_number,job_title,customers(name)), reprint_job:jobs!reprint_requests_reprint_job_id_fkey(job_number)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null)
 
   if (status) q = q.eq('status', status)
@@ -30,6 +33,9 @@ export async function POST(req: NextRequest) {
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'qc', 'create', supabase)
+  if (denied) return denied
+
   const body = await req.json()
 
   const { data, error } = await supabase.from('reprint_requests' as any).insert({

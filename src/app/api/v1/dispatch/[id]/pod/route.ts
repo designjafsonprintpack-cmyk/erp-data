@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await supabase.from('dispatch_orders' as any).update({
     status:       'delivered',
     delivered_at: new Date().toISOString(),
-  }).eq('id', params.id).eq('status', 'dispatched')
+  }).eq('id', params.id).eq('company_id', companyId).eq('status', 'dispatched')
 
   return NextResponse.json({ data })
 }

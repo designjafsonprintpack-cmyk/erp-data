@@ -18,8 +18,9 @@ export async function PATCH(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
   const { id, ...fields } = await req.json()
-  const { data, error } = await supabase.from('workflow_stages' as any).update(fields).eq('id', id).select().single()
+  const { data, error } = await supabase.from('workflow_stages' as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
@@ -28,9 +29,10 @@ export async function DELETE(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
   const { id } = await req.json()
   const { error } = await supabase.from('workflow_stages' as any)
-    .update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id)
+    .update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id).eq('company_id', companyId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

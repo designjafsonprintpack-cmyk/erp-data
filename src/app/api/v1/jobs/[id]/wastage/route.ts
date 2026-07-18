@@ -8,11 +8,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { data, error } = await supabase
     .from('job_wastage' as any)
     .select('*, wastage_reasons(name,category), machines(name), users(full_name)')
     .eq('job_id', params.id)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('occurred_at', { ascending: false })
 

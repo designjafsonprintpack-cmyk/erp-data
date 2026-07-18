@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim() || ''
@@ -18,6 +20,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from('global_search_index' as any)
     .select('id, entity_type, code, title, status, customer_name, created_at, required_date')
+    .eq('company_id', companyId)
     // No `type` here on purpose: tsQuery above is built with `word:*` prefix
     // syntax, which only to_tsquery understands. `type: 'websearch'` (or
     // 'plain'/'phrase') would route through websearch_to_tsquery/
@@ -35,6 +38,7 @@ export async function GET(req: NextRequest) {
     const fallback = await supabase
       .from('jobs' as any)
       .select('id,job_number,job_title,status,customers(name)')
+      .eq('company_id', companyId)
       .is('deleted_at', null)
       .or(`job_number.ilike.%${query}%,job_title.ilike.%${query}%`)
       .limit(10)

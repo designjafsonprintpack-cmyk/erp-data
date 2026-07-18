@@ -6,11 +6,13 @@ export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
 
   let q = supabase.from('vendors' as any).select('*', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
   if (search) q = q.or(`name.ilike.%${search}%,vendor_code.ilike.%${search}%`)
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { sendWhatsApp } from '@/lib/utils/sendWhatsApp'
 import { notify } from '@/modules/notifications/services/notificationService'
@@ -31,6 +32,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'dispatch', 'edit', supabase)
+  if (denied) return denied
+
   const body = await req.json()
 
   // Fetch current dispatch + items for event recording

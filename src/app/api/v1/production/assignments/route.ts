@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const jobId     = searchParams.get('job_id') || ''
@@ -14,6 +17,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase.from('production_assignments' as any)
     .select('*, jobs(job_number,job_title,priority,required_date,customers(name)), machines(name,machine_type), users(full_name)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
 
@@ -34,6 +38,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'production', 'create', supabase)
+  if (denied) return denied
+
   const body = await req.json()
 
   if (!body.job_id || !body.machine_id) {
@@ -50,6 +58,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await supabase.from('production_assignments' as any)
       .select('scheduled_start, estimated_minutes, jobs(job_number)')
       .eq('machine_id', body.machine_id)
+      .eq('company_id', companyId)
       .in('status', ['queued', 'running', 'paused'])
       .is('deleted_at', null)
       .not('scheduled_start', 'is', null)

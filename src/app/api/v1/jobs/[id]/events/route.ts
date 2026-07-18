@@ -8,6 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const page = parseInt(searchParams.get('page') || '1')
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .from('job_stage_events' as any)
     .select('*, users(full_name)', { count: 'exact' })
     .eq('job_id', params.id)
+    .eq('company_id', companyId)
     .order('occurred_at', { ascending: false })
     .range(offset, offset + limit - 1)
 

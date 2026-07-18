@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -7,10 +8,15 @@ export async function GET(req: NextRequest) {
   if (!id) return new NextResponse('Missing id', { status: 400 })
 
   const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new NextResponse('Unauthorized', { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
+
   const { data, error } = await supabase
     .from('sales_orders' as any)
     .select('*, customers(name,customer_code,phone,mobile,email), sales_order_items(*)')
     .eq('id', id)
+    .eq('company_id', companyId)
     .maybeSingle()
 
   if (error) return new NextResponse(`DB Error: ${error.message}`, { status: 500 })

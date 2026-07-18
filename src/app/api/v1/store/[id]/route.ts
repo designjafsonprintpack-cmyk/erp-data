@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -11,12 +12,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'store', 'edit', supabase)
+  if (denied) return denied
+
   const body = await req.json()
 
   // Approve action
   if (body.action === 'approve') {
     const { data, error } = await supabase.from('material_requisitions' as any)
-      .update({ status: 'approved', approved_by: userTableId }).eq('id', params.id).select().single()
+      .update({ status: 'approved', approved_by: userTableId }).eq('id', params.id).eq('company_id', companyId).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   }
@@ -28,11 +32,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // current quantity_issued/board_item_id to compute how much is newly
     // being issued this time (a single MRN can be issued in partial batches).
     const { data: mrnRow } = await supabase.from('material_requisitions' as any)
-      .select('job_id').eq('id', params.id).single()
+      .select('job_id').eq('id', params.id).eq('company_id', companyId).single()
     const jobId = (mrnRow as any)?.job_id ?? null
 
     const { data: currentItems } = await supabase.from('material_requisition_items' as any)
-      .select('id, quantity_issued, board_item_id').eq('requisition_id', params.id)
+      .select('id, quantity_issued, board_item_id').eq('requisition_id', params.id).eq('company_id', companyId)
     const currentById = new Map(((currentItems ?? []) as any[]).map(i => [i.id, i]))
 
     for (const item of body.items) {
@@ -43,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       if (boardItemId && delta > 0) {
         const { data: boardItem } = await supabase.from('board_inventory' as any)
-          .select('current_stock').eq('id', boardItemId).single()
+          .select('current_stock').eq('id', boardItemId).eq('company_id', companyId).single()
 
         const stockBefore = Number((boardItem as any)?.current_stock ?? 0)
         if (stockBefore < delta) {
@@ -54,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
         const stockAfter = stockBefore - delta
         await supabase.from('board_inventory' as any)
-          .update({ current_stock: stockAfter }).eq('id', boardItemId)
+          .update({ current_stock: stockAfter }).eq('id', boardItemId).eq('company_id', companyId)
 
         await checkLowStockAndNotify(supabase, companyId, boardItemId, stockAfter)
 
@@ -73,12 +77,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       await supabase.from('material_requisition_items' as any)
         .update({ quantity_issued: newQtyIssued, board_item_id: boardItemId })
-        .eq('id', item.id)
+        .eq('id', item.id).eq('company_id', companyId)
     }
 
     // Recalculate MRN status
     const { data: allItems } = await supabase.from('material_requisition_items' as any)
-      .select('quantity_required, quantity_issued').eq('requisition_id', params.id)
+      .select('quantity_required, quantity_issued').eq('requisition_id', params.id).eq('company_id', companyId)
 
     const items = (allItems ?? []) as any[]
     const allIssued = items.every(i => i.quantity_issued >= i.quantity_required)
@@ -86,14 +90,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const newStatus = allIssued ? 'issued' : anyIssued ? 'partially_issued' : 'approved'
 
     const { data, error } = await supabase.from('material_requisitions' as any)
-      .update({ status: newStatus }).eq('id', params.id).select().single()
+      .update({ status: newStatus }).eq('id', params.id).eq('company_id', companyId).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   }
 
   // Generic PATCH
   const { data, error } = await supabase.from('material_requisitions' as any)
-    .update(body).eq('id', params.id).select().single()
+    .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
