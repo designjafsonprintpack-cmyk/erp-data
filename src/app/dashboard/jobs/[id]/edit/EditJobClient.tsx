@@ -2,15 +2,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Briefcase } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
+import { ArrowLeft, Save } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
-import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
+import { type JobFormData } from '@/modules/jobs/types/job.types'
 
 interface Props {
+  job: any
   customers: any[]; boardTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
-  salesOrders: any[]; defaultWorkflowId: string
+  salesOrders: any[]
 }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
@@ -27,29 +27,42 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function NewJobClient({ customers, boardTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, defaultWorkflowId }: Props) {
+export default function EditJobClient({ job, boardTypes, paperTypes, laminationTypes, foilTypes, workflows }: Props) {
   const router = useRouter()
-  const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
+  const [form, setForm] = useState<JobFormData>({
+    customer_id: job.customer_id || '', job_title: job.job_title || '', description: job.description || '',
+    sales_order_id: job.sales_order_id || '',
+    size_l: String(job.size_l ?? ''), size_w: String(job.size_w ?? ''), size_h: String(job.size_h ?? ''),
+    sheet_size: job.sheet_size || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
+    die_number: job.die_number || '', grain_direction: job.grain_direction || '', ups: String(job.ups ?? ''),
+    board_type_id: job.board_type_id || '', paper_type_id: job.paper_type_id || '',
+    lamination_type_id: job.lamination_type_id || '', uv_coating: job.uv_coating || '',
+    foil_type_id: job.foil_type_id || '', special_finishing: job.special_finishing || '', pasting: job.pasting || '',
+    workflow_template_id: job.workflow_template_id || '', priority: job.priority || 'normal',
+    required_date: job.required_date ? String(job.required_date).slice(0, 10) : '',
+    quoted_amount: String(job.quoted_amount ?? ''), internal_remarks: job.internal_remarks || '',
+  })
   const [loading, setLoading] = useState(false)
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
 
   const save = async () => {
-    if (!form.customer_id) { toast.error('Please select a customer'); return }
     if (!form.job_title) { toast.error('Job title is required'); return }
     if (!form.quantity || parseFloat(form.quantity) <= 0) { toast.error('Quantity must be greater than 0'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/jobs', {
-        method: 'POST',
+      // Customer and Sales Order link are intentionally not sent — they're
+      // shown read-only in this form and shouldn't change after creation.
+      const { customer_id, sales_order_id, ...editable } = form
+      const res = await fetch(`/api/v1/jobs/${job.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(editable),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      const { data } = await res.json()
-      toast.success(`Job ${data.job_number} created!`)
-      router.push(`/dashboard/jobs/${data.id}`)
-    } catch (e: any) { toast.error(e.message || 'Failed to create job') }
+      toast.success('Job updated')
+      router.push(`/dashboard/jobs/${job.id}`)
+    } catch (e: any) { toast.error(e.message || 'Failed to update job') }
     finally { setLoading(false) }
   }
 
@@ -57,33 +70,32 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
     <div className="max-w-5xl space-y-5">
       {/* Page header */}
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/jobs" className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+        <Link href={`/dashboard/jobs/${job.id}`} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <ArrowLeft size={15} />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">New Job</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Job number will be auto-generated</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Edit Job — {job.job_number}</h1>
+          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{job.customers?.name} ({job.customers?.customer_code})</p>
         </div>
       </div>
 
-      {/* Customer & SO */}
+      {/* Customer & SO — read-only, not editable after creation */}
       <Section title="Customer & Sales Order">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className={labelCls}>Customer <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
-              <option value="">Select customer…</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.customer_code})</option>)}
-            </select>
+            <label className={labelCls}>Customer</label>
+            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 text-sm text-[var(--color-text-secondary)]">
+              {job.customers?.name} ({job.customers?.customer_code})
+            </p>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Link to Sales Order (optional)</label>
-            <select className={inputCls} value={form.sales_order_id} onChange={e => set('sales_order_id', e.target.value)}>
-              <option value="">None — standalone job</option>
-              {salesOrders.map((so: any) => <option key={so.id} value={so.id}>{so.so_number} — {so.customers?.name}</option>)}
-            </select>
+            <label className={labelCls}>Sales Order</label>
+            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 text-sm text-[var(--color-text-secondary)]">
+              {job.sales_orders?.so_number || 'None — standalone job'}
+            </p>
           </div>
         </div>
+        <p className="text-xs text-[var(--color-text-muted)] mt-2">Customer and Sales Order link can&apos;t be changed after the job is created — create a new job instead if that&apos;s needed.</p>
       </Section>
 
       {/* Job Details */}
@@ -234,6 +246,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
               <option value="">No workflow</option>
               {workflows.map((w: any) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (Default)' : ''}</option>)}
             </select>
+            <p className="text-xs text-[var(--color-text-muted)]">Changing this doesn&apos;t move already-started stage progress — only affects newly initialized stages.</p>
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Quoted Amount (PKR)</label>
@@ -248,12 +261,12 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Actions */}
       <div className="flex items-center gap-3 justify-end">
-        <Link href="/dashboard/jobs" className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+        <Link href={`/dashboard/jobs/${job.id}`} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           Cancel
         </Link>
-        <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
+        <button onClick={save} disabled={loading || !form.job_title}
           className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-          <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
+          <Save size={15} /> {loading ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
     </div>

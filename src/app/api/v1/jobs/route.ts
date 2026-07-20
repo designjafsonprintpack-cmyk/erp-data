@@ -96,7 +96,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     board_type_id:        body.board_type_id || null,
     paper_type_id:        body.paper_type_id || null,
     lamination_type_id:   body.lamination_type_id || null,
-    uv_coating:           body.uv_coating || false,
+    uv_coating:           body.uv_coating || null,
     foil_type_id:         body.foil_type_id || null,
     special_finishing:    body.special_finishing || null,
     pasting:              body.pasting || null,

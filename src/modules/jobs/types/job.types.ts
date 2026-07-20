@@ -38,7 +38,7 @@ export interface Job {
   die_number: string | null; grain_direction: GrainDirection | null; board_type_id: string | null
   ups: number | null; sheet_qty: number | null
   paper_type_id: string | null; lamination_type_id: string | null
-  uv_coating: boolean; foil_type_id: string | null
+  uv_coating: string | null; foil_type_id: string | null
   special_finishing: string | null; pasting: string | null
   workflow_template_id: string | null; current_stage_id: string | null
   status: JobStatus; priority: JobPriority
@@ -86,7 +86,7 @@ export interface JobFormData {
   quantity: string; no_of_colors: string; die_number: string; grain_direction: string
   ups: string
   board_type_id: string; paper_type_id: string
-  lamination_type_id: string; uv_coating: boolean
+  lamination_type_id: string; uv_coating: string
   foil_type_id: string; special_finishing: string; pasting: string
   workflow_template_id: string; priority: JobPriority
   required_date: string; quoted_amount: string; internal_remarks: string
@@ -96,7 +96,7 @@ export const EMPTY_JOB_FORM: JobFormData = {
   customer_id: '', job_title: '', description: '', sales_order_id: '',
   size_l: '', size_w: '', size_h: '', sheet_size: '', quantity: '1000',
   no_of_colors: '4', die_number: '', grain_direction: '', ups: '', board_type_id: '', paper_type_id: '',
-  lamination_type_id: '', uv_coating: false, foil_type_id: '',
+  lamination_type_id: '', uv_coating: '', foil_type_id: '',
   special_finishing: '', pasting: '', workflow_template_id: '',
   priority: 'normal', required_date: '', quoted_amount: '', internal_remarks: '',
 }

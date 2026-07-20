@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
-import { getUserTableId } from '@/lib/utils/getUserTableId'
-import { requirePermission } from '@/lib/utils/requirePermission'
+import { requireSuperadmin } from '@/lib/utils/requireSuperadmin'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
@@ -41,8 +40,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
-  const userTableId = await getUserTableId(user, supabase)
-  const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
+  const denied = await requireSuperadmin(user, supabase)
   if (denied) return denied
 
   const body = await req.json()
@@ -97,14 +95,30 @@ export const DELETE = withErrorHandling(async function DELETE(_: NextRequest, { 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const companyId = await getCompanyId(user, supabase)
-  const userTableId = await getUserTableId(user, supabase)
-  const denied = await requirePermission(userTableId, 'jobs', 'delete', supabase)
+  const denied = await requireSuperadmin(user, supabase)
   if (denied) return denied
 
+  // Hard delete (not soft-delete) per explicit requirement — actually
+  // removes the row from the database, not just deleted_at/is_active.
+  // Several child tables (dispatch_items, qc_reprints, job_plate_assignments,
+  // and a few pre-production/finance tables) reference jobs(id) WITHOUT
+  // ON DELETE CASCADE — deliberately, since those are downstream business/
+  // audit records (dispatch, invoicing, QC history) that shouldn't silently
+  // vanish just because a job row is removed. That means a job with any
+  // real activity on it will still fail this delete with a Postgres
+  // foreign-key error (23503) — surfaced here as a clear message rather
+  // than a raw DB error, instead of quietly cascading that history away.
   const { error } = await supabase.from('jobs' as any)
-    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .delete()
     .eq('id', params.id).eq('company_id', companyId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if ((error as any).code === '23503') {
+      return NextResponse.json({
+        error: 'This job has related records (dispatch, invoicing, QC, plate assignments, or repeat jobs linked to it) and can\'t be permanently deleted while those exist.',
+      }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 })

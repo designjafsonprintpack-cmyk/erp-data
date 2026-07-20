@@ -1,9 +1,11 @@
 export function formatDate(date: string | Date | null, options?: Intl.DateTimeFormatOptions): string {
   if (!date) return '—'
-  return new Intl.DateTimeFormat('en-PK', {
-    dateStyle: 'medium',
-    ...options,
-  }).format(new Date(date))
+  // Intl.DateTimeFormat throws if `dateStyle` is combined with individual
+  // component options (day/month/weekday/year/etc.) — it's one or the
+  // other, never both. Only fall back to the default dateStyle when the
+  // caller didn't ask for a specific format; otherwise use exactly what
+  // was passed in.
+  return new Intl.DateTimeFormat('en-PK', options ?? { dateStyle: 'medium' }).format(new Date(date))
 }
 
 export function formatDateTime(date: string | Date | null): string {

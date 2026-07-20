@@ -4,20 +4,13 @@ import { formatDate } from '@/lib/utils/format'
 
 export default async function PrintJobCard({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
-  const [{ data: job }, { data: stages }] = await Promise.all([
-    supabase.from('jobs' as any)
-      .select('*, customers(name,customer_code,phone), workflow_templates(name)')
-      .eq('id', params.id)
-      .maybeSingle(),
-    supabase.from('job_stage_progress' as any)
-      .select('status, sequence_order, workflow_stages(name)')
-      .eq('job_id', params.id)
-      .order('sequence_order'),
-  ])
+  const { data: job } = await supabase.from('jobs' as any)
+    .select('*, customers(name,customer_code,phone)')
+    .eq('id', params.id)
+    .maybeSingle()
 
   if (!job) notFound()
   const j = job as any
-  const jobStages = (stages ?? []) as any[]
 
   const specs = [
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
@@ -28,7 +21,7 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     { label: 'Quantity', value: j.quantity?.toLocaleString() || '—' },
     { label: 'No. of Colors', value: j.no_of_colors || '—' },
     { label: 'Die Number', value: j.die_number || '—' },
-    { label: 'UV Coating', value: j.uv_coating ? 'Yes' : 'No' },
+    { label: 'UV Coating', value: j.uv_coating || '—' },
     { label: 'Pasting', value: j.pasting || '—' },
     { label: 'Special Finishing', value: j.special_finishing || '—' },
   ]
@@ -133,25 +126,11 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
             <div className="grid-3">
               <div className="field"><div className="field-label">Lamination</div><div className="field-value">{(j as any).lamination_types?.name || '—'}</div></div>
               <div className="field"><div className="field-label">Hot Foil</div><div className="field-value">{(j as any).foil_types?.name || '—'}</div></div>
-              <div className="field"><div className="field-label">UV Coating</div><div className="field-value">{j.uv_coating ? 'YES' : 'No'}</div></div>
+              <div className="field"><div className="field-label">UV Coating</div><div className="field-value">{j.uv_coating || '—'}</div></div>
               <div className="field"><div className="field-label">Pasting</div><div className="field-value">{j.pasting || '—'}</div></div>
               <div className="field"><div className="field-label">Special</div><div className="field-value">{j.special_finishing || '—'}</div></div>
             </div>
           </div>
-
-          {/* Workflow */}
-          {j.workflow_templates && jobStages.length > 0 && (
-            <div className="section">
-              <div className="section-title">Production Workflow — {j.workflow_templates.name}</div>
-              <div className="workflow-stages">
-                {jobStages.map((s, i) => (
-                  <div key={i} className="stage-badge">
-                    {s.status === 'completed' ? '☑' : s.status === 'skipped' ? '⊘' : '□'} {s.workflow_stages?.name || `Stage ${i + 1}`}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Internal Remarks */}
           <div className="section">

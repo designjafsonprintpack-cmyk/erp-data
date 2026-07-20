@@ -3633,7 +3633,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           ups: number | null
-          uv_coating: boolean
+          uv_coating: string | null
           workflow_template_id: string | null
         }
         Insert: {
@@ -3686,7 +3686,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           ups?: number | null
-          uv_coating?: boolean
+          uv_coating?: string | null
           workflow_template_id?: string | null
         }
         Update: {
@@ -3739,7 +3739,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           ups?: number | null
-          uv_coating?: boolean
+          uv_coating?: string | null
           workflow_template_id?: string | null
         }
         Relationships: [

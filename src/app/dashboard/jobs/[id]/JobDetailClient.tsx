@@ -1,11 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createSupabaseClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Printer, PauseCircle, PlayCircle, RefreshCw, CheckCircle2,
   SkipForward, Clock, User, Calendar, Package, ChevronRight, AlertTriangle,
-  MessageSquare, Layers, Activity, FileText
+  MessageSquare, Layers, Activity, FileText, Pencil, Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
@@ -74,6 +75,34 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   // Repeat modal
   const [repeatModal, setRepeatModal] = useState(false)
   const [repeatForm, setRepeatForm] = useState({ quantity: String(job.quantity), required_date: '', notes: '', same_artwork: true })
+
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const deleteJob = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/v1/jobs/${job.id}`, { method: 'DELETE' })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      toast.success('Job deleted')
+      router.push('/dashboard/jobs')
+    } catch (e: any) { toast.error(e.message || 'Failed to delete job'); setDeleting(false) }
+  }
+
+  // Edit/Delete are superadmin-only — the API enforces this either way, this
+  // is just so other roles don't see a button that will 403 when clicked.
+  const [isSuperadmin, setIsSuperadmin] = useState(false)
+  useEffect(() => {
+    (async () => {
+      const supabase = createSupabaseClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+        setIsSuperadmin(payload?.app_role === 'superadmin')
+      } catch { /* leave false */ }
+    })()
+  }, [])
 
   // Remark
   const [remark, setRemark] = useState('')
@@ -246,10 +275,20 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Printer size={14} /> Print Card
           </Link>
+          <Link href={`/dashboard/jobs/${job.id}/edit`}
+            className={cn('items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors', isSuperadmin ? 'flex' : 'hidden')}>
+            <Pencil size={14} /> Edit
+          </Link>
           <button onClick={() => setRepeatModal(true)}
             className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <RefreshCw size={14} /> Repeat Job
           </button>
+          {isSuperadmin && (
+            <button onClick={() => setDeleteModal(true)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-danger)]/40 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
           {job.is_on_hold ? (
             <button onClick={() => setResumeModal(true)}
               className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 transition-colors">
@@ -344,7 +383,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 { label: 'Priority', value: <span className={cn('font-semibold', priorityCfg.color)}>{priorityCfg.label}</span> },
                 { label: 'Board Type', value: (job as any).board_types?.name || '—' },
                 { label: 'Lamination', value: (job as any).lamination_types?.name || '—' },
-                { label: 'UV Coating', value: job.uv_coating ? 'Yes' : 'No' },
+                { label: 'UV Coating', value: job.uv_coating || '—' },
                 { label: 'Hot Foil', value: (job as any).foil_types?.name || '—' },
                 { label: 'Pasting', value: job.pasting || '—' },
                 { label: 'Special Finishing', value: job.special_finishing || '—' },
@@ -730,6 +769,17 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={deleteJob}
+        title="Delete Job"
+        message={`Permanently delete job ${job.job_number} — "${job.job_title}"? This removes it from the database completely and cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        confirmVariant="danger"
+        loading={deleting}
+      />
     </div>
   )
 }
