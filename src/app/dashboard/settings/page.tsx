@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, Settings2, Workflow, Palette, Shield, Bell, FileText, Hash, Circle, ClipboardList, BookOpen } from 'lucide-react'
+import { Building2, Users, Settings2, Workflow, Palette, Shield, Bell, FileText, Hash, Circle, ClipboardList, BookOpen, Calculator, Mail } from 'lucide-react'
 
 const settingsSections = [
   { title: 'Company', description: 'Company profile, logo, branches, warehouses', href: '/dashboard/settings/company', icon: Building2 },
@@ -12,6 +12,7 @@ const settingsSections = [
   { title: 'Job Status & Delay Reasons', description: 'Job statuses and mandatory delay reason list', href: '/dashboard/settings/job-status', icon: Circle },
   { title: 'Permissions & Roles', description: 'Role-based access control matrix', href: '/dashboard/settings/permissions', icon: Shield },
   { title: 'Notifications', description: 'Alert rules and notification preferences', href: '/dashboard/settings/notifications', icon: Bell },
+  { title: 'Report Schedules', description: 'Automatically email reports on a recurring schedule', href: '/dashboard/settings/report-schedules', icon: Mail },
   { title: 'Audit Log', description: 'Immutable record of all system changes', href: '/dashboard/settings/audit-log', icon: ClipboardList },
   { title: 'Themes', description: 'Customize the ERP appearance', href: '/dashboard/settings/themes', icon: Palette },
   { title: 'Users', description: 'Manage user accounts and departments', href: '/dashboard/users', icon: Users },

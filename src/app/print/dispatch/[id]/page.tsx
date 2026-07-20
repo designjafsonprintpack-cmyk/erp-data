@@ -57,12 +57,16 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
               <div className="logo">Jafson Print Pack</div>
               <div style={{ fontSize: 10, color: '#57606a', marginTop: 2 }}>Lahore, Pakistan</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="doc-title">DELIVERY CHALLAN</div>
-              <div className="doc-number">{d.dispatch_number}</div>
-              <div style={{ marginTop: 4 }}>
-                <span className={`badge badge-${d.status}`}>{d.status?.toUpperCase()}</span>
+            <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div>
+                <div className="doc-title">DELIVERY CHALLAN</div>
+                <div className="doc-number">{d.dispatch_number}</div>
+                <div style={{ marginTop: 4 }}>
+                  <span className={`badge badge-${d.status}`}>{d.status?.toUpperCase()}</span>
+                </div>
               </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/v1/print/qr?data=${encodeURIComponent(d.dispatch_number)}`} width={56} height={56} alt={`QR code for ${d.dispatch_number}`} />
             </div>
           </div>
 

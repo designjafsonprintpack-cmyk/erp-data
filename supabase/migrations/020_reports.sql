@@ -54,29 +54,56 @@ LEFT JOIN workflow_templates wt ON wt.id = j.workflow_template_id
 WHERE j.deleted_at IS NULL AND j.is_active = TRUE;
 
 -- ─── REPORT: CUSTOMER SALES SUMMARY ──────────────────────────────────────────
+-- Aggregates jobs and invoices independently (each to one row per customer)
+-- before joining, so a customer with multiple jobs AND multiple invoices
+-- can't fan out and inflate the SUM() totals.
 CREATE OR REPLACE VIEW report_customer_sales AS
+WITH jobs_agg AS (
+  SELECT
+    j.customer_id,
+    COUNT(*)                                              AS total_jobs,
+    COUNT(*) FILTER (WHERE j.status = 'completed')        AS completed_jobs,
+    COUNT(*) FILTER (WHERE j.status = 'dispatched')        AS dispatched_jobs,
+    COUNT(*) FILTER (WHERE j.status = 'cancelled')          AS cancelled_jobs,
+    COALESCE(SUM(j.quoted_amount), 0)                     AS total_quoted,
+    MAX(j.created_at)                                     AS last_job_date,
+    MIN(j.created_at)                                     AS first_job_date
+  FROM jobs j
+  WHERE j.deleted_at IS NULL
+  GROUP BY j.customer_id
+),
+invoices_agg AS (
+  SELECT
+    inv.customer_id,
+    COALESCE(SUM(inv.total_amount), 0)  AS total_invoiced,
+    COALESCE(SUM(inv.paid_amount), 0)   AS total_paid,
+    COALESCE(SUM(inv.balance_due), 0)   AS total_outstanding,
+    COUNT(*)                            AS invoice_count
+  FROM invoices inv
+  WHERE inv.deleted_at IS NULL
+  GROUP BY inv.customer_id
+)
 SELECT
-  c.id                                             AS customer_id,
+  c.id                                              AS customer_id,
   c.company_id,
-  c.name                                           AS customer_name,
+  c.name                                            AS customer_name,
   c.customer_code,
   c.industry,
-  COUNT(DISTINCT j.id)                             AS total_jobs,
-  COUNT(DISTINCT j.id) FILTER (WHERE j.status = 'completed')   AS completed_jobs,
-  COUNT(DISTINCT j.id) FILTER (WHERE j.status = 'dispatched')  AS dispatched_jobs,
-  COUNT(DISTINCT j.id) FILTER (WHERE j.status = 'cancelled')   AS cancelled_jobs,
-  COALESCE(SUM(j.quoted_amount), 0)                AS total_quoted,
-  COALESCE(SUM(inv.total_amount), 0)               AS total_invoiced,
-  COALESCE(SUM(inv.paid_amount), 0)                AS total_paid,
-  COALESCE(SUM(inv.balance_due), 0)                AS total_outstanding,
-  COUNT(DISTINCT inv.id)                           AS invoice_count,
-  MAX(j.created_at)                                AS last_job_date,
-  MIN(j.created_at)                                AS first_job_date
+  COALESCE(ja.total_jobs, 0)                        AS total_jobs,
+  COALESCE(ja.completed_jobs, 0)                    AS completed_jobs,
+  COALESCE(ja.dispatched_jobs, 0)                   AS dispatched_jobs,
+  COALESCE(ja.cancelled_jobs, 0)                    AS cancelled_jobs,
+  COALESCE(ja.total_quoted, 0)                      AS total_quoted,
+  COALESCE(ia.total_invoiced, 0)                    AS total_invoiced,
+  COALESCE(ia.total_paid, 0)                        AS total_paid,
+  COALESCE(ia.total_outstanding, 0)                 AS total_outstanding,
+  COALESCE(ia.invoice_count, 0)                     AS invoice_count,
+  ja.last_job_date,
+  ja.first_job_date
 FROM customers c
-LEFT JOIN jobs j        ON j.customer_id = c.id AND j.deleted_at IS NULL
-LEFT JOIN invoices inv  ON inv.customer_id = c.id AND inv.deleted_at IS NULL
-WHERE c.deleted_at IS NULL AND c.is_active = TRUE
-GROUP BY c.id, c.company_id, c.name, c.customer_code, c.industry;
+LEFT JOIN jobs_agg ja     ON ja.customer_id = c.id
+LEFT JOIN invoices_agg ia ON ia.customer_id = c.id
+WHERE c.deleted_at IS NULL AND c.is_active = TRUE;
 
 -- ─── REPORT: MONTHLY PRODUCTION SUMMARY ──────────────────────────────────────
 CREATE OR REPLACE VIEW report_monthly_production AS

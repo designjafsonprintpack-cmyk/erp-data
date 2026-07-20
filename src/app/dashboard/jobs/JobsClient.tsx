@@ -1,11 +1,12 @@
 'use client'
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Briefcase, AlertTriangle, Clock, PauseCircle, RefreshCw } from 'lucide-react'
+import { Plus, Search, Briefcase, AlertTriangle, Clock, PauseCircle, RefreshCw, LayoutGrid, List } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
+import JobsKanban from './JobsKanban'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -48,6 +49,23 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const [search, setSearch] = useState('')
   const [activeStatus, setActiveStatus] = useState('')
   const [loading, setLoading] = useState(false)
+  const [view, setView] = useState<'list' | 'kanban'>('list')
+
+  const handleKanbanStatusChange = async (jobId: string, newStatus: JobStatus) => {
+    const prevJobs = jobs
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j))
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Job status updated')
+    } catch {
+      setJobs(prevJobs) // revert on failure
+      toast.error('Failed to update status')
+    }
+  }
 
   const fetchJobs = useCallback(async (q: string, status: string) => {
     setLoading(true)
@@ -101,9 +119,21 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
           </button>
         ))}
         {total > 0 && <span className="text-xs text-[var(--color-text-muted)] ml-2">{total} jobs</span>}
+        <div className="flex items-center gap-1 ml-auto bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
+          <button onClick={() => setView('list')} title="List view"
+            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'list' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+            <List size={13} />
+          </button>
+          <button onClick={() => setView('kanban')} title="Kanban view"
+            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'kanban' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+            <LayoutGrid size={13} />
+          </button>
+        </div>
       </div>
 
-      {/* Jobs table */}
+      {view === 'kanban' ? (
+        <JobsKanban jobs={jobs} onStatusChange={handleKanbanStatusChange} />
+      ) : (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         {/* Column headers */}
         <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
@@ -189,8 +219,9 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
           </div>
         )}
       </div>
+      )}
 
-      {total > 25 && (
+      {view === 'list' && total > 25 && (
         <p className="text-xs text-[var(--color-text-muted)] text-center">Showing {jobs.length} of {total} jobs</p>
       )}
     </div>

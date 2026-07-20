@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { grantPermissionSchema } from '@/lib/schemas/permissions'
 
-export async function GET() {
+export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -17,19 +23,22 @@ export async function GET() {
     permissions: permsRes.data ?? [],
     role_permissions: rpRes.data ?? [],
   })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const { role_id, permission_id, grant, company_id } = body
+  const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
+  if (denied) return denied
 
-  if (!role_id || !permission_id || typeof grant !== 'boolean') {
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, grantPermissionSchema)
+  if ('error' in parsed) return parsed.error
+  const { role_id, permission_id, grant } = parsed.data
+  const company_id = companyId
 
   if (grant) {
     const { error } = await supabase.from('role_permissions' as any).upsert(
@@ -45,4 +54,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true })
-}
+})

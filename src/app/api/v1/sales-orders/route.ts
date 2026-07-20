@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
   const status = searchParams.get('status') || ''
@@ -14,6 +18,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase.from('sales_orders' as any)
     .select('*, customers(name, customer_code)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null)
   if (status) q = q.eq('status', status)
   if (search) q = q.or(`so_number.ilike.%${search}%`)
@@ -21,13 +26,17 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'sales_orders', 'create', supabase)
+  if (denied) return denied
+
   const { items, ...body } = await req.json()
 
   const { data: soNumber } = await (supabase as any).rpc('get_next_sequence_number', {
@@ -49,4 +58,4 @@ export async function POST(req: NextRequest) {
     )
   }
   return NextResponse.json({ data: so })
-}
+})

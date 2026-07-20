@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Cog, Zap, CheckCircle2, AlertTriangle, Wrench } from 'lucide-react'
+import { Plus, Pencil, Trash2, Cog, Zap, CheckCircle2, AlertTriangle, Wrench, History, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
@@ -8,6 +8,15 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 interface Machine {
   id: string; name: string; code: string; machine_type: string
   capacity_per_hour: number | null; status: string; notes: string | null; is_active: boolean
+}
+interface DowntimeEntry {
+  id: string; category: string; reason: string | null; started_at: string; ended_at: string | null
+  duration_minutes: number | null; resolution_notes: string | null
+  reported?: { full_name: string } | null; resolved?: { full_name: string } | null
+}
+interface MaintenanceEntry {
+  id: string; maintenance_type: string; status: string; scheduled_date: string | null
+  completed_date: string | null; description: string; performed_by: string | null; cost: number | null
 }
 
 const MACHINE_TYPES = [
@@ -35,6 +44,78 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
   const [form, setForm] = useState(EMPTY_FORM)
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Machine | null>(null)
+  const [logMachine, setLogMachine] = useState<Machine | null>(null)
+  const [downtimeEntries, setDowntimeEntries] = useState<DowntimeEntry[]>([])
+  const [maintenanceEntries, setMaintenanceEntries] = useState<MaintenanceEntry[]>([])
+  const [logTab, setLogTab] = useState<'downtime' | 'maintenance'>('downtime')
+  const [logLoading, setLogLoading] = useState(false)
+  const [downtimeForm, setDowntimeForm] = useState({ category: 'breakdown', reason: '' })
+  const [maintenanceForm, setMaintenanceForm] = useState({ maintenance_type: 'preventive', status: 'scheduled', scheduled_date: '', description: '', performed_by: '', cost: '', next_due_date: '' })
+
+  const openLog = async (m: Machine) => {
+    setLogMachine(m)
+    setLogTab('downtime')
+    setLogLoading(true)
+    try {
+      const [dRes, mRes] = await Promise.all([
+        fetch(`/api/v1/machines/${m.id}/downtime`).then(r => r.json()),
+        fetch(`/api/v1/machines/${m.id}/maintenance`).then(r => r.json()),
+      ])
+      setDowntimeEntries(dRes.data ?? [])
+      setMaintenanceEntries(mRes.data ?? [])
+    } catch { toast.error('Failed to load log') }
+    finally { setLogLoading(false) }
+  }
+
+  const logDowntime = async () => {
+    if (!logMachine) return
+    setLogLoading(true)
+    try {
+      const res = await fetch(`/api/v1/machines/${logMachine.id}/downtime`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(downtimeForm),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setDowntimeEntries(prev => [data, ...prev])
+      setMachines(prev => prev.map(x => x.id === logMachine.id ? { ...x, status: downtimeForm.category === 'breakdown' ? 'breakdown' : 'maintenance' } : x))
+      setDowntimeForm({ category: 'breakdown', reason: '' })
+      toast.success('Downtime logged')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setLogLoading(false) }
+  }
+
+  const closeDowntime = async (entry: DowntimeEntry) => {
+    if (!logMachine) return
+    setLogLoading(true)
+    try {
+      const res = await fetch(`/api/v1/downtime/${entry.id}/close`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_machine_status: 'idle' }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setDowntimeEntries(prev => prev.map(x => x.id === entry.id ? data : x))
+      setMachines(prev => prev.map(x => x.id === logMachine.id ? { ...x, status: 'idle' } : x))
+      toast.success('Downtime resolved — machine back to idle')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setLogLoading(false) }
+  }
+
+  const logMaintenance = async () => {
+    if (!logMachine) return
+    if (!maintenanceForm.description) { toast.error('Description required'); return }
+    setLogLoading(true)
+    try {
+      const res = await fetch(`/api/v1/machines/${logMachine.id}/maintenance`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(maintenanceForm),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setMaintenanceEntries(prev => [data, ...prev])
+      setMaintenanceForm({ maintenance_type: 'preventive', status: 'scheduled', scheduled_date: '', description: '', performed_by: '', cost: '', next_due_date: '' })
+      toast.success('Maintenance record saved')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setLogLoading(false) }
+  }
   const [activeType, setActiveType] = useState('all')
 
   const grouped = MACHINE_TYPES.reduce((acc, t) => {
@@ -139,6 +220,10 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => openLog(machine)} title="Downtime / Maintenance Log"
+                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-warning)] transition-colors">
+                        <History size={13} />
+                      </button>
                       <button onClick={() => openEdit(machine)}
                         className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors">
                         <Pencil size={13} />
@@ -213,6 +298,119 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
             <input className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes about this machine" />
           </div>
         </div>
+      </Modal>
+
+      {/* Downtime / Maintenance Log Modal */}
+      <Modal open={!!logMachine} onClose={() => setLogMachine(null)} title={logMachine ? `Log — ${logMachine.name}` : ''} size="lg">
+        {logMachine && (
+          <div className="space-y-4">
+            <div className="flex gap-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-1 w-fit">
+              {(['downtime', 'maintenance'] as const).map(t => (
+                <button key={t} onClick={() => setLogTab(t)}
+                  className={cn('px-3 h-7 rounded-md text-xs font-medium capitalize transition-all', logTab === t ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)]')}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {logTab === 'downtime' && (
+              <div className="space-y-3">
+                {!downtimeEntries.some(e => !e.ended_at) && (
+                  <div className="rounded-lg border border-[var(--color-border)] p-3 space-y-2">
+                    <p className="text-xs font-medium text-[var(--color-text-primary)]">Log New Downtime</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select className={inputCls} value={downtimeForm.category} onChange={e => setDowntimeForm(p => ({ ...p, category: e.target.value }))}>
+                        <option value="breakdown">Breakdown</option>
+                        <option value="planned_maintenance">Planned Maintenance</option>
+                        <option value="no_operator">No Operator</option>
+                        <option value="material_shortage">Material Shortage</option>
+                        <option value="power_outage">Power Outage</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <input className={inputCls} placeholder="Reason (optional)" value={downtimeForm.reason} onChange={e => setDowntimeForm(p => ({ ...p, reason: e.target.value }))} />
+                    </div>
+                    <button onClick={logDowntime} disabled={logLoading}
+                      className="px-3 h-8 rounded-md bg-[var(--color-danger)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-50">
+                      Log Downtime
+                    </button>
+                  </div>
+                )}
+                <div className="max-h-80 overflow-y-auto space-y-2">
+                  {downtimeEntries.length === 0 ? (
+                    <p className="text-sm text-[var(--color-text-muted)] text-center py-6">No downtime logged yet.</p>
+                  ) : downtimeEntries.map(e => (
+                    <div key={e.id} className="flex items-center justify-between rounded-lg border border-[var(--color-border)] px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] capitalize">{e.category.replace(/_/g, ' ')}{e.reason ? ` — ${e.reason}` : ''}</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          {new Date(e.started_at).toLocaleString('en-PK')}
+                          {e.ended_at ? ` — ${e.duration_minutes ?? '?'} min` : ' — ongoing'}
+                          {e.reported?.full_name ? ` · ${e.reported.full_name}` : ''}
+                        </p>
+                      </div>
+                      {!e.ended_at && (
+                        <button onClick={() => closeDowntime(e)} disabled={logLoading}
+                          className="px-3 h-7 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 flex-shrink-0">
+                          Resolve
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {logTab === 'maintenance' && (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-[var(--color-border)] p-3 space-y-2">
+                  <p className="text-xs font-medium text-[var(--color-text-primary)]">Log Maintenance</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select className={inputCls} value={maintenanceForm.maintenance_type} onChange={e => setMaintenanceForm(p => ({ ...p, maintenance_type: e.target.value }))}>
+                      <option value="preventive">Preventive</option>
+                      <option value="corrective">Corrective</option>
+                      <option value="inspection">Inspection</option>
+                      <option value="calibration">Calibration</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <select className={inputCls} value={maintenanceForm.status} onChange={e => setMaintenanceForm(p => ({ ...p, status: e.target.value }))}>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  <input className={inputCls} placeholder="Description *" value={maintenanceForm.description} onChange={e => setMaintenanceForm(p => ({ ...p, description: e.target.value }))} />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="date" className={inputCls} value={maintenanceForm.scheduled_date} onChange={e => setMaintenanceForm(p => ({ ...p, scheduled_date: e.target.value }))} placeholder="Scheduled date" />
+                    <input className={inputCls} placeholder="Performed by" value={maintenanceForm.performed_by} onChange={e => setMaintenanceForm(p => ({ ...p, performed_by: e.target.value }))} />
+                    <input type="number" className={inputCls} placeholder="Cost (PKR)" value={maintenanceForm.cost} onChange={e => setMaintenanceForm(p => ({ ...p, cost: e.target.value }))} />
+                  </div>
+                  <input type="date" className={inputCls} value={maintenanceForm.next_due_date} onChange={e => setMaintenanceForm(p => ({ ...p, next_due_date: e.target.value }))} placeholder="Next due date (recurring)" />
+                  <button onClick={logMaintenance} disabled={logLoading}
+                    className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">
+                    Save
+                  </button>
+                </div>
+                <div className="max-h-72 overflow-y-auto space-y-2">
+                  {maintenanceEntries.length === 0 ? (
+                    <p className="text-sm text-[var(--color-text-muted)] text-center py-6">No maintenance records yet.</p>
+                  ) : maintenanceEntries.map(e => (
+                    <div key={e.id} className="rounded-lg border border-[var(--color-border)] px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] capitalize">{e.maintenance_type} — {e.description}</p>
+                        <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)] capitalize flex-shrink-0">{e.status.replace('_', ' ')}</span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                        {e.scheduled_date ? `Scheduled ${e.scheduled_date}` : ''}{e.completed_date ? ` · Completed ${e.completed_date}` : ''}
+                        {e.performed_by ? ` · ${e.performed_by}` : ''}{e.cost ? ` · PKR ${Number(e.cost).toLocaleString()}` : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

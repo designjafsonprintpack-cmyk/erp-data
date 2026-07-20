@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send } from 'lucide-react'
+import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -33,6 +33,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
   const [filterStatus, setFilterStatus] = useState('')
   const [newPOModal, setNewPOModal] = useState(false)
   const [receiveModal, setReceiveModal] = useState<PO | null>(null)
+  const [matchModal, setMatchModal] = useState<PO | null>(null)
   const [loading, setLoading] = useState(false)
   const [newVendorModal, setNewVendorModal] = useState(false)
 
@@ -195,6 +196,12 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                         <button onClick={() => { setReceiveModal(po); const q: Record<string,string> = {}; items.forEach(i => { q[i.id] = String(i.quantity - i.quantity_received) }); setReceiveQtys(q) }}
                           className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                           <Check size={11} /> Receive
+                        </button>
+                      )}
+                      {['confirmed','partially_received','received'].includes(po.status) && (
+                        <button onClick={() => setMatchModal(po)}
+                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                          <Scale size={11} /> 3-Way Match
                         </button>
                       )}
                     </div>
@@ -393,6 +400,124 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           </div>
         </div>
       </Modal>
+
+      {/* 3-Way Match Modal */}
+      <Modal open={!!matchModal} onClose={() => setMatchModal(null)} title={matchModal ? `3-Way Match — ${matchModal.po_number}` : ''} size="lg">
+        {matchModal && <ThreeWayMatchView po={matchModal} onClose={() => setMatchModal(null)} />}
+      </Modal>
+    </div>
+  )
+}
+
+const MATCH_STATUS_CFG: Record<string, { label: string; color: string }> = {
+  matched:               { label: 'Matched',           color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  not_billed:            { label: 'Not Billed Yet',    color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
+  partially_billed:      { label: 'Partially Billed',  color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
+  billed_exceeds_received: { label: 'Over-Billed',     color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
+  price_mismatch:        { label: 'Price Mismatch',    color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
+}
+
+function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [billForm, setBillForm] = useState<null | { bill_number: string; bill_date: string; items: any[] }>(null)
+  const [saving, setSaving] = useState(false)
+
+  const load = () => {
+    setLoading(true)
+    fetch(`/api/v1/purchase-orders/${po.id}/three-way-match`)
+      .then(r => r.json())
+      .then(json => setRows(json.data ?? []))
+      .finally(() => setLoading(false))
+  }
+
+  useState(load)
+
+  const startBill = () => {
+    setBillForm({
+      bill_number: '',
+      bill_date: new Date().toISOString().slice(0, 10),
+      items: (po.purchase_order_items || []).map(i => ({
+        po_item_id: i.id, description: i.description,
+        quantity_billed: String(i.quantity_received - (rows.find(r => r.po_item_id === i.id)?.billed_qty || 0)),
+        unit_price: String(i.unit_price),
+      })),
+    })
+  }
+
+  const saveBill = async () => {
+    if (!billForm?.bill_number) { toast.error('Bill number required'); return }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/v1/purchase-orders/${po.id}/bills`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(billForm),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      toast.success('Vendor bill recorded')
+      setBillForm(null)
+      load()
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Loading…</p>
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[var(--color-bg-elevated)] text-xs font-semibold text-[var(--color-text-muted)] uppercase">
+          <div className="col-span-4">Item</div>
+          <div className="col-span-2 text-right">Ordered</div>
+          <div className="col-span-2 text-right">Received</div>
+          <div className="col-span-2 text-right">Billed</div>
+          <div className="col-span-2 text-right">Status</div>
+        </div>
+        <div className="divide-y divide-[var(--color-border-subtle)]">
+          {rows.map(r => {
+            const cfg = MATCH_STATUS_CFG[r.match_status] || MATCH_STATUS_CFG.not_billed
+            return (
+              <div key={r.po_item_id} className="grid grid-cols-12 gap-2 px-3 py-2 items-center text-sm">
+                <div className="col-span-4 text-[var(--color-text-primary)] truncate">{r.description}</div>
+                <div className="col-span-2 text-right text-[var(--color-text-secondary)]">{Number(r.ordered_qty).toLocaleString()}</div>
+                <div className="col-span-2 text-right text-[var(--color-text-secondary)]">{Number(r.received_qty).toLocaleString()}</div>
+                <div className="col-span-2 text-right text-[var(--color-text-secondary)]">{Number(r.billed_qty).toLocaleString()}</div>
+                <div className="col-span-2 text-right">
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full border', cfg.color)}>{cfg.label}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {!billForm ? (
+        <button onClick={startBill} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          Record Vendor Bill
+        </button>
+      ) : (
+        <div className="rounded-lg border border-[var(--color-border)] p-3 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <input className={inputCls} placeholder="Vendor bill number *" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p!, bill_number: e.target.value }))} />
+            <input type="date" className={inputCls} value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p!, bill_date: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {billForm.items.map((item, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-center text-xs">
+                <span className="col-span-6 text-[var(--color-text-secondary)] truncate">{item.description}</span>
+                <input type="number" className={cn(inputCls, 'col-span-3 h-8')} value={item.quantity_billed}
+                  onChange={e => setBillForm(p => { const items = [...p!.items]; items[idx] = { ...items[idx], quantity_billed: e.target.value }; return { ...p!, items } })} />
+                <input type="number" className={cn(inputCls, 'col-span-3 h-8')} value={item.unit_price}
+                  onChange={e => setBillForm(p => { const items = [...p!.items]; items[idx] = { ...items[idx], unit_price: e.target.value }; return { ...p!, items } })} />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={saveBill} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Bill</button>
+            <button onClick={() => setBillForm(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

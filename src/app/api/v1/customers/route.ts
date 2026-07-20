@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { customerSchema } from '@/lib/schemas/customer'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -26,15 +29,17 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
-  const body = await req.json()
+  const parsed = await parseBody(req, customerSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Duplicate detection: an exact match on NTN or phone/mobile is a strong
   // signal this customer already exists. Warn (409) instead of silently
@@ -91,14 +96,16 @@ export async function POST(req: NextRequest) {
     p_document_type: 'CUST',
   })
 
+  const { force, ...customerFields } = body
+
   const { data, error } = await supabase.from('customers' as any).insert({
-    ...body,
+    ...customerFields,
     company_id: companyId,
     customer_code: seqData || `CUST-${Date.now()}`,
-    credit_limit: parseFloat(body.credit_limit || '0'),
-    payment_terms: parseInt(body.payment_terms || '30'),
+    credit_limit: parseFloat(String(body.credit_limit ?? '0')),
+    payment_terms: parseInt(String(body.payment_terms ?? '30')),
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})

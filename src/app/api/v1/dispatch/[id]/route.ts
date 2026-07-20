@@ -2,11 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { sendWhatsApp } from '@/lib/utils/sendWhatsApp'
+import { sendEmail } from '@/lib/utils/sendEmail'
 import { notify } from '@/modules/notifications/services/notificationService'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -22,15 +25,18 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
   if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ data })
-}
+})
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'dispatch', 'edit', supabase)
+  if (denied) return denied
+
   const body = await req.json()
 
   // Fetch current dispatch + items for event recording
@@ -112,6 +118,37 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
               ? `WhatsApp notifications are enabled in Settings but Meta WhatsApp Cloud API is not configured yet (dispatch ${curr.dispatch_number}).`
               : `Could not send dispatch WhatsApp message for ${curr.dispatch_number}: ${result.reason}`,
             type: 'warning',
+            group_key: `whatsapp_failed:dispatch:${params.id}`,
+            digest_window_minutes: 1440,
+          }).catch(() => {})
+        }
+      }
+
+      // Mirror of the WhatsApp block above, for the "Email on dispatch"
+      // setting. Same non-blocking, never-throws behavior.
+      const { data: emailSetting } = await supabase.from('system_settings' as any)
+        .select('value').eq('company_id', companyId).eq('key', 'dispatch_email').maybeSingle()
+
+      if ((emailSetting as any)?.value === 'true') {
+        const customerEmail = curr.customers?.email
+        const result = await sendEmail(
+          customerEmail,
+          `Your order ${curr.dispatch_number} has been dispatched`,
+          `<p>Dear ${curr.customers?.name || 'Customer'},</p>
+           <p>Your order <b>${curr.dispatch_number}</b> has been dispatched. Thank you for choosing us.</p>
+           <p>Jafson Print Pack</p>`
+        )
+        if (!result.sent && userTableId) {
+          await notify({
+            user_id: userTableId,
+            company_id: companyId,
+            title: 'Dispatch email not sent',
+            message: result.reason === 'not_configured'
+              ? `Email notifications are enabled in Settings but Resend is not configured yet (dispatch ${curr.dispatch_number}).`
+              : `Could not send dispatch email for ${curr.dispatch_number}: ${result.reason}`,
+            type: 'warning',
+            group_key: `email_failed:dispatch:${params.id}`,
+            digest_window_minutes: 1440,
           }).catch(() => {})
         }
       }
@@ -119,9 +156,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   return NextResponse.json({ data })
-}
+})
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export const DELETE = withErrorHandling(async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -131,4 +168,4 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
     .eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
-}
+})

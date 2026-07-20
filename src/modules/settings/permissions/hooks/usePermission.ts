@@ -28,7 +28,7 @@ async function loadPermissions(): Promise<{ perms: Set<string>; role: string }> 
     .is('deleted_at', null)
     .eq('is_active', true)
 
-  const roleIds = ((data ?? []) as Array<{ role_id: string }>).map(r => r.role_id)
+  const roleIds = ((data ?? []) as unknown as Array<{ role_id: string }>).map(r => r.role_id)
   if (!roleIds.length) { cachedPermissions = new Set(); return { perms: cachedPermissions, role } }
 
   const { data: rp } = await supabase
@@ -38,7 +38,7 @@ async function loadPermissions(): Promise<{ perms: Set<string>; role: string }> 
     .is('deleted_at', null)
     .eq('is_active', true)
 
-  const permIds = ((rp ?? []) as Array<{ permission_id: string }>).map(r => r.permission_id)
+  const permIds = ((rp ?? []) as unknown as Array<{ permission_id: string }>).map(r => r.permission_id)
   if (!permIds.length) { cachedPermissions = new Set(); return { perms: cachedPermissions, role } }
 
   const { data: permsData } = await supabase
@@ -47,7 +47,7 @@ async function loadPermissions(): Promise<{ perms: Set<string>; role: string }> 
     .in('id', permIds)
 
   const perms = new Set(
-    ((permsData ?? []) as Array<{ module: string; action: string }>)
+    ((permsData ?? []) as unknown as Array<{ module: string; action: string }>)
       .map(p => `${p.module}::${p.action}`)
   )
   cachedPermissions = perms

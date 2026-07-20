@@ -1,13 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Briefcase, DollarSign, Cpu, Shield, Users, BarChart3, Activity,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Package
+  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface KPI {
@@ -76,7 +77,7 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
   )
 }
 
-type Tab = 'overview' | 'production' | 'customers' | 'financial' | 'quality'
+type Tab = 'overview' | 'production' | 'customers' | 'financial' | 'quality' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
 export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs }: {
@@ -90,24 +91,58 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   const maxMachineAsgn  = Math.max(...machines.map(m => m.total_assignments), 1)
   const maxFinancial    = Math.max(...financial.map(f => f.total_invoiced), 1)
 
+  // Returns an export function for the given tab, or null if that tab has
+  // nothing meaningful to export (overview is a KPI dashboard, not a table).
+  const exportForTab = (t: Tab): (() => void) | null => {
+    switch (t) {
+      case 'production':
+        return () => exportToExcel(
+          monthly.map(m => ({ Month: m.month_label, 'Jobs Created': m.jobs_created, 'Jobs Completed': m.jobs_completed, 'Jobs Dispatched': m.jobs_dispatched, 'Jobs Cancelled': m.jobs_cancelled, 'On Hold': m.jobs_on_hold, 'Total Quantity': m.total_quantity, 'Quoted Value (PKR)': m.total_quoted_value, 'Avg Turnaround (days)': m.avg_turnaround_days, 'On-Time %': m.on_time_pct })),
+          'production-report', 'Monthly Production')
+      case 'customers':
+        return () => exportToExcel(
+          customers.map(c => ({ Customer: c.customer_name, Code: c.customer_code, 'Total Jobs': c.total_jobs, 'Completed Jobs': c.completed_jobs, 'Invoiced (PKR)': c.total_invoiced, 'Paid (PKR)': c.total_paid, 'Outstanding (PKR)': c.total_outstanding })),
+          'customer-report', 'Customer Sales')
+      case 'financial':
+        return () => exportToExcel(
+          financial.map(f => ({ Month: f.month_label, Invoices: f.invoice_count, 'Invoiced (PKR)': f.total_invoiced, 'Collected (PKR)': f.total_collected, 'Outstanding (PKR)': f.total_outstanding, 'Overdue Count': f.overdue_count, 'Overdue Amount (PKR)': f.overdue_amount })),
+          'financial-report', 'Financial')
+      case 'quality':
+        return () => exportToExcel(
+          qc.map(q => ({ Month: q.month_label, Inspections: q.total_inspections, Passed: q.passed, Failed: q.failed, Conditional: q.conditional, 'Pass Rate %': q.pass_rate_pct, Defects: q.total_defects, Reprints: q.reprint_requests })),
+          'qc-report', 'Quality')
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {([
-          ['overview',   'Overview',    BarChart3],
-          ['production', 'Production',  Cpu],
-          ['customers',  'Customers',   Users],
-          ['financial',  'Financial',   DollarSign],
-          ['quality',    'Quality',     Shield],
-        ] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={cn('flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-medium border transition-all',
-              tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
-            <Icon size={13} />{label}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1 flex-wrap">
+          {([
+            ['overview',   'Overview',    BarChart3],
+            ['production', 'Production',  Cpu],
+            ['customers',  'Customers',   Users],
+            ['financial',  'Financial',   DollarSign],
+            ['quality',    'Quality',     Shield],
+            ['custom',     'Custom Report', Sliders],
+          ] as const).map(([key, label, Icon]) => (
+            <button key={key} onClick={() => setTab(key)}
+              className={cn('flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-medium border transition-all',
+                tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+              <Icon size={13} />{label}
+            </button>
+          ))}
+          <span className="text-xs text-[var(--color-text-muted)] ml-2">Last 30 days</span>
+        </div>
+        {exportForTab(tab) && (
+          <button onClick={() => exportForTab(tab)!()}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <Download size={13} /> Export to Excel
           </button>
-        ))}
-        <span className="text-xs text-[var(--color-text-muted)] ml-2">Last 30 days</span>
+        )}
       </div>
 
       {/* ── OVERVIEW TAB ─────────────────────────────────────────────────────── */}
@@ -473,6 +508,153 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             )}
           </Section>
         </div>
+      )}
+
+      {tab === 'custom' && <CustomReportBuilder />}
+    </div>
+  )
+}
+
+interface EntityColumn { key: string; label: string }
+
+function CustomReportBuilder() {
+  const [entities, setEntities] = useState<Record<string, EntityColumn[]>>({})
+  const [entity, setEntity] = useState('jobs')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [status, setStatus] = useState('')
+  const [selectedCols, setSelectedCols] = useState<Set<string>>(new Set())
+  const [rows, setRows] = useState<Record<string, any>[]>([])
+  const [loading, setLoading] = useState(false)
+  const [hasRun, setHasRun] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/v1/reports/custom?meta=entities')
+      .then(r => r.json())
+      .then(json => {
+        setEntities(json.data ?? {})
+        const cols = json.data?.jobs?.map((c: EntityColumn) => c.key) ?? []
+        setSelectedCols(new Set(cols))
+      })
+  }, [])
+
+  const columns = entities[entity] ?? []
+
+  const changeEntity = (e: string) => {
+    setEntity(e)
+    setSelectedCols(new Set((entities[e] ?? []).map(c => c.key)))
+    setRows([])
+    setHasRun(false)
+  }
+
+  const toggleCol = (key: string) => {
+    setSelectedCols(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  const run = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/v1/reports/custom', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity, date_from: dateFrom || undefined, date_to: dateTo || undefined, status: status || undefined }),
+      })
+      const json = await res.json()
+      setRows(json.data ?? [])
+      setHasRun(true)
+    } finally { setLoading(false) }
+  }
+
+  const exportRows = () => {
+    const visibleCols = columns.filter(c => selectedCols.has(c.key))
+    const shaped = rows.map(r => Object.fromEntries(visibleCols.map(c => [c.label, r[c.key]])))
+    exportToExcel(shaped, `custom-report-${entity}`, entity)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 space-y-4">
+        <div className="grid grid-cols-4 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">Report On</label>
+            <select value={entity} onChange={e => changeEntity(e.target.value)}
+              className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+              {Object.keys(entities).map(key => <option key={key} value={key}>{key.replace(/_/g, ' ')}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">From</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">To</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">Status (optional)</label>
+            <input value={status} onChange={e => setStatus(e.target.value)} placeholder="e.g. completed"
+              className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-[var(--color-text-muted)] mb-2 block">Columns</label>
+          <div className="flex flex-wrap gap-2">
+            {columns.map(c => (
+              <button key={c.key} onClick={() => toggleCol(c.key)}
+                className={cn('px-3 h-7 rounded-full text-xs font-medium border transition-all',
+                  selectedCols.has(c.key) ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-muted)]')}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={run} disabled={loading}
+            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            {loading ? 'Running…' : 'Run Report'}
+          </button>
+          {rows.length > 0 && (
+            <button onClick={exportRows}
+              className="flex items-center gap-1.5 px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Download size={14} /> Export to Excel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {hasRun && (
+        rows.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-10">No results for this filter.</p>
+        ) : (
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+                  {columns.filter(c => selectedCols.has(c.key)).map(c => (
+                    <th key={c.key} className="text-left py-2.5 px-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase whitespace-nowrap">{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                {rows.map((row, i) => (
+                  <tr key={i} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    {columns.filter(c => selectedCols.has(c.key)).map(c => (
+                      <td key={c.key} className="py-2 px-3 text-[var(--color-text-secondary)] whitespace-nowrap">{String(row[c.key] ?? '—')}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-[var(--color-text-muted)] px-3 py-2 border-t border-[var(--color-border-subtle)]">{rows.length} rows (max 500)</p>
+          </div>
+        )
       )}
     </div>
   )

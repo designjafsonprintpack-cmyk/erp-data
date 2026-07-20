@@ -7,13 +7,13 @@ export default async function MaterialsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
-  const [board, paper, ink, glue, foil, lamination] = await Promise.all([
+  const [board, paper, ink, glue, foil, costItems] = await Promise.all([
     supabase.from('board_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('paper_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('ink_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('glue_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('foil_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
-    supabase.from('lamination_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
+    supabase.from('cost_item_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
   ])
 
   return (
@@ -29,7 +29,7 @@ export default async function MaterialsPage() {
           ink: (ink.data ?? []) as any[],
           glue: (glue.data ?? []) as any[],
           foil: (foil.data ?? []) as any[],
-          lamination: (lamination.data ?? []) as any[],
+          costItems: (costItems.data ?? []) as any[],
         }}
       />
     </div>

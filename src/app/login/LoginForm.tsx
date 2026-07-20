@@ -1,14 +1,14 @@
 'use client'
 import { useState, type FormEvent } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { signIn } from '@/modules/auth/services/authService'
 import { cn } from '@/lib/utils/cn'
 
 export default function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/dashboard'
+  const idleTimeout = searchParams.get('reason') === 'idle'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -22,7 +22,13 @@ export default function LoginForm() {
     setError('')
     try {
       await signIn({ email, password })
-      router.push(redirect)
+      // Full navigation (not router.push) — the session was established via
+      // a server-side fetch() call, not the browser Supabase client's own
+      // signInWithPassword, so the browser client's in-memory auth state
+      // doesn't know about it yet. A hard navigation re-reads everything
+      // from the now-set cookies instead of relying on client-side state
+      // that was never told a login happened.
+      window.location.href = redirect
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password.')
     } finally {
@@ -41,6 +47,11 @@ export default function LoginForm() {
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-6 shadow-2xl">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {idleTimeout && !error && (
+          <div className="rounded-md bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 px-3 py-2">
+            <p className="text-sm text-[var(--color-warning)]">You were signed out due to inactivity. Please sign in again.</p>
+          </div>
+        )}
         {error && (
           <div className="rounded-md bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/30 px-3 py-2">
             <p className="text-sm text-[var(--color-danger)]">{error}</p>

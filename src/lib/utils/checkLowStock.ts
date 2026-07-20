@@ -37,6 +37,8 @@ export async function checkLowStockAndNotify(
         message: `${description} is at ${stockAfter} — at or below the reorder level of ${reorderLevel}.`,
         type: 'warning',
         link_url: '/dashboard/board-inventory',
+        group_key: `low_stock:${boardItemId}`,
+        digest_window_minutes: 240,
       })
     } catch {
       // Best-effort — a failed notification should never block the caller's

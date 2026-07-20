@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, FileText, Calendar, User, CheckCircle, XCircle, Printer } from 'lucide-react'
+import { ArrowLeft, Pencil, FileText, Calendar, User, CheckCircle, XCircle, Printer, Truck, Receipt } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/Modal'
 import { useRouter } from 'next/navigation'
 
 interface SOItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number; notes: string | null }
+interface FulfillmentRow { sales_order_item_id: string; ordered_qty: number; dispatched_qty: number; invoiced_qty: number }
 interface SO {
   id: string; so_number: string; status: string; order_date: string; required_date: string | null
   discount_percent: number; discount_amount: number; subtotal: number; tax_amount: number; total_amount: number
@@ -22,6 +23,18 @@ export default function SODetailClient({ so }: { so: SO }) {
   const router = useRouter()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fulfillment, setFulfillment] = useState<Record<string, FulfillmentRow>>({})
+
+  useEffect(() => {
+    fetch(`/api/v1/sales-orders/${so.id}/fulfillment`)
+      .then(r => r.json())
+      .then(json => {
+        const map: Record<string, FulfillmentRow> = {}
+        for (const row of (json.data ?? []) as FulfillmentRow[]) map[row.sales_order_item_id] = row
+        setFulfillment(map)
+      })
+      .catch(() => {})
+  }, [so.id])
   const cfg = SO_STATUS_CONFIG[so.status] || SO_STATUS_CONFIG.confirmed
 
   const isUrgent = so.required_date && new Date(so.required_date) <= new Date(Date.now() + 3 * 86400000) && !['completed', 'dispatched', 'cancelled'].includes(so.status)
@@ -149,7 +162,7 @@ export default function SODetailClient({ so }: { so: SO }) {
         <div className="grid gap-0" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr' }}>
           {/* Header */}
           <div className="contents">
-            {['Description', 'Size (mm)', 'Qty', 'Colors', 'Unit Price', 'Subtotal', ''].map((h, i) => (
+            {['Description', 'Size (mm)', 'Qty', 'Colors', 'Unit Price', 'Subtotal', 'Fulfillment'].map((h, i) => (
               <div key={i} className="px-5 py-2 bg-[var(--color-bg-elevated)]/60 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</div>
             ))}
           </div>
@@ -178,7 +191,30 @@ export default function SODetailClient({ so }: { so: SO }) {
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
                 <span className="text-sm font-semibold text-[var(--color-text-primary)]">{Number(item.subtotal).toLocaleString()}</span>
               </div>
-              <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]" />
+              <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
+                {(() => {
+                  const f = fulfillment[item.id]
+                  if (!f) return <span className="text-xs text-[var(--color-text-muted)]">—</span>
+                  const dispatchedPct = item.quantity > 0 ? Math.min(100, Math.round((f.dispatched_qty / item.quantity) * 100)) : 0
+                  const invoicedPct = item.quantity > 0 ? Math.min(100, Math.round((f.invoiced_qty / item.quantity) * 100)) : 0
+                  return (
+                    <div className="space-y-1 w-full max-w-[140px]">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Truck size={11} className={dispatchedPct >= 100 ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'} />
+                        <span className={dispatchedPct >= 100 ? 'text-[var(--color-success)]' : 'text-[var(--color-text-secondary)]'}>
+                          {f.dispatched_qty.toLocaleString()} / {item.quantity.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Receipt size={11} className={invoicedPct >= 100 ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'} />
+                        <span className={invoicedPct >= 100 ? 'text-[var(--color-success)]' : 'text-[var(--color-text-secondary)]'}>
+                          {f.invoiced_qty.toLocaleString()} / {item.quantity.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
           ))}
         </div>

@@ -14,6 +14,7 @@ export default async function EditSOPage({ params }: { params: { id: string } })
     supabase.from('board_types' as any).select('id, name').eq('company_id', companyId).is('deleted_at', null),
   ])
   if (!soRes.data) notFound()
-  const so = { ...soRes.data, sales_order_items: Array.isArray((soRes.data as any).sales_order_items) ? [...(soRes.data as any).sales_order_items].sort((a: any, b: any) => a.sort_order - b.sort_order) : [] }
+  const soData = soRes.data as unknown as Record<string, any>
+  const so = { ...soData, sales_order_items: Array.isArray((soData as any).sales_order_items) ? [...(soData as any).sales_order_items].sort((a: any, b: any) => a.sort_order - b.sort_order) : [] }
   return <SOFormClient mode="edit" customers={(customersRes.data ?? []) as any[]} boardTypes={(boardTypesRes.data ?? []) as any[]} initialData={so as any} />
 }

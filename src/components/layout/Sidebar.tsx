@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Briefcase,
   Image, Calendar, Package, BarChart3, Truck, TrendingUp,
-  UserCog, Settings, ChevronLeft, ChevronRight, Building2
+  UserCog, Settings, ChevronLeft, ChevronRight, Building2, Layers, ClipboardList
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { SIDEBAR_COLLAPSED_KEY } from '@/config/app'
@@ -17,9 +17,11 @@ const navItems = [
   { label: 'Sales Orders', href: '/dashboard/sales-orders', icon: ShoppingCart },
   { label: 'Jobs', href: '/dashboard/jobs', icon: Briefcase },
   { label: 'Artwork', href: '/dashboard/artwork', icon: Image },
+  { label: 'Plates', href: '/dashboard/plates', icon: Layers },
   { label: 'Planning', href: '/dashboard/planning', icon: Calendar },
   { label: 'Store', href: '/dashboard/store', icon: Package },
   { label: 'Board Inventory', href: '/dashboard/board-inventory', icon: Building2 },
+  { label: 'MRP', href: '/dashboard/mrp', icon: ClipboardList },
   { label: 'Purchase', href: '/dashboard/purchase', icon: ShoppingCart },
   { label: 'Vendors', href: '/dashboard/vendors', icon: Users },
   { divider: true, label: 'Production' },

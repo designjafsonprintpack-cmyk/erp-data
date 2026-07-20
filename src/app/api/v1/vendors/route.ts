@@ -1,30 +1,38 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
 
   let q = supabase.from('vendors' as any).select('*', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
   if (search) q = q.or(`name.ilike.%${search}%,vendor_code.ilike.%${search}%`)
 
   const { data, error, count } = await q.order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'purchase', 'create', supabase)
+  if (denied) return denied
   const body = await req.json()
 
   const { data: vendorCode } = await (supabase as any).rpc('get_next_sequence_number', {
@@ -38,4 +46,4 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})

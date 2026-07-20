@@ -11,7 +11,7 @@ export async function getRoles(): Promise<Role[]> {
     .eq('is_active', true)
     .order('name')
   if (error) throw new AppError('FETCH_ROLES_FAILED', error.message)
-  return (data ?? []) as Role[]
+  return (data ?? []) as unknown as Role[]
 }
 
 export async function getPermissions(): Promise<Permission[]> {
@@ -23,7 +23,7 @@ export async function getPermissions(): Promise<Permission[]> {
     .eq('is_active', true)
     .order('module')
   if (error) throw new AppError('FETCH_PERMISSIONS_FAILED', error.message)
-  return (data ?? []) as Permission[]
+  return (data ?? []) as unknown as Permission[]
 }
 
 export async function getRolePermissions(roleId: string): Promise<string[]> {
@@ -35,7 +35,7 @@ export async function getRolePermissions(roleId: string): Promise<string[]> {
     .is('deleted_at', null)
     .eq('is_active', true)
   if (error) throw new AppError('FETCH_ROLE_PERMISSIONS_FAILED', error.message)
-  return ((data ?? []) as Array<{ permission_id: string }>).map(r => r.permission_id)
+  return ((data ?? []) as unknown as Array<{ permission_id: string }>).map(r => r.permission_id)
 }
 
 export async function buildPermissionMatrix(
@@ -51,7 +51,7 @@ export async function buildPermissionMatrix(
   if (error) throw new AppError('FETCH_MATRIX_FAILED', error.message)
 
   const granted = new Set(
-    ((data ?? []) as Array<{ role_id: string; permission_id: string }>)
+    ((data ?? []) as unknown as Array<{ role_id: string; permission_id: string }>)
       .map(r => `${r.role_id}::${r.permission_id}`)
   )
 

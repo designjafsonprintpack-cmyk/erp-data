@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 function decodeJwtPayload(token: string): Record<string, any> | null {
   try {
@@ -13,7 +14,7 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
   }
 }
 
-export async function GET(_req: NextRequest) {
+export const GET = withErrorHandling(async function GET(_req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,4 +36,4 @@ export async function GET(_req: NextRequest) {
     .select('*, branches(id,name,is_default)').order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [] })
-}
+})

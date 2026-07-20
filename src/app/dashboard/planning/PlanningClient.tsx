@@ -32,6 +32,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
   const [form, setForm] = useState({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
   const [selectedMachines, setSelectedMachines] = useState<{ machine_id: string; estimated_hours: string }[]>([])
   const [activeTab, setActiveTab] = useState<'schedule' | 'unplanned'>('schedule')
+  const [scheduleView, setScheduleView] = useState<'timeline' | 'calendar'>('timeline')
 
   // Group plans by date
   const grouped = plans.reduce((acc, p) => {
@@ -96,6 +97,16 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
               {label}
             </button>
           ))}
+          {activeTab === 'schedule' && (
+            <div className="flex items-center gap-1 ml-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5">
+              {(['timeline', 'calendar'] as const).map(v => (
+                <button key={v} onClick={() => setScheduleView(v)}
+                  className={cn('px-3 h-6 rounded text-xs font-medium capitalize transition-colors', scheduleView === v ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)]')}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button onClick={() => setPlanModal(true)}
           className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
@@ -104,7 +115,10 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
       </div>
 
       {/* ── SCHEDULE TAB ─────────────────────────────────────────────────────── */}
-      {activeTab === 'schedule' && (
+      {activeTab === 'schedule' && scheduleView === 'calendar' && (
+        <PlanningCalendar plans={plans} />
+      )}
+      {activeTab === 'schedule' && scheduleView === 'timeline' && (
         Object.keys(grouped).length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-16 text-center">
             <Calendar size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
@@ -279,6 +293,83 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+function PlanningCalendar({ plans }: { plans: Plan[] }) {
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date()
+    const day = d.getDay() // 0 = Sunday
+    d.setDate(d.getDate() - day)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + i)
+    return d
+  })
+
+  const byDate = plans.reduce((acc, p) => {
+    if (!acc[p.planned_date]) acc[p.planned_date] = []
+    acc[p.planned_date].push(p)
+    return acc
+  }, {} as Record<string, Plan[]>)
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <button onClick={() => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n })}
+          className="px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          ← Previous Week
+        </button>
+        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+          {formatDate(days[0].toISOString().slice(0, 10), { day: 'numeric', month: 'short' })} — {formatDate(days[6].toISOString().slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}
+        </p>
+        <button onClick={() => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n })}
+          className="px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          Next Week →
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-2">
+        {days.map(d => {
+          const dateStr = d.toISOString().slice(0, 10)
+          const dayPlans = byDate[dateStr] || []
+          const isToday = dateStr === today
+          return (
+            <div key={dateStr} className={cn('rounded-lg border min-h-[220px]', isToday ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]')}>
+              <div className={cn('px-2 py-1.5 text-center border-b', isToday ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)]')}>
+                <p className="text-xs font-medium text-[var(--color-text-muted)]">{d.toLocaleDateString('en-PK', { weekday: 'short' })}</p>
+                <p className={cn('text-sm font-semibold', isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]')}>{d.getDate()}</p>
+              </div>
+              <div className="p-1.5 space-y-1.5">
+                {dayPlans.length === 0 ? (
+                  <p className="text-xs text-[var(--color-text-muted)] text-center py-4">—</p>
+                ) : dayPlans.map(p => {
+                  const priorityCfg = JOB_PRIORITY_CONFIG[p.jobs?.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
+                  return (
+                    <Link key={p.id} href={`/dashboard/jobs/${p.job_id}`}
+                      className="block px-2 py-1.5 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-accent)]/40 transition-colors">
+                      <p className="text-xs font-mono text-[var(--color-accent)] truncate">{p.jobs?.job_number}</p>
+                      <p className="text-xs text-[var(--color-text-primary)] truncate">{p.jobs?.job_title}</p>
+                      {p.job_machine_assignments && p.job_machine_assignments.length > 0 && (
+                        <p className="text-[10px] text-[var(--color-text-muted)] truncate mt-0.5">
+                          {p.job_machine_assignments.map(m => m.machines?.name).filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

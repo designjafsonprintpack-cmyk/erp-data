@@ -1,13 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Truck, Plus, Package, CheckCircle2, MapPin, Phone,
-  ChevronDown, ChevronRight, FileText, Camera, Clock, Send
+  ChevronDown, ChevronRight, FileText, Camera, Clock, Send, ExternalLink
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
+import { getCourierTrackingLink } from '@/lib/utils/courierTracking'
 import Link from 'next/link'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
@@ -50,6 +52,7 @@ const EMPTY_ITEM = { job_id: '', quantity_dispatched: '', carton_count: '', weig
 export default function DispatchClient({ initialDispatches, customers, readyJobs }: {
   initialDispatches: Dispatch[]; customers: Customer[]; readyJobs: Job[]
 }) {
+  const searchParams = useSearchParams()
   const [dispatches, setDispatches] = useState(initialDispatches)
   const [filterStatus, setFilterStatus] = useState('')
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
@@ -75,6 +78,17 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
   const [actionNotes, setActionNotes] = useState('')
 
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // If the scan page routed here with ?dispatch=<id> (a scanned QR label
+  // matched a dispatch), jump straight into its detail row instead of
+  // leaving the user to find it in the list themselves.
+  useEffect(() => {
+    const targetId = searchParams.get('dispatch')
+    if (targetId && dispatches.some(d => d.id === targetId)) {
+      setExpanded(p => new Set(p).add(targetId))
+      document.getElementById(`dispatch-${targetId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [searchParams, dispatches])
 
   const filtered = dispatches.filter(d => {
     if (tab === 'pending')    return d.status === 'pending' || d.status === 'ready'
@@ -226,7 +240,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               const pod    = d.proof_of_delivery?.[0]
 
               return (
-                <div key={d.id}>
+                <div key={d.id} id={`dispatch-${d.id}`}>
                   {/* Main row */}
                   <div className={cn('flex items-center gap-4 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
                     <button onClick={() => toggle(d.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
@@ -253,6 +267,22 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                         {d.vehicle_number && <span>🚚 {d.vehicle_number}</span>}
                         {d.courier_name && <span>📦 {d.courier_name}</span>}
                         {d.tracking_number && <span>#{d.tracking_number}</span>}
+                        {(() => {
+                          const track = getCourierTrackingLink(d.courier_name, d.tracking_number)
+                          if (!track) return null
+                          return (
+                            <button
+                              onClick={async (e) => {
+                                e.preventDefault(); e.stopPropagation()
+                                if (d.tracking_number) { try { await navigator.clipboard.writeText(d.tracking_number) } catch {} }
+                                window.open(track.url, '_blank', 'noopener,noreferrer')
+                              }}
+                              title={d.tracking_number ? 'Copies tracking number and opens courier site' : undefined}
+                              className="flex items-center gap-1 text-[var(--color-accent)] hover:underline">
+                              <ExternalLink size={10} /> {track.label}
+                            </button>
+                          )
+                        })()}
                         {d.scheduled_date && <span className="flex items-center gap-1"><Clock size={10} />{formatDate(d.scheduled_date)}</span>}
                         {d.dispatched_at && <span>Dispatched {formatTimeAgo(d.dispatched_at)}</span>}
                       </div>

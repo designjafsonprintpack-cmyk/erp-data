@@ -17,7 +17,8 @@ export default async function NewJobPage() {
     supabase.from('sales_orders' as any).select('id,so_number,customers(name)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
   ])
 
-  const defaultWorkflow = (workflows.data ?? []).find((w: any) => w.is_default)?.id || ''
+  const defaultWorkflow = ((workflows.data ?? []) as unknown as Array<{ id: string; is_default: boolean }>).find(w => w.is_default)?.id || ''
+  const salesOrdersData = (salesOrders.data ?? []) as unknown as Array<{ id: string; so_number: string; customers: { name: string } | null }>
 
   return (
     <NewJobClient

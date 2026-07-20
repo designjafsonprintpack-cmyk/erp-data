@@ -72,16 +72,20 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               <div className="logo">Jafson Print Pack</div>
               <div style={{ fontSize: 11, color: '#57606a', marginTop: 2 }}>Digital Job Card</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="job-number">{j.job_number}</div>
-              <div style={{ marginTop: 4 }}>
-                <span className={`badge badge-${j.status}`}>{j.status?.replace('_', ' ').toUpperCase()}</span>
-                {j.priority !== 'normal' && (
-                  <span style={{ marginLeft: 6, fontWeight: 700, color: j.priority === 'urgent' ? '#cf222e' : '#9a6700' }}>
-                    {j.priority?.toUpperCase()}
-                  </span>
-                )}
+            <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div>
+                <div className="job-number">{j.job_number}</div>
+                <div style={{ marginTop: 4 }}>
+                  <span className={`badge badge-${j.status}`}>{j.status?.replace('_', ' ').toUpperCase()}</span>
+                  {j.priority !== 'normal' && (
+                    <span style={{ marginLeft: 6, fontWeight: 700, color: j.priority === 'urgent' ? '#cf222e' : '#9a6700' }}>
+                      {j.priority?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
               </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/v1/print/qr?data=${encodeURIComponent(j.job_number)}`} width={64} height={64} alt={`QR code for ${j.job_number}`} />
             </div>
           </div>
 

@@ -32,6 +32,7 @@ const EVENT_LABELS: Record<string, string> = {
   hold_started: 'Put On Hold', hold_ended: 'Resumed', remark_added: 'Remark Added',
   artwork_uploaded: 'Artwork Uploaded', repeat_created: 'Repeat Job Created',
   assigned: 'Assigned', priority_changed: 'Priority Changed', wastage_recorded: 'Wastage Recorded',
+  plate_assigned: 'Plate Assigned', plate_returned: 'Plate Returned',
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -41,6 +42,7 @@ const EVENT_COLORS: Record<string, string> = {
   hold_ended: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
   remark_added: 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)]',
   wastage_recorded: 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+  plate_assigned: 'bg-[var(--color-info)]/10 text-[var(--color-info)]',
 }
 
 function daysUrgency(required_date: string | null, status: JobStatus) {

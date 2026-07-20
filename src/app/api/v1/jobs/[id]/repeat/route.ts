@@ -1,19 +1,26 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'jobs', 'create', supabase)
+  if (denied) return denied
+
   const { quantity, required_date, notes, same_artwork } = await req.json()
 
   // Fetch original job
   const { data: original, error: origErr } = await supabase.from('jobs' as any)
-    .select('*').eq('id', params.id).single()
+    .select('*').eq('id', params.id).eq('company_id', companyId).single()
 
   if (origErr || !original) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
@@ -96,4 +103,4 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }, supabase)
 
   return NextResponse.json({ data: newJobData })
-}
+})

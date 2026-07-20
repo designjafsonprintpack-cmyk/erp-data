@@ -22,13 +22,14 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
   const [showLowOnly, setShowLowOnly] = useState(false)
   const [addModal, setAddModal] = useState(false)
   const [movementModal, setMovementModal] = useState<{ item: BoardItem; action: 'in' | 'out' | 'adjustment' } | null>(null)
+  const [lotsItem, setLotsItem] = useState<BoardItem | null>(null)
   const [loading, setLoading] = useState(false)
 
   const [addForm, setAddForm] = useState({
     description: '', board_type_id: '', gsm: '', size_l: '', size_w: '',
     current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '',
   })
-  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '' })
+  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '' })
 
   const filtered = items
     .filter(i => !search || i.description.toLowerCase().includes(search.toLowerCase()))
@@ -64,13 +65,13 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
     try {
       const res = await fetch(`/api/v1/board-inventory/${movementModal.item.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: movementModal.action, quantity: qty, notes: moveForm.notes }),
+        body: JSON.stringify({ action: movementModal.action, quantity: qty, notes: moveForm.notes, lot_number: moveForm.lot_number || undefined }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setItems(prev => prev.map(i => i.id === movementModal.item.id ? { ...i, current_stock: (data as any).current_stock } : i))
       setMovementModal(null)
-      setMoveForm({ quantity: '', notes: '' })
+      setMoveForm({ quantity: '', notes: '', lot_number: '' })
       toast.success(movementModal.action === 'in' ? 'Stock added' : movementModal.action === 'out' ? 'Stock reduced' : 'Stock adjusted')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -159,15 +160,19 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
                 <div className="col-span-1 text-right text-xs text-[var(--color-text-muted)]">{item.reorder_level.toLocaleString()}</div>
                 <div className="col-span-1 text-xs text-[var(--color-text-muted)] truncate">{item.location || '—'}</div>
                 <div className="col-span-2 flex items-center gap-1 justify-end">
-                  <button onClick={() => { setMovementModal({ item, action: 'in' }); setMoveForm({ quantity: '', notes: '' }) }}
+                  <button onClick={() => setLotsItem(item)} title="Lot History"
+                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                    <Layers size={11} />
+                  </button>
+                  <button onClick={() => { setMovementModal({ item, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
                     className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
                     <TrendingUp size={11} /> In
                   </button>
-                  <button onClick={() => { setMovementModal({ item, action: 'out' }); setMoveForm({ quantity: '', notes: '' }) }}
+                  <button onClick={() => { setMovementModal({ item, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
                     className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
                     <TrendingDown size={11} /> Out
                   </button>
-                  <button onClick={() => { setMovementModal({ item, action: 'adjustment' }); setMoveForm({ quantity: String(item.current_stock), notes: '' }) }}
+                  <button onClick={() => { setMovementModal({ item, action: 'adjustment' }); setMoveForm({ quantity: String(item.current_stock), notes: '', lot_number: '' }) }}
                     className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                     <SlidersHorizontal size={11} /> Adj
                   </button>
@@ -269,6 +274,12 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
               <input type="number" className={inputCls} value={moveForm.quantity} onChange={e => setMoveForm(p => ({ ...p, quantity: e.target.value }))}
                 placeholder={movementModal.action === 'adjustment' ? 'Enter exact stock count' : 'Enter quantity'} />
             </div>
+            {movementModal.action === 'in' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
+                <input className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
               <input className={inputCls} value={moveForm.notes} onChange={e => setMoveForm(p => ({ ...p, notes: e.target.value }))} placeholder="Reason for movement" />
@@ -276,6 +287,46 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
           </div>
         </Modal>
       )}
+
+      {/* Lot History Modal */}
+      <Modal open={!!lotsItem} onClose={() => setLotsItem(null)} title={lotsItem ? `Lot History — ${lotsItem.description}` : ''} size="md">
+        {lotsItem && <BoardLotHistory itemId={lotsItem.id} />}
+      </Modal>
+    </div>
+  )
+}
+
+function BoardLotHistory({ itemId }: { itemId: string }) {
+  const [lots, setLots] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useState(() => {
+    fetch(`/api/v1/board-inventory/${itemId}/lots`)
+      .then(r => r.json())
+      .then(json => setLots(json.data ?? []))
+      .finally(() => setLoading(false))
+  })
+
+  if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Loading…</p>
+  if (lots.length === 0) return <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No lots recorded yet — lots are created on Stock In and PO receipt going forward.</p>
+
+  return (
+    <div className="max-h-96 overflow-y-auto space-y-2">
+      {lots.map(l => (
+        <div key={l.id} className="rounded-lg border border-[var(--color-border)] px-3 py-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-mono font-medium text-[var(--color-text-primary)]">{l.lot_number}</p>
+            <span className={cn('text-xs px-2 py-0.5 rounded-full border', l.quantity_remaining > 0 ? 'text-[var(--color-success)] border-[var(--color-success)]/30' : 'text-[var(--color-text-muted)] border-[var(--color-border)]')}>
+              {l.quantity_remaining.toLocaleString()} / {l.quantity_received.toLocaleString()} remaining
+            </span>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            Received {new Date(l.received_date).toLocaleDateString('en-PK')}
+            {l.vendors?.name ? ` · ${l.vendors.name}` : ''}
+            {l.unit_cost ? ` · PKR ${Number(l.unit_cost).toLocaleString()}/unit` : ''}
+          </p>
+        </div>
+      ))}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Printer, Check, X, FileText, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Printer, Check, X, FileText, RefreshCw, Link as LinkIcon, History } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { toast } from '@/components/ui/Toast'
@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { QT_STATUS_CONFIG } from '@/modules/sales/quotations/types/quotation.types'
 
 interface QItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number }
-interface Quotation { id: string; quotation_number: string; status: string; valid_until: string | null; discount_percent: number; notes: string | null; terms_conditions: string | null; subtotal: number; tax_amount: number; discount_amount: number; total_amount: number; revision: number; created_at: string; customers: { name: string; customer_code: string; email: string | null; phone: string | null } | null; quotation_items: QItem[] }
+interface Quotation { id: string; quotation_number: string; status: string; valid_until: string | null; discount_percent: number; notes: string | null; terms_conditions: string | null; subtotal: number; tax_amount: number; discount_amount: number; total_amount: number; revision: number; created_at: string; approval_token: string | null; approval_token_expires_at: string | null; approval_responded_at: string | null; approval_ip: string | null; customers: { name: string; customer_code: string; email: string | null; phone: string | null } | null; quotation_items: QItem[] }
 
 const STATUS_ACTIONS: Record<string, { label: string; next: string; color: string }[]> = {
   draft:    [{ label: 'Mark Sent', next: 'sent', color: 'bg-[var(--color-info)] text-white' }],
@@ -25,6 +25,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
   const [loading, setLoading] = useState(false)
   const [convertModal, setConvertModal] = useState(false)
   const [requiredDate, setRequiredDate] = useState('')
+  const [versionsModal, setVersionsModal] = useState(false)
 
   const cfg = QT_STATUS_CONFIG[qt.status] || QT_STATUS_CONFIG.draft
 
@@ -38,6 +39,16 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
       toast.success('Status updated')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
+  }
+
+  const copyApprovalLink = async () => {
+    const url = `${window.location.origin}/approve/${qt.approval_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Approval link copied — share it with the customer')
+    } catch {
+      toast.error('Could not copy link')
+    }
   }
 
   const convertToSO = async () => {
@@ -68,6 +79,16 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{qt.customers?.name} · Created {formatDateTime(qt.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setVersionsModal(true)}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <History size={13} /> Version History
+          </button>
+          {qt.status === 'sent' && qt.approval_token && !qt.approval_responded_at && (
+            <button onClick={copyApprovalLink}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <LinkIcon size={13} /> Copy Approval Link
+            </button>
+          )}
           {STATUS_ACTIONS[qt.status]?.map(action => (
             <button key={action.next} onClick={() => updateStatus(action.next)} disabled={loading}
               className={cn('flex items-center gap-1.5 px-3 h-8 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors', action.color)}>
@@ -182,6 +203,109 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
           </div>
         </div>
       </Modal>
+
+      <Modal open={versionsModal} onClose={() => setVersionsModal(false)} title="Version History" size="xl">
+        <VersionHistoryView quotationId={qt.id} />
+      </Modal>
+    </div>
+  )
+}
+
+interface VersionSnapshot {
+  id: string; version_number: number; created_at: string | null; is_current?: boolean
+  users?: { full_name: string } | null
+  snapshot: {
+    header: { status: string; subtotal: number; discount_percent: number; total_amount: number; notes: string | null; terms_conditions: string | null }
+    items: { product_desc: string; quantity: number; unit_price: number; subtotal: number }[]
+  }
+}
+
+const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+function VersionHistoryView({ quotationId }: { quotationId: string }) {
+  const [versions, setVersions] = useState<VersionSnapshot[]>([])
+  const [loading, setLoading] = useState(true)
+  const [leftIdx, setLeftIdx] = useState(1)
+  const [rightIdx, setRightIdx] = useState(0)
+
+  useState(() => {
+    fetch(`/api/v1/quotations/${quotationId}/versions`)
+      .then(r => r.json())
+      .then(json => setVersions(json.data ?? []))
+      .finally(() => setLoading(false))
+  })
+
+  if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-10">Loading…</p>
+  if (versions.length <= 1) {
+    return <p className="text-sm text-[var(--color-text-muted)] text-center py-10">This quotation has only one version so far — a new version is captured every time items or pricing are edited.</p>
+  }
+
+  const left = versions[leftIdx]
+  const right = versions[rightIdx]
+
+  // Diff items by description — printing quotations don't have a stable
+  // line-item ID across edits (items are wholesale-replaced on each save,
+  // not patched in place), so description is the practical join key.
+  const leftItems = new Map(left.snapshot.items.map(i => [i.product_desc, i]))
+  const rightItems = new Map(right.snapshot.items.map(i => [i.product_desc, i]))
+  const allDescs = Array.from(new Set([...Array.from(leftItems.keys()), ...Array.from(rightItems.keys())]))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <select value={leftIdx} onChange={e => setLeftIdx(parseInt(e.target.value))}
+          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+          {versions.map((v, i) => <option key={v.id} value={i}>v{v.version_number}{v.is_current ? ' (current)' : ''} — {v.created_at ? new Date(v.created_at).toLocaleDateString('en-PK') : 'now'}</option>)}
+        </select>
+        <span className="text-xs text-[var(--color-text-muted)]">compared to</span>
+        <select value={rightIdx} onChange={e => setRightIdx(parseInt(e.target.value))}
+          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+          {versions.map((v, i) => <option key={v.id} value={i}>v{v.version_number}{v.is_current ? ' (current)' : ''} — {v.created_at ? new Date(v.created_at).toLocaleDateString('en-PK') : 'now'}</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        {[right, left].map((v, col) => (
+          <div key={col} className="rounded-lg border border-[var(--color-border)] p-3">
+            <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-2">v{v.version_number}{v.is_current ? ' (current)' : ''}</p>
+            <p className="text-[var(--color-text-secondary)]">Total: <b className="text-[var(--color-text-primary)]">{fmt(v.snapshot.header.total_amount)}</b></p>
+            <p className="text-[var(--color-text-secondary)]">Discount: {v.snapshot.header.discount_percent || 0}%</p>
+            <p className="text-[var(--color-text-secondary)]">Status: <span className="capitalize">{v.snapshot.header.status}</span></p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-[var(--color-bg-elevated)] text-xs font-semibold text-[var(--color-text-muted)] uppercase">
+          <div className="col-span-6">Item</div>
+          <div className="col-span-3 text-right">v{right.version_number}</div>
+          <div className="col-span-3 text-right">v{left.version_number}</div>
+        </div>
+        <div className="divide-y divide-[var(--color-border-subtle)]">
+          {allDescs.map(desc => {
+            const r = rightItems.get(desc)
+            const l = leftItems.get(desc)
+            const added = !r && l
+            const removed = r && !l
+            const changed = r && l && (r.quantity !== l.quantity || r.unit_price !== l.unit_price)
+            return (
+              <div key={desc} className={cn('grid grid-cols-12 gap-2 px-3 py-2 items-center text-sm',
+                added && 'bg-[var(--color-success)]/5', removed && 'bg-[var(--color-danger)]/5', changed && 'bg-[var(--color-warning)]/5')}>
+                <div className="col-span-6 text-[var(--color-text-primary)] truncate">
+                  {desc} {added && <span className="text-[var(--color-success)] text-xs ml-1">(new)</span>}
+                  {removed && <span className="text-[var(--color-danger)] text-xs ml-1">(removed)</span>}
+                </div>
+                <div className="col-span-3 text-right text-[var(--color-text-secondary)]">
+                  {r ? `${r.quantity.toLocaleString()} × ${fmt(r.unit_price)}` : '—'}
+                </div>
+                <div className={cn('col-span-3 text-right', changed ? 'text-[var(--color-warning)] font-medium' : 'text-[var(--color-text-secondary)]')}>
+                  {l ? `${l.quantity.toLocaleString()} × ${fmt(l.unit_price)}` : '—'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

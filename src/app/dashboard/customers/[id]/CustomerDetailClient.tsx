@@ -1,17 +1,19 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Pencil, Plus, Trash2, Check, X, Phone, Mail, MapPin, User, Building2, Star } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, Check, X, Phone, Mail, MapPin, User, Building2, Star, Receipt, Link2, Copy, ShieldOff, Activity, PhoneCall, Video, StickyNote, MapPinned } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui'
 import { INDUSTRIES } from '@/modules/crm/customers/types/customer.types'
 
-interface Customer { id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string; ntn: string | null; strn: string | null; email: string | null; phone: string | null; mobile: string | null; website: string | null; industry: string | null; credit_limit: number; payment_terms: number; notes: string | null }
+interface Customer { id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string; ntn: string | null; strn: string | null; email: string | null; phone: string | null; mobile: string | null; website: string | null; industry: string | null; credit_limit: number; payment_terms: number; notes: string | null; lead_source: string | null }
 interface Contact { id: string; name: string; designation: string | null; email: string | null; phone: string | null; mobile: string | null; is_primary: boolean }
 interface Address { id: string; label: string; address_type: string; address_line1: string; address_line2: string | null; city: string | null; country: string; is_default: boolean }
+interface LedgerEntry { id: string; entry_date: string; entry_type: string; description: string; debit: number; credit: number; balance_after: number }
+interface ActivityEntry { id: string; activity_type: string; subject: string; notes: string | null; activity_date: string; users?: { full_name: string } | null }
 
 interface Props { customer: Customer; contacts: Contact[]; addresses: Address[] }
 
@@ -29,12 +31,12 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
   const [contacts, setContacts] = useState(initialContacts)
   const [addresses, setAddresses] = useState(initialAddresses)
   const [editingInfo, setEditingInfo] = useState(false)
-  const [infoForm, setInfoForm] = useState({ name: customer.name, business_type: customer.business_type, ntn: customer.ntn || '', strn: customer.strn || '', email: customer.email || '', phone: customer.phone || '', mobile: customer.mobile || '', website: customer.website || '', industry: customer.industry || '', credit_limit: String(customer.credit_limit), payment_terms: String(customer.payment_terms), notes: customer.notes || '' })
+  const [infoForm, setInfoForm] = useState({ name: customer.name, business_type: customer.business_type, ntn: customer.ntn || '', strn: customer.strn || '', email: customer.email || '', phone: customer.phone || '', mobile: customer.mobile || '', website: customer.website || '', industry: customer.industry || '', credit_limit: String(customer.credit_limit), payment_terms: String(customer.payment_terms), notes: customer.notes || '', lead_source: customer.lead_source || '' })
   const [newContact, setNewContact] = useState<null | Record<string, string>>(null)
   const [newAddress, setNewAddress] = useState<null | Record<string, string>>(null)
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'contact' | 'address' | 'customer'; id: string; name: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'addresses'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'addresses' | 'ledger' | 'activity'>('info')
 
   const promoteStage = async (nextStage: string) => {
     setLoading(true)
@@ -140,7 +142,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl p-1 w-fit">
-        {[{ key: 'info', label: 'Information' }, { key: 'contacts', label: `Contacts (${contacts.length})` }, { key: 'addresses', label: `Addresses (${addresses.length})` }].map(t => (
+        {[{ key: 'info', label: 'Information' }, { key: 'contacts', label: `Contacts (${contacts.length})` }, { key: 'addresses', label: `Addresses (${addresses.length})` }, { key: 'activity', label: 'Activity' }, { key: 'ledger', label: 'Ledger' }].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key as any)}
             className={cn('px-4 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
             {t.label}
@@ -181,6 +183,19 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Website</label>
                   <input className={inputCls} value={infoForm.website} onChange={e => setInfoForm(p => ({ ...p, website: e.target.value }))} />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Lead Source</label>
+                  <select className={inputCls} value={infoForm.lead_source} onChange={e => setInfoForm(p => ({ ...p, lead_source: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="referral">Referral</option>
+                    <option value="website">Website</option>
+                    <option value="cold_call">Cold Call</option>
+                    <option value="exhibition">Exhibition</option>
+                    <option value="social_media">Social Media</option>
+                    <option value="existing_customer">Existing Customer</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
                   <textarea className={cn(inputCls, 'h-20 resize-none py-2')} value={infoForm.notes} onChange={e => setInfoForm(p => ({ ...p, notes: e.target.value }))} />
@@ -199,6 +214,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   { label: 'Credit Limit', value: customer.credit_limit ? `PKR ${Number(customer.credit_limit).toLocaleString()}` : '—' },
                   { label: 'Payment Terms', value: `${customer.payment_terms} days` },
                   { label: 'Industry', value: customer.industry },
+                  { label: 'Lead Source', value: customer.lead_source ? customer.lead_source.replace(/_/g, ' ') : null },
                 ].map(f => (
                   <div key={f.label}>
                     <p className="text-xs text-[var(--color-text-muted)] mb-0.5">{f.label}</p>
@@ -216,6 +232,8 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           </div>
         </div>
       )}
+
+      {activeTab === 'info' && <PortalAccessCard customerId={customer.id} />}
 
       {/* Contacts Tab */}
       {activeTab === 'contacts' && (
@@ -319,9 +337,241 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
         </div>
       )}
 
+      {activeTab === 'activity' && <CustomerActivityTab customerId={customer.id} />}
+      {activeTab === 'ledger' && <CustomerLedgerTab customerId={customer.id} />}
+
       <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
         title={`Delete ${deleteTarget?.type === 'customer' ? 'Customer' : deleteTarget?.type === 'contact' ? 'Contact' : 'Address'}`}
         message={`Remove "${deleteTarget?.name}"? This cannot be undone.`} loading={loading} />
+    </div>
+  )
+}
+
+function CustomerLedgerTab({ customerId }: { customerId: string }) {
+  const [entries, setEntries] = useState<LedgerEntry[]>([])
+  const [balance, setBalance] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/v1/finance/customer-ledger?customer_id=${customerId}`)
+      .then(r => r.json())
+      .then(json => { setEntries(json.data ?? []); setBalance(json.current_balance ?? 0) })
+      .finally(() => setLoading(false))
+  }, [customerId])
+
+  const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+          <Receipt size={15} /> Ledger
+        </h2>
+        <div className="text-right">
+          <div className="text-xs text-[var(--color-text-muted)]">Current Balance (Receivable)</div>
+          <div className={cn('text-lg font-bold', balance > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]')}>{fmt(balance)}</div>
+        </div>
+      </div>
+      {loading ? (
+        <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">Loading…</div>
+      ) : entries.length === 0 ? (
+        <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">No ledger activity yet. Invoices and payments for this customer will appear here.</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-[var(--color-text-muted)] uppercase border-b border-[var(--color-border-subtle)]">
+              <th className="px-5 py-2.5 font-medium">Date</th>
+              <th className="px-5 py-2.5 font-medium">Description</th>
+              <th className="px-5 py-2.5 font-medium text-right">Debit</th>
+              <th className="px-5 py-2.5 font-medium text-right">Credit</th>
+              <th className="px-5 py-2.5 font-medium text-right">Balance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-border-subtle)]">
+            {entries.map(e => (
+              <tr key={e.id} className="hover:bg-[var(--color-bg-elevated)]/40">
+                <td className="px-5 py-2.5 text-[var(--color-text-secondary)] whitespace-nowrap">{new Date(e.entry_date).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                <td className="px-5 py-2.5 text-[var(--color-text-primary)]">{e.description}</td>
+                <td className="px-5 py-2.5 text-right text-[var(--color-danger)]">{e.debit > 0 ? fmt(e.debit) : '—'}</td>
+                <td className="px-5 py-2.5 text-right text-[var(--color-success)]">{e.credit > 0 ? fmt(e.credit) : '—'}</td>
+                <td className="px-5 py-2.5 text-right font-medium text-[var(--color-text-primary)]">{fmt(e.balance_after)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+function PortalAccessCard({ customerId }: { customerId: string }) {
+  const [link, setLink] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const generate = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/customers/${customerId}/portal-link`, { method: 'POST' })
+      if (!res.ok) throw new Error()
+      const { data } = await res.json()
+      const url = `${window.location.origin}/portal/${data.portal_token}`
+      setLink(url)
+      await navigator.clipboard.writeText(url)
+      toast.success('Portal link generated and copied to clipboard')
+    } catch { toast.error('Failed to generate portal link') }
+    finally { setLoading(false) }
+  }
+
+  const revoke = async () => {
+    setLoading(true)
+    try {
+      await fetch(`/api/v1/customers/${customerId}/portal-link`, { method: 'DELETE' })
+      setLink(null)
+      toast.success('Portal access revoked')
+    } catch { toast.error('Failed to revoke access') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-2">
+          <Link2 size={15} className="text-[var(--color-text-muted)]" />
+          <div>
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">Customer Portal Access</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Generate a read-only link the customer can use to view their jobs, quotations, invoices and balance — valid 90 days.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {link && (
+            <button onClick={revoke} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/5 disabled:opacity-50 transition-colors">
+              <ShieldOff size={13} /> Revoke
+            </button>
+          )}
+          <button onClick={generate} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            <Copy size={13} /> {link ? 'Regenerate & Copy' : 'Generate & Copy Link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
+  call: <PhoneCall size={14} />,
+  meeting: <Video size={14} />,
+  email: <Mail size={14} />,
+  note: <StickyNote size={14} />,
+  site_visit: <MapPinned size={14} />,
+  other: <Activity size={14} />,
+}
+
+function CustomerActivityTab({ customerId }: { customerId: string }) {
+  const [activities, setActivities] = useState<ActivityEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [newActivity, setNewActivity] = useState<null | { activity_type: string; subject: string; notes: string }>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  const load = () => {
+    setLoading(true)
+    fetch(`/api/v1/customers/${customerId}/activities`)
+      .then(r => r.json())
+      .then(json => setActivities(json.data ?? []))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [customerId])
+
+  const save = async () => {
+    if (!newActivity?.subject) { toast.error('Subject required'); return }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/v1/customers/${customerId}/activities`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newActivity),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setActivities(prev => [data, ...prev])
+      setNewActivity(null)
+      toast.success('Activity logged')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteId) return
+    try {
+      await fetch(`/api/v1/customer-activities/${deleteId}`, { method: 'DELETE' })
+      setActivities(prev => prev.filter(a => a.id !== deleteId))
+      toast.success('Activity removed')
+    } catch { toast.error('Failed') }
+    finally { setDeleteId(null) }
+  }
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Activity Timeline</h2>
+        <button onClick={() => setNewActivity({ activity_type: 'call', subject: '', notes: '' })}
+          className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          <Plus size={14} /> Log Activity
+        </button>
+      </div>
+
+      {newActivity && (
+        <div className="px-5 py-4 bg-[var(--color-accent)]/5 border-b border-[var(--color-accent)]/20 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <select className={inputCls} value={newActivity.activity_type} onChange={e => setNewActivity(p => ({ ...p!, activity_type: e.target.value }))}>
+              <option value="call">Call</option>
+              <option value="meeting">Meeting</option>
+              <option value="email">Email</option>
+              <option value="note">Note</option>
+              <option value="site_visit">Site Visit</option>
+              <option value="other">Other</option>
+            </select>
+            <input autoFocus className={inputCls} value={newActivity.subject} onChange={e => setNewActivity(p => ({ ...p!, subject: e.target.value }))} placeholder="Subject *" />
+          </div>
+          <textarea className={cn(inputCls, 'h-16 resize-none py-2')} value={newActivity.notes} onChange={e => setNewActivity(p => ({ ...p!, notes: e.target.value }))} placeholder="Notes (optional)" />
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+            <button onClick={() => setNewActivity(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">Loading…</div>
+      ) : activities.length === 0 && !newActivity ? (
+        <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">No activity logged yet.</div>
+      ) : (
+        <div className="divide-y divide-[var(--color-border-subtle)]">
+          {activities.map(a => (
+            <div key={a.id} className="flex items-start gap-3 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/40">
+              <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0 mt-0.5 text-[var(--color-accent)]">
+                {ACTIVITY_ICONS[a.activity_type] || ACTIVITY_ICONS.other}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{a.subject}</span>
+                  <span className="text-xs capitalize text-[var(--color-text-muted)]">{a.activity_type.replace('_', ' ')}</span>
+                </div>
+                {a.notes && <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">{a.notes}</p>}
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {new Date(a.activity_date).toLocaleString('en-PK')}{a.users?.full_name ? ` · ${a.users.full_name}` : ''}
+                </p>
+              </div>
+              <button onClick={() => setDeleteId(a.id)}
+                className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors flex-shrink-0">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={confirmDelete}
+        title="Remove Activity" message="Remove this activity entry? This cannot be undone." loading={false} />
     </div>
   )
 }

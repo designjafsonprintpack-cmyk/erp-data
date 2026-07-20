@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(_req: NextRequest) {
+export const GET = withErrorHandling(async function GET(_req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -16,14 +19,17 @@ export async function GET(_req: NextRequest) {
   const map: Record<string, string> = {}
   ;(data ?? []).forEach((r: any) => { map[r.key] = r.value ?? '' })
   return NextResponse.json({ data: data ?? [], map })
-}
+})
 
-export async function PATCH(req: NextRequest) {
+export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
+  if (denied) return denied
   const body = await req.json()
 
   const updates = Object.entries(body).map(([key, value]) => ({
@@ -37,4 +43,4 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true, updated: updates.length })
-}
+})

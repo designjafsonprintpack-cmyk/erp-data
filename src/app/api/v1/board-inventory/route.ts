@@ -2,11 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const search   = searchParams.get('search') || ''
@@ -14,6 +17,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase.from('board_inventory' as any)
     .select('*, board_types(name)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
 
   if (search) q = q.ilike('description', `%${search}%`)
@@ -27,15 +31,17 @@ export async function GET(req: NextRequest) {
     : (data ?? [])
 
   return NextResponse.json({ data: filtered, total: count ?? 0 })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'store', 'create', supabase)
+  if (denied) return denied
   const body = await req.json()
 
   const { data, error } = await supabase.from('board_inventory' as any).insert({
@@ -70,4 +76,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ data })
-}
+})

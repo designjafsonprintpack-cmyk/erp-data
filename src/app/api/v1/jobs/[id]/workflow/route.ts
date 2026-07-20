@@ -2,16 +2,21 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 // PATCH — advance a stage (start / complete / skip)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
+  if (denied) return denied
+
   const { stage_progress_id, action, notes } = await req.json()
   // action: 'start' | 'complete' | 'skip'
 
@@ -24,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from('job_stage_progress' as any)
     .select('id, job_id, sequence_order, workflow_stages(name)')
     .eq('id', stage_progress_id)
+    .eq('company_id', companyId)
     .single()
 
   if (targetErr || !targetStage) {
@@ -41,6 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from('job_stage_progress' as any)
     .select('status, workflow_stages(name)')
     .eq('job_id', jobId)
+    .eq('company_id', companyId)
     .lt('sequence_order', sequenceOrder)
 
   const blocking = ((earlierStages ?? []) as any[]).filter(
@@ -64,6 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .from('job_artworks' as any)
       .select('id')
       .eq('job_id', jobId)
+      .eq('company_id', companyId)
       .eq('is_production_ready', true)
       .is('deleted_at', null)
       .limit(1)
@@ -96,6 +104,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabase.from('job_stage_progress' as any)
     .update(updateData)
     .eq('id', stage_progress_id)
+    .eq('company_id', companyId)
     .select('*, workflow_stages(name)')
     .single()
 
@@ -119,8 +128,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await supabase.from('jobs' as any)
       .update({ status: 'in_progress', current_stage_id: stage_progress_id })
       .eq('id', params.id)
+      .eq('company_id', companyId)
       .eq('status', 'new')
   }
 
   return NextResponse.json({ data })
-}
+})

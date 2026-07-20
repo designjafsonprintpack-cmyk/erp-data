@@ -47,7 +47,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
   stats: { totalBilled: number; totalReceived: number; totalOverdue: number; monthlyCollected: number }
 }) {
   const [invoices, setInvoices] = useState(initialInvoices)
-  const [tab, setTab] = useState<'invoices'|'costing'>('invoices')
+  const [agingModal, setAgingModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -220,6 +220,10 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setAgingModal(true)}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <AlertTriangle size={14} /> Aging Report
+          </button>
           <button onClick={() => setCostModal(true)}
             className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Calculator size={14} /> Job Costing
@@ -637,6 +641,104 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           </div>
         </div>
       </Modal>
+
+      <Modal open={agingModal} onClose={() => setAgingModal(false)} title="Aging Report" size="xl">
+        <AgingReportView />
+      </Modal>
+    </div>
+  )
+}
+
+interface ArAgingRow { customer_id: string; customer_name: string; current_amt: number; days_1_30: number; days_31_60: number; days_61_90: number; days_over_90: number; total_due: number; oldest_invoice_date: string | null }
+interface ApSummaryRow { vendor_id: string; vendor_name: string; balance_owed: number }
+
+function AgingReportView() {
+  const [side, setSide] = useState<'ar' | 'ap'>('ar')
+  const [arRows, setArRows] = useState<ArAgingRow[]>([])
+  const [apRows, setApRows] = useState<ApSummaryRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useState(() => {
+    Promise.all([
+      fetch('/api/v1/finance/aging-report?side=ar').then(r => r.json()),
+      fetch('/api/v1/finance/aging-report?side=ap').then(r => r.json()),
+    ]).then(([ar, ap]) => { setArRows(ar.data ?? []); setApRows(ap.data ?? []) })
+      .finally(() => setLoading(false))
+  })
+
+  if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-10">Loading…</p>
+
+  const arTotals = arRows.reduce((acc, r) => ({
+    current: acc.current + r.current_amt, d30: acc.d30 + r.days_1_30, d60: acc.d60 + r.days_31_60,
+    d90: acc.d90 + r.days_61_90, over90: acc.over90 + r.days_over_90, total: acc.total + r.total_due,
+  }), { current: 0, d30: 0, d60: 0, d90: 0, over90: 0, total: 0 })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-1 w-fit">
+        {(['ar', 'ap'] as const).map(s => (
+          <button key={s} onClick={() => setSide(s)}
+            className={cn('px-4 h-7 rounded-md text-xs font-medium transition-all', side === s ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)]')}>
+            {s === 'ar' ? 'Receivables (customers owe us)' : 'Payables (we owe vendors)'}
+          </button>
+        ))}
+      </div>
+
+      {side === 'ar' ? (
+        arRows.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-10">No outstanding receivables. 🎉</p>
+        ) : (
+          <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
+            <div className="grid grid-cols-7 gap-2 px-3 py-2 bg-[var(--color-bg-elevated)] text-xs font-semibold text-[var(--color-text-muted)] uppercase">
+              <div className="col-span-2">Customer</div>
+              <div className="text-right">Current</div>
+              <div className="text-right">1-30d</div>
+              <div className="text-right">31-60d</div>
+              <div className="text-right">61-90d</div>
+              <div className="text-right">90+d</div>
+            </div>
+            <div className="divide-y divide-[var(--color-border-subtle)]">
+              {arRows.map(r => (
+                <div key={r.customer_id} className="grid grid-cols-7 gap-2 px-3 py-2 items-center text-sm">
+                  <div className="col-span-2 text-[var(--color-text-primary)] truncate">{r.customer_name}</div>
+                  <div className="text-right text-[var(--color-text-secondary)]">{r.current_amt > 0 ? PKR(r.current_amt) : '—'}</div>
+                  <div className="text-right text-[var(--color-warning)]">{r.days_1_30 > 0 ? PKR(r.days_1_30) : '—'}</div>
+                  <div className="text-right text-[var(--color-warning)]">{r.days_31_60 > 0 ? PKR(r.days_31_60) : '—'}</div>
+                  <div className="text-right text-[var(--color-danger)]">{r.days_61_90 > 0 ? PKR(r.days_61_90) : '—'}</div>
+                  <div className="text-right text-[var(--color-danger)] font-medium">{r.days_over_90 > 0 ? PKR(r.days_over_90) : '—'}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-2 px-3 py-2 bg-[var(--color-bg-elevated)] border-t border-[var(--color-border)] text-sm font-semibold">
+              <div className="col-span-2 text-[var(--color-text-primary)]">Total ({PKR(arTotals.total)})</div>
+              <div className="text-right">{PKR(arTotals.current)}</div>
+              <div className="text-right text-[var(--color-warning)]">{PKR(arTotals.d30)}</div>
+              <div className="text-right text-[var(--color-warning)]">{PKR(arTotals.d60)}</div>
+              <div className="text-right text-[var(--color-danger)]">{PKR(arTotals.d90)}</div>
+              <div className="text-right text-[var(--color-danger)]">{PKR(arTotals.over90)}</div>
+            </div>
+          </div>
+        )
+      ) : (
+        apRows.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-10">No outstanding payables.</p>
+        ) : (
+          <div className="rounded-lg border border-[var(--color-border)] overflow-hidden divide-y divide-[var(--color-border-subtle)]">
+            {apRows.map(r => (
+              <div key={r.vendor_id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                <span className="text-[var(--color-text-primary)]">{r.vendor_name}</span>
+                <span className="font-medium text-[var(--color-danger)]">{PKR(r.balance_owed)}</span>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      {side === 'ap' && (
+        <p className="text-xs text-[var(--color-text-muted)]">
+          Payables shown as total balance owed per vendor (from the supplier ledger), not bucketed by bill age —
+          per-bill AP aging would need payment-status tracking added to vendor bills first.
+        </p>
+      )}
     </div>
   )
 }

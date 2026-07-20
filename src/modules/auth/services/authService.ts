@@ -4,14 +4,23 @@ import { clearPermissionCache } from '@/modules/settings/permissions/hooks/usePe
 import type { LoginCredentials } from '../types/auth.types'
 
 export async function signIn({ email, password }: LoginCredentials) {
-  const supabase = createSupabaseClient()
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw new AppError('AUTH_FAILED', error.message)
+  // Goes through our own API route (not supabase.auth.signInWithPassword
+  // directly) so failed attempts can be counted and an account locked after
+  // repeated failures — see /api/v1/auth/login. On success the route sets
+  // the session cookies itself; nothing further to do here except let the
+  // browser client pick up the now-cookie-backed session.
+  const res = await fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new AppError('AUTH_FAILED', json.error || 'Sign in failed')
 
   // Best-effort — never let a logging failure block a successful login.
   fetch('/api/v1/auth/login-event', { method: 'POST' }).catch(() => {})
 
-  return data
+  return json
 }
 
 export async function signOut() {

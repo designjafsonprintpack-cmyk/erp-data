@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { createClient } from '@supabase/supabase-js'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 // NOTE: the users table columns are `role` and `phone` (see migration 002).
 // The Settings → Users UI (UsersClient.tsx) calls them `app_role` and `mobile`.
@@ -13,7 +14,7 @@ import { createClient } from '@supabase/supabase-js'
 const USER_SELECT =
   'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at,departments(name),user_roles(roles(name))'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,9 +33,9 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await q.order('full_name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -85,4 +86,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   return NextResponse.json({ data })
-}
+})

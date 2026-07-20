@@ -2,30 +2,37 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withErrorHandling(async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { data, error } = await supabase
     .from('job_wastage' as any)
     .select('*, wastage_reasons(name,category), machines(name), users(full_name)')
     .eq('job_id', params.id)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('occurred_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [] })
-}
+})
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
+  if (denied) return denied
   const body = await req.json()
 
   if (!body.wastage_reason_id) return NextResponse.json({ error: 'Reason is required' }, { status: 400 })
@@ -36,7 +43,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // as user.id (the Supabase auth id). Resolve the real public.users.id from the
   // JWT's user_table_id claim (set by custom_access_token_hook) so this insert
   // doesn't fail a foreign key check for any user created the correct way.
-  const userTableId = await getUserTableId(user, supabase)
 
   const { data, error } = await supabase.from('job_wastage' as any).insert({
     company_id:        companyId,
@@ -62,4 +68,4 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }, supabase)
 
   return NextResponse.json({ data })
-}
+})

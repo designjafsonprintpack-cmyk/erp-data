@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { IdleTimeoutGuard } from './IdleTimeoutGuard'
 import { ToastContainer } from '@/components/ui/Toast'
 import { SIDEBAR_COLLAPSED_KEY, THEME_KEY, DEFAULT_THEME } from '@/config/app'
 import type { Theme } from '@/types/shared'
@@ -41,6 +42,7 @@ export function AppShell({ children, user }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
+      <IdleTimeoutGuard />
       <Header user={user} sidebarCollapsed={collapsed} />
       <Sidebar />
       <main

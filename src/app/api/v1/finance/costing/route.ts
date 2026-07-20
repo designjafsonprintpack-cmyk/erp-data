@@ -2,17 +2,21 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const jobId = searchParams.get('job_id') || ''
 
   let q = supabase.from('job_costings' as any)
     .select('*, jobs(job_number,job_title,quoted_amount,customers(name)), job_costing_lines(*)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('is_active', true)
 
   if (jobId) q = q.eq('job_id', jobId)
@@ -20,15 +24,18 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await q.order('created_at', { ascending: false }).limit(50)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'finance', 'create', supabase)
+  if (denied) return denied
+
   const { extra_lines, ...body } = await req.json()
 
   // Compute totals
@@ -79,7 +86,7 @@ export async function POST(req: NextRequest) {
 
   // Replace extra lines
   await supabase.from('job_costing_lines' as any)
-    .update({ is_active: false }).eq('costing_id', cost.id)
+    .update({ is_active: false }).eq('costing_id', cost.id).eq('company_id', companyId)
 
   if (extra_lines?.length) {
     await supabase.from('job_costing_lines' as any).insert(
@@ -97,4 +104,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ data: cost })
-}
+})

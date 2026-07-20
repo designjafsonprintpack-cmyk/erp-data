@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, ClipboardList, RefreshCw,
-  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera
+  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
@@ -65,7 +65,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   const [inspections, setInspections] = useState(initialInspections)
   const [defects,     setDefects]     = useState(openDefects)
   const [reprints,    setReprints]    = useState(reprintRequests)
-  const [tab, setTab] = useState<'inspections'|'defects'|'reprints'>('inspections')
+  const [tab, setTab] = useState<'inspections'|'defects'|'reprints'|'trends'>('inspections')
   const [loading, setLoading] = useState(false)
 
   /* Inspect modal */
@@ -279,6 +279,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             ['inspections', `Inspections (${inspections.length})`],
             ['defects',     `Open Defects (${defects.length})`],
             ['reprints',    `Re-prints (${reprints.length})`],
+            ['trends',      'Trends'],
           ] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)}
               className={cn('px-4 h-8 rounded-md text-sm font-medium border transition-all',
@@ -488,6 +489,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           )}
         </div>
       )}
+
+      {tab === 'trends' && <QcDefectTrends />}
 
       {/* ══ MODALS ══════════════════════════════════════════════════════════════════ */}
 
@@ -792,6 +795,129 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           </div>
         </Modal>
       )}
+    </div>
+  )
+}
+
+interface DefectTrendData {
+  by_type: { defect_type: string; count: number; qty_affected: number }[]
+  by_severity: { severity: string; count: number }[]
+  by_week: { week_start: string; count: number }[]
+  by_customer: { customer_name: string; count: number }[]
+  total_defects: number
+  total_qty_affected: number
+}
+
+const SEVERITY_BAR_COLOR: Record<string, string> = {
+  critical: 'bg-[var(--color-danger)]',
+  major: 'bg-[var(--color-warning)]',
+  minor: 'bg-[var(--color-text-muted)]',
+}
+
+function BarRow({ label, count, max, color }: { label: string; count: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 0
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-[var(--color-text-secondary)] w-32 truncate flex-shrink-0 capitalize">{label.replace(/_/g, ' ')}</span>
+      <div className="flex-1 h-5 bg-[var(--color-bg-elevated)] rounded overflow-hidden">
+        <div className={cn('h-full rounded transition-all', color || 'bg-[var(--color-accent)]')} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs font-medium text-[var(--color-text-primary)] w-8 text-right flex-shrink-0">{count}</span>
+    </div>
+  )
+}
+
+function QcDefectTrends() {
+  const [data, setData] = useState<DefectTrendData | null>(null)
+  const [days, setDays] = useState(90)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/v1/qc/defect-trends?days=${days}`)
+      .then(r => r.json())
+      .then(json => setData(json.data))
+      .finally(() => setLoading(false))
+  }, [days])
+
+  if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-12">Loading…</p>
+  if (!data || data.total_defects === 0) {
+    return (
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-12 text-center">
+        <TrendingUp size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+        <p className="text-sm text-[var(--color-text-muted)]">No defects logged in this period.</p>
+      </div>
+    )
+  }
+
+  const maxType = Math.max(...data.by_type.map(t => t.count), 1)
+  const maxWeek = Math.max(...data.by_week.map(w => w.count), 1)
+  const maxCustomer = Math.max(...data.by_customer.map(c => c.count), 1)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2.5">
+            <p className="text-xs text-[var(--color-text-muted)]">Total Defects</p>
+            <p className="text-lg font-bold text-[var(--color-text-primary)]">{data.total_defects}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2.5">
+            <p className="text-xs text-[var(--color-text-muted)]">Units Affected</p>
+            <p className="text-lg font-bold text-[var(--color-text-primary)]">{data.total_qty_affected.toLocaleString()}</p>
+          </div>
+        </div>
+        <select value={days} onChange={e => setDays(parseInt(e.target.value))}
+          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+          <option value={365}>Last 12 months</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Defects by Type</h3>
+          <div className="space-y-2.5">
+            {data.by_type.map(t => <BarRow key={t.defect_type} label={t.defect_type} count={t.count} max={maxType} />)}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">By Severity</h3>
+          <div className="space-y-2.5">
+            {data.by_severity.map(s => (
+              <BarRow key={s.severity} label={s.severity} count={s.count}
+                max={Math.max(...data.by_severity.map(x => x.count), 1)} color={SEVERITY_BAR_COLOR[s.severity]} />
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Weekly Trend</h3>
+          <div className="flex items-end gap-1.5 h-32">
+            {data.by_week.map(w => {
+              const pct = maxWeek > 0 ? Math.max(4, Math.round((w.count / maxWeek) * 100)) : 4
+              return (
+                <div key={w.week_start} className="flex-1 flex flex-col items-center justify-end gap-1 group relative">
+                  <span className="text-[10px] text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">{w.count}</span>
+                  <div className="w-full bg-[var(--color-accent)] rounded-t" style={{ height: `${pct}%` }} />
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)] mt-2 text-center">{data.by_week.length} weeks</p>
+        </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Top Customers by Defect Count</h3>
+          <div className="space-y-2.5">
+            {data.by_customer.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-muted)]">No data</p>
+            ) : data.by_customer.map(c => <BarRow key={c.customer_name} label={c.customer_name} count={c.count} max={maxCustomer} />)}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

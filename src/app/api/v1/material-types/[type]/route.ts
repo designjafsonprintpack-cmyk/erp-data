@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 const VALID_TABLES: Record<string, string> = {
   board:      'board_types',
@@ -9,22 +10,24 @@ const VALID_TABLES: Record<string, string> = {
   glue:       'glue_types',
   foil:       'foil_types',
   lamination: 'lamination_types',
+  coating:    'coating_types',
 }
 
-export async function GET(_: NextRequest, { params }: { params: { type: string } }) {
+export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { type: string } }) {
   const table = VALID_TABLES[params.type]
   if (!table) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
 
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
-  const { data, error } = await supabase.from(table as any).select('*').is('deleted_at', null).eq('is_active', true).order('name')
+  const { data, error } = await supabase.from(table as any).select('*').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})
 
-export async function POST(req: NextRequest, { params }: { params: { type: string } }) {
+export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { type: string } }) {
   const table = VALID_TABLES[params.type]
   if (!table) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
 
@@ -37,32 +40,34 @@ export async function POST(req: NextRequest, { params }: { params: { type: strin
   const { data, error } = await supabase.from(table as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})
 
-export async function PATCH(req: NextRequest, { params }: { params: { type: string } }) {
+export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { type: string } }) {
   const table = VALID_TABLES[params.type]
   if (!table) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
 
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { id, ...fields } = await req.json()
-  const { data, error } = await supabase.from(table as any).update(fields).eq('id', id).select().single()
+  const { data, error } = await supabase.from(table as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})
 
-export async function DELETE(req: NextRequest, { params }: { params: { type: string } }) {
+export const DELETE = withErrorHandling(async function DELETE(req: NextRequest, { params }: { params: { type: string } }) {
   const table = VALID_TABLES[params.type]
   if (!table) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
 
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { id } = await req.json()
-  const { error } = await supabase.from(table as any).update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id)
+  const { error } = await supabase.from(table as any).update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', id).eq('company_id', companyId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
-}
+})

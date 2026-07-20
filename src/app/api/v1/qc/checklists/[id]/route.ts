@@ -2,13 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const companyId = await getCompanyId(user, supabase)
   const { data, error } = await supabase.from('qc_inspections' as any)
     .select(`
       *,
@@ -17,13 +20,13 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       qc_checklist_responses(*),
       qc_defects(*)
     `)
-    .eq('id', params.id).single()
+    .eq('id', params.id).eq('company_id', companyId).single()
 
   if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ data })
-}
+})
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,17 +35,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const userTableId = await getUserTableId(user, supabase)
   const body = await req.json()
 
+  const denied = await requirePermission(userTableId, 'qc', body.action === 'signoff' ? 'approve' : 'edit', supabase)
+  if (denied) return denied
+
   // Sign-off action — Phase 40
   if (body.action === 'signoff') {
     const { data: current } = await supabase.from('qc_inspections' as any)
-      .select('job_id, result, inspection_no').eq('id', params.id).single()
+      .select('job_id, result, inspection_no').eq('id', params.id).eq('company_id', companyId).single()
 
     const { data, error } = await supabase.from('qc_inspections' as any).update({
       signed_off_by: userTableId,
       signed_off_at: new Date().toISOString(),
       result:        body.result || (current as any)?.result,
       notes:         body.notes || null,
-    }).eq('id', params.id).select().single()
+    }).eq('id', params.id).eq('company_id', companyId).select().single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -54,6 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       await supabase.from('jobs' as any)
         .update({ status: 'completed' })
         .eq('id', curr.job_id)
+        .eq('company_id', companyId)
         .eq('status', 'in_progress')
     }
 
@@ -70,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // Generic patch
   const { data, error } = await supabase.from('qc_inspections' as any)
-    .update(body).eq('id', params.id).select().single()
+    .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
-}
+})

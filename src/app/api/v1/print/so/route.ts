@@ -1,16 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return new NextResponse('Missing id', { status: 400 })
 
   const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new NextResponse('Unauthorized', { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
+
   const { data, error } = await supabase
     .from('sales_orders' as any)
     .select('*, customers(name,customer_code,phone,mobile,email), sales_order_items(*)')
     .eq('id', id)
+    .eq('company_id', companyId)
     .maybeSingle()
 
   if (error) return new NextResponse(`DB Error: ${error.message}`, { status: 500 })
@@ -162,4 +169,4 @@ ${so.notes || so.terms ? `
   return new NextResponse(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' }
   })
-}
+})

@@ -2,14 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
+import { withErrorHandling } from '@/lib/utils/apiHandler'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'dispatch', 'edit', supabase)
+  if (denied) return denied
   const body = await req.json()
 
   // Upsert POD
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await supabase.from('dispatch_orders' as any).update({
     status:       'delivered',
     delivered_at: new Date().toISOString(),
-  }).eq('id', params.id).eq('status', 'dispatched')
+  }).eq('id', params.id).eq('company_id', companyId).eq('status', 'dispatched')
 
   return NextResponse.json({ data })
-}
+})

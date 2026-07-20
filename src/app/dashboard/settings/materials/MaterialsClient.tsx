@@ -132,18 +132,141 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
   )
 }
 
-// ─── TABS WRAPPER ─────────────────────────────────────────────────────────────
-type MaterialKey = 'board' | 'paper' | 'ink' | 'glue' | 'foil' | 'lamination'
+// ─── COST ITEM TYPES (dedicated — needs a unit-basis select, different API) ──
+interface CostItemType { id: string; name: string; unit_basis: string; default_rate: number }
 
-interface InitialData { board: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; lamination: any[] }
+const UNIT_BASIS_OPTIONS = [
+  { value: 'per_sheet', label: 'Per Sheet' },
+  { value: 'per_1000_sheets', label: 'Per 1000 Sheets' },
+  { value: 'per_plate', label: 'Per Plate (per color)' },
+  { value: 'per_ups', label: 'Per Ups' },
+  { value: 'per_1000_boxes', label: 'Per 1000 Boxes' },
+  { value: 'per_1000_boxes_carton', label: 'Per 1000 Boxes in Carton' },
+]
+
+function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }) {
+  const [items, setItems] = useState(initialItems)
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [form, setForm] = useState({ name: '', unit_basis: 'per_sheet', default_rate: '' })
+  const [loading, setLoading] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<CostItemType | null>(null)
+  const inputCls = 'h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+
+  const save = async () => {
+    if (!form.name) { toast.error('Name is required'); return }
+    setLoading(true)
+    try {
+      const isNew = editingId === 'new'
+      const res = await fetch(`/api/v1/cost-item-types${isNew ? '' : `/${editingId}`}`, {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setItems(prev => isNew ? [...prev, data] : prev.map(i => i.id === data.id ? data : i))
+      setEditingId(null)
+      toast.success(isNew ? 'Cost item added' : 'Cost item updated')
+    } catch (e: any) { toast.error(e.message || 'Failed to save') }
+    finally { setLoading(false) }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setLoading(true)
+    try {
+      await fetch(`/api/v1/cost-item-types/${deleteTarget.id}`, { method: 'DELETE' })
+      setItems(prev => prev.filter(i => i.id !== deleteTarget.id))
+      toast.success('Cost item removed')
+    } catch { toast.error('Failed to delete') }
+    finally { setLoading(false); setDeleteTarget(null) }
+  }
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">Cost Items <span className="text-[var(--color-text-muted)] font-normal">({items.length})</span></span>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">These show up in the &quot;+ Add Cost Line&quot; picker on New Quotation — add any recurring cost item here (Plate, Printing, Foiling, Varnish, Perforation, etc.)</p>
+        </div>
+        <button onClick={() => { setForm({ name: '', unit_basis: 'per_sheet', default_rate: '' }); setEditingId('new') }}
+          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+          <Plus size={12} /> Add
+        </button>
+      </div>
+
+      <div className="divide-y divide-[var(--color-border-subtle)]">
+        {items.map((item, idx) => (
+          <div key={item.id} className={cn('flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+            {editingId === item.id ? (
+              <>
+                <input className={cn(inputCls, 'flex-1')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Name" />
+                <select className={inputCls} value={form.unit_basis} onChange={e => setForm(p => ({ ...p, unit_basis: e.target.value }))}>
+                  {UNIT_BASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <input type="number" className={cn(inputCls, 'w-28')} value={form.default_rate} onChange={e => setForm(p => ({ ...p, default_rate: e.target.value }))} placeholder="Rate" />
+                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={12} /></button>
+                <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm text-[var(--color-text-primary)]">{item.name}</span>
+                <span className="text-xs text-[var(--color-text-muted)] w-40">{UNIT_BASIS_OPTIONS.find(o => o.value === item.unit_basis)?.label}</span>
+                <span className="text-xs font-mono text-[var(--color-text-secondary)] w-20 text-right">PKR {Number(item.default_rate).toLocaleString()}</span>
+                <div className="flex items-center gap-1 ml-2">
+                  <button onClick={() => { setForm({ name: item.name, unit_basis: item.unit_basis, default_rate: String(item.default_rate) }); setEditingId(item.id) }}
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors">
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => setDeleteTarget(item)}
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+
+        {editingId === 'new' && (
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+            <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Name *" />
+            <select className={inputCls} value={form.unit_basis} onChange={e => setForm(p => ({ ...p, unit_basis: e.target.value }))}>
+              {UNIT_BASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <input type="number" className={cn(inputCls, 'w-28')} value={form.default_rate} onChange={e => setForm(p => ({ ...p, default_rate: e.target.value }))} placeholder="Rate" />
+            <button onClick={save} disabled={loading || !form.name}
+              className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+            <button onClick={() => setEditingId(null)}
+              className="px-3 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          </div>
+        )}
+
+        {items.length === 0 && editingId !== 'new' && (
+          <div className="px-4 py-6 text-center text-sm text-[var(--color-text-muted)]">No cost items added yet.</div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+        title="Remove Cost Item" message={`Remove "${deleteTarget?.name}"? Quotations that already used it keep their saved values.`} loading={loading}
+      />
+    </div>
+  )
+}
+
+// ─── TABS WRAPPER ─────────────────────────────────────────────────────────────
+type MaterialKey = 'board' | 'paper' | 'ink' | 'glue' | 'foil' | 'costItems'
+
+interface InitialData { board: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; costItems: any[] }
 
 const TABS: { key: MaterialKey; label: string; extraFields?: any[] }[] = [
-  { key: 'board',      label: 'Board Types',      extraFields: [{ key: 'flute_type', label: 'Flute', placeholder: 'e.g. B, C, E' }, { key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }] },
+  { key: 'board',      label: 'Board Types',      extraFields: [{ key: 'flute_type', label: 'Flute', placeholder: 'e.g. B, C, E' }, { key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }, { key: 'sheet_length_in', label: 'Sheet Length (in)', placeholder: '28', type: 'number' }, { key: 'sheet_width_in', label: 'Sheet Width (in)', placeholder: '40', type: 'number' }, { key: 'rate_per_sheet', label: 'Rate/Sheet (PKR)', placeholder: '0.00', type: 'number' }, { key: 'rate_per_kg', label: 'Rate/KG (PKR)', placeholder: '0.00', type: 'number' }] },
   { key: 'paper',      label: 'Paper Types',      extraFields: [{ key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }] },
   { key: 'ink',        label: 'Ink Types',        extraFields: [{ key: 'color_code', label: 'Color Hex', placeholder: '#000000' }] },
   { key: 'glue',       label: 'Glue Types',       extraFields: [] },
   { key: 'foil',       label: 'Foil Types',       extraFields: [{ key: 'color', label: 'Color', placeholder: 'e.g. Gold' }] },
-  { key: 'lamination', label: 'Lamination Types', extraFields: [{ key: 'material', label: 'Material', placeholder: 'e.g. BOPP' }] },
+  { key: 'costItems',  label: 'Cost Items',       extraFields: [] },
 ]
 
 export default function MaterialsClient({ initialData }: { initialData: InitialData }) {
@@ -166,13 +289,17 @@ export default function MaterialsClient({ initialData }: { initialData: InitialD
       </div>
 
       {/* Active type manager */}
-      <TypeManager
-        key={activeTab}
-        title={tab.label.replace(' Types', '')}
-        apiType={activeTab}
-        items={initialData[activeTab]}
-        extraFields={tab.extraFields}
-      />
+      {activeTab === 'costItems' ? (
+        <CostItemTypesManager key="costItems" initialItems={initialData.costItems} />
+      ) : (
+        <TypeManager
+          key={activeTab}
+          title={tab.label.replace(' Types', '')}
+          apiType={activeTab}
+          items={initialData[activeTab]}
+          extraFields={tab.extraFields}
+        />
+      )}
     </div>
   )
 }
