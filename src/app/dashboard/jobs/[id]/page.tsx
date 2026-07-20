@@ -10,7 +10,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   const companyId = await getCompanyId(user, supabase)
 
-  const [jobRes, stagesRes, eventsRes, delayReasonsRes, wastageReasonsRes, machinesRes, wastageRes] = await Promise.all([
+  const [jobRes, stagesRes, eventsRes, delayReasonsRes, wastageReasonsRes, machinesRes, wastageRes, artworksRes] = await Promise.all([
     supabase.from('jobs' as any)
       .select('*, customers(name,customer_code,email,phone,mobile), workflow_templates(name), sales_orders(so_number)')
       .eq('id', params.id).maybeSingle(),
@@ -31,6 +31,9 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     supabase.from('job_wastage' as any)
       .select('*, wastage_reasons(name,category), machines(name), users(full_name)')
       .eq('job_id', params.id).is('deleted_at', null).order('occurred_at', { ascending: false }),
+    supabase.from('job_artworks' as any)
+      .select('*').eq('job_id', params.id).eq('company_id', companyId).is('deleted_at', null)
+      .order('version', { ascending: false }),
   ])
 
   if (!jobRes.data) notFound()
@@ -44,6 +47,8 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       wastageReasons={(wastageReasonsRes.data ?? []) as any[]}
       machines={(machinesRes.data ?? []) as any[]}
       wastageEntries={(wastageRes.data ?? []) as any[]}
+      companyId={companyId}
+      artworks={(artworksRes.data ?? []) as any[]}
     />
   )
 }

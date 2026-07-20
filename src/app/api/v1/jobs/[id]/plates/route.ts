@@ -55,11 +55,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       .maybeSingle()
 
     if (findErr || !existing) return NextResponse.json({ error: 'Plate not found' }, { status: 404 })
-    if ((existing as any).status === 'in_use') {
+    if (['mounted', 'printing'].includes((existing as any).status)) {
       return NextResponse.json({ error: 'This plate is already assigned to another job' }, { status: 409 })
     }
-    if (['damaged', 'retired'].includes((existing as any).status)) {
-      return NextResponse.json({ error: 'This plate is damaged/retired and cannot be reused' }, { status: 409 })
+    if (['damaged', 'disposed', 'lost'].includes((existing as any).status)) {
+      return NextResponse.json({ error: 'This plate is damaged/disposed and cannot be reused' }, { status: 409 })
     }
 
     plateId = (existing as any).id
@@ -80,7 +80,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       die_number:       body.die_number || null,
       plate_size:       body.plate_size || null,
       material:         body.material || 'aluminum',
-      status:           'in_use',
+      status:           'mounted',
       origin_job_id:    jobId,
       vendor_id:        body.vendor_id || null,
       cost:             body.cost || null,
@@ -101,6 +101,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     job_id:      jobId,
     plate_id:    plateId,
     machine_id:  body.machine_id || null,
+    operator_id: body.operator_id || null,
     is_reused:   isReused,
     condition_on_assign: body.condition_on_assign || (isReused ? 'good' : 'new'),
     remarks:     body.remarks || null,

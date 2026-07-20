@@ -17,15 +17,22 @@ import {
   type Job, type JobStageProgress, type JobEvent, type JobStatus,
   type WastageReason, type JobWastage
 } from '@/modules/jobs/types/job.types'
+import JobArtworkTab from './JobArtworkTab'
 
 interface DelayReason { id: string; name: string; category: string }
 interface Machine { id: string; name: string }
+interface ArtworkVersion {
+  id: string; job_id: string; version: number; file_name: string; file_url: string
+  file_size: number | null; file_type: string | null; designer_notes: string | null
+  status: string; is_production_ready: boolean; approved_at: string | null; created_at: string
+}
 interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
   wastageReasons: WastageReason[]; machines: Machine[]; wastageEntries: JobWastage[]
+  companyId: string; artworks: ArtworkVersion[]
 }
 
-type Tab = 'overview' | 'workflow' | 'timeline' | 'remarks' | 'wastage'
+type Tab = 'overview' | 'workflow' | 'artwork' | 'timeline' | 'remarks' | 'wastage'
 
 const EVENT_LABELS: Record<string, string> = {
   created: 'Job Created', status_changed: 'Status Changed', stage_started: 'Stage Started',
@@ -55,7 +62,7 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks }: Props) {
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
   const [stages, setStages] = useState(initialStages)
@@ -339,6 +346,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         {([
           { key: 'overview', label: 'Overview', icon: FileText },
           { key: 'workflow', label: 'Workflow', icon: Layers },
+          { key: 'artwork',  label: 'Artwork',  icon: Package },
           { key: 'timeline', label: 'Timeline', icon: Activity },
           { key: 'remarks',  label: 'Remarks',  icon: MessageSquare },
           { key: 'wastage',  label: 'Wastage',  icon: AlertTriangle },
@@ -351,6 +359,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                   ? 'border-b-[var(--color-accent)] text-[var(--color-accent)]'
                   : 'border-b-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               <Icon size={14} />{tab.label}
+              {tab.key === 'artwork' && artworks.length > 0 && (
+                <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{artworks.length}</span>
+              )}
               {tab.key === 'timeline' && events.length > 0 && (
                 <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{events.length}</span>
               )}
@@ -528,6 +539,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             </div>
           )}
         </div>
+      )}
+
+      {/* ─── Tab: Artwork ────────────────────────────────────────────────────── */}
+      {activeTab === 'artwork' && (
+        <JobArtworkTab jobId={job.id} companyId={companyId} initialArtworks={artworks as any[]} />
       )}
 
       {/* ─── Tab: Timeline ───────────────────────────────────────────────────── */}

@@ -6,7 +6,7 @@ export type EventType =
   | 'created' | 'status_changed' | 'stage_started' | 'stage_completed'
   | 'stage_skipped' | 'hold_started' | 'hold_ended' | 'remark_added'
   | 'artwork_uploaded' | 'repeat_created' | 'assigned' | 'priority_changed'
-  | 'wastage_recorded' | 'plate_assigned' | 'plate_returned'
+  | 'wastage_recorded' | 'plate_assigned' | 'plate_returned' | 'artwork_status_changed'
 
 export const GRAIN_DIRECTION_CONFIG: Record<GrainDirection, { label: string }> = {
   long_grain:  { label: 'Long Grain' },

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Layers, RotateCcw, Archive, History, Search } from 'lucide-react'
+import { Plus, Layers, RotateCcw, Archive, History, Search, RefreshCw, Boxes } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -14,13 +14,15 @@ interface Plate {
   origin_job_id: string | null; vendor_id: string | null; cost: number | null
   made_date: string | null; storage_location: string | null
   reuse_count: number; last_used_at: string | null; remarks: string | null
-  created_at: string
+  created_at: string; plate_set_id: string | null; plate_version: number
   origin_job?: { job_number: string; job_title: string } | null
   vendors?: { name: string } | null
+  plate_sets?: { set_number: number; job_id: string; jobs?: { job_number: string; job_title: string } | null } | null
 }
-interface Job { id: string; job_number: string; job_title: string; customers?: { name: string } | null }
+interface Job { id: string; job_number: string; job_title: string; no_of_colors: number | null; customers?: { name: string } | null }
 interface Vendor { id: string; name: string }
 interface Machine { id: string; name: string; code: string }
+interface Operator { id: string; full_name: string }
 interface HistoryRow {
   id: string; job_id: string; machine_id: string | null; is_reused: boolean
   assigned_at: string; returned_at: string | null
@@ -32,15 +34,21 @@ interface HistoryRow {
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'muted' }> = {
-  pending:    { label: 'Pending',    variant: 'muted' },
+  created:    { label: 'Created',    variant: 'muted' },
+  mounted:    { label: 'Mounted',    variant: 'info' },
+  printing:   { label: 'Printing',   variant: 'info' },
+  removed:    { label: 'Removed',    variant: 'muted' },
   in_storage: { label: 'In Storage', variant: 'success' },
-  in_use:     { label: 'In Use',     variant: 'info' },
   damaged:    { label: 'Damaged',    variant: 'warning' },
-  retired:    { label: 'Retired',    variant: 'danger' },
+  remade:     { label: 'Remade',     variant: 'warning' },
+  reused:     { label: 'Reused',     variant: 'info' },
+  archived:   { label: 'Archived',   variant: 'muted' },
+  disposed:   { label: 'Disposed',   variant: 'danger' },
+  lost:       { label: 'Lost',       variant: 'danger' },
 }
 
-export default function PlatesClient({ initialPlates, jobs, vendors, machines }: {
-  initialPlates: Plate[]; jobs: Job[]; vendors: Vendor[]; machines: Machine[]
+export default function PlatesClient({ initialPlates, jobs, vendors, machines, operators }: {
+  initialPlates: Plate[]; jobs: Job[]; vendors: Vendor[]; machines: Machine[]; operators: Operator[]
 }) {
   const [plates, setPlates] = useState(initialPlates)
   const [search, setSearch] = useState('')
@@ -52,12 +60,18 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
   const [historyModal, setHistoryModal] = useState<Plate | null>(null)
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [generateSetModal, setGenerateSetModal] = useState(false)
+  const [generateJobId, setGenerateJobId] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [replaceModal, setReplaceModal] = useState<Plate | null>(null)
+  const [replaceReason, setReplaceReason] = useState('')
+  const [replacing, setReplacing] = useState(false)
 
   const [form, setForm] = useState({
     plate_code: '', color: '', die_number: '', plate_size: '', material: 'aluminum',
     vendor_id: '', cost: '', made_date: '', storage_location: '', remarks: '', job_id: '', machine_id: '',
   })
-  const [assignForm, setAssignForm] = useState({ job_id: '', machine_id: '', condition_on_assign: 'good' })
+  const [assignForm, setAssignForm] = useState({ job_id: '', machine_id: '', operator_id: '', condition_on_assign: 'good' })
   const [returnForm, setReturnForm] = useState({ condition_on_return: 'good', remarks: '' })
 
   const filtered = plates.filter(p => {
@@ -96,15 +110,15 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
     try {
       const res = await fetch(`/api/v1/jobs/${assignForm.job_id}/plates`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plate_id: assignModal.id, machine_id: assignForm.machine_id || null, condition_on_assign: assignForm.condition_on_assign }),
+        body: JSON.stringify({ plate_id: assignModal.id, machine_id: assignForm.machine_id || null, operator_id: assignForm.operator_id || null, condition_on_assign: assignForm.condition_on_assign }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const job = jobs.find(j => j.id === assignForm.job_id)
       setPlates(prev => prev.map(p => p.id === assignModal.id ? {
-        ...p, status: 'in_use', reuse_count: p.reuse_count + 1, last_used_at: new Date().toISOString(),
+        ...p, status: 'mounted', reuse_count: p.reuse_count + 1, last_used_at: new Date().toISOString(),
       } : p))
       setAssignModal(null)
-      setAssignForm({ job_id: '', machine_id: '', condition_on_assign: 'good' })
+      setAssignForm({ job_id: '', machine_id: '', operator_id: '', condition_on_assign: 'good' })
       toast.success(`Assigned to ${job?.job_number || 'job'}`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -157,12 +171,59 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
     try {
       const res = await fetch(`/api/v1/plates/${plate.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'retired', retired_reason: 'Retired from registry' }),
+        body: JSON.stringify({ status: 'disposed', retired_reason: 'Retired from registry' }),
       })
       if (!res.ok) throw new Error()
-      setPlates(prev => prev.map(p => p.id === plate.id ? { ...p, status: 'retired' } : p))
+      setPlates(prev => prev.map(p => p.id === plate.id ? { ...p, status: 'disposed' } : p))
       toast.success('Plate retired')
     } catch { toast.error('Failed') }
+  }
+
+  const generateSetJob = jobs.find(j => j.id === generateJobId)
+  const previewColors = (n: number | null) => {
+    if (!n || n < 1) return []
+    if (n === 1) return ['Black']
+    if (n === 4) return ['Cyan', 'Magenta', 'Yellow', 'Black']
+    return Array.from({ length: n }, (_, i) => `Color ${i + 1}`)
+  }
+
+  const generateSet = async () => {
+    if (!generateJobId) { toast.error('Select a job'); return }
+    setGenerating(true)
+    try {
+      const res = await fetch(`/api/v1/jobs/${generateJobId}/plates/generate-set`, { method: 'POST' })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data: set } = await res.json()
+      const job = jobs.find(j => j.id === generateJobId)
+      const newPlates: Plate[] = (set.plates || []).map((p: any) => ({
+        ...p, plate_sets: { set_number: set.set_number, job_id: generateJobId, jobs: job ? { job_number: job.job_number, job_title: job.job_title } : null },
+      }))
+      setPlates(prev => [...newPlates, ...prev])
+      setGenerateSetModal(false)
+      setGenerateJobId('')
+      toast.success(`Set ${set.set_number} generated — ${newPlates.length} plates`)
+    } catch (e: any) { toast.error(e.message || 'Failed to generate set') }
+    finally { setGenerating(false) }
+  }
+
+  const replacePlate = async () => {
+    if (!replaceModal) return
+    setReplacing(true)
+    try {
+      const res = await fetch(`/api/v1/plates/${replaceModal.id}/replace`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: replaceReason || null }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data: newPlate } = await res.json()
+      setPlates(prev => prev.map(p => p.id === replaceModal.id ? { ...p, status: 'damaged' } : p).concat({
+        ...newPlate, plate_sets: replaceModal.plate_sets, origin_job: replaceModal.origin_job,
+      }))
+      setReplaceModal(null)
+      setReplaceReason('')
+      toast.success(`Replacement plate ${newPlate.plate_code} created`)
+    } catch (e: any) { toast.error(e.message || 'Failed to replace plate') }
+    finally { setReplacing(false) }
   }
 
   return (
@@ -178,8 +239,12 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
           <option value="">All Status</option>
           {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
+        <button onClick={() => setGenerateSetModal(true)}
+          className="flex items-center gap-1.5 px-4 h-9 rounded-md border border-[var(--color-accent)]/40 text-[var(--color-accent)] text-sm font-medium hover:bg-[var(--color-accent)]/10 transition-colors ml-auto">
+          <Boxes size={15} /> Generate Plate Set
+        </button>
         <button onClick={() => setNewModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
+          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> New Plate
         </button>
       </div>
@@ -194,6 +259,7 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
               <tr className="bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-left text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
                 <th className="px-4 py-2.5 font-medium">Plate Code</th>
                 <th className="px-4 py-2.5 font-medium">Color</th>
+                <th className="px-4 py-2.5 font-medium">Set</th>
                 <th className="px-4 py-2.5 font-medium">Die #</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Origin Job</th>
@@ -204,11 +270,19 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
             </thead>
             <tbody className="divide-y divide-[var(--color-border-subtle)]">
               {filtered.map(plate => {
-                const cfg = STATUS_CONFIG[plate.status] || STATUS_CONFIG.pending
+                const cfg = STATUS_CONFIG[plate.status] || STATUS_CONFIG.created
                 return (
                   <tr key={plate.id} className="hover:bg-[var(--color-bg-elevated)]/50 transition-colors">
-                    <td className="px-4 py-2.5 font-mono font-medium text-[var(--color-text-primary)]">{plate.plate_code}</td>
+                    <td className="px-4 py-2.5 font-mono font-medium text-[var(--color-text-primary)]">
+                      {plate.plate_code}
+                      {plate.plate_version > 1 && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-[var(--color-warning)]/15 text-[var(--color-warning)]">v{plate.plate_version}</span>}
+                    </td>
                     <td className="px-4 py-2.5 text-[var(--color-text-secondary)]">{plate.color}</td>
+                    <td className="px-4 py-2.5 text-[var(--color-text-muted)] text-xs">
+                      {plate.plate_sets ? (
+                        <span className="font-mono">{plate.plate_sets.jobs?.job_number} · Set {plate.plate_sets.set_number}</span>
+                      ) : '—'}
+                    </td>
                     <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{plate.die_number || '—'}</td>
                     <td className="px-4 py-2.5"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
                     <td className="px-4 py-2.5 text-[var(--color-text-muted)]">
@@ -228,13 +302,19 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
                             <RotateCcw size={12} /> Reuse
                           </button>
                         )}
-                        {plate.status === 'in_use' && (
+                        {['mounted', 'printing'].includes(plate.status) && (
                           <button onClick={() => openReturn(plate)} title="Return"
                             className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-success)]/30 text-[var(--color-success)] bg-[var(--color-success)]/10 hover:bg-[var(--color-success)]/20 text-xs font-medium transition-colors">
                             Return
                           </button>
                         )}
-                        {['in_storage', 'damaged', 'pending'].includes(plate.status) && (
+                        {plate.status === 'damaged' && (
+                          <button onClick={() => { setReplaceModal(plate); setReplaceReason('') }} title="Replace this plate"
+                            className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-warning)]/30 text-[var(--color-warning)] bg-[var(--color-warning)]/10 hover:bg-[var(--color-warning)]/20 text-xs font-medium transition-colors">
+                            <RefreshCw size={12} /> Replace
+                          </button>
+                        )}
+                        {['in_storage', 'damaged', 'created'].includes(plate.status) && (
                           <button onClick={() => retirePlate(plate)} title="Retire"
                             className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
                             <Archive size={13} />
@@ -347,6 +427,13 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
             </select>
           </div>
           <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Operator</label>
+            <select className={inputCls} value={assignForm.operator_id} onChange={e => setAssignForm(p => ({ ...p, operator_id: e.target.value }))}>
+              <option value="">— Unassigned —</option>
+              {operators.map(o => <option key={o.id} value={o.id}>{o.full_name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Condition Going Out</label>
             <select className={inputCls} value={assignForm.condition_on_assign} onChange={e => setAssignForm(p => ({ ...p, condition_on_assign: e.target.value }))}>
               <option value="good">Good</option>
@@ -405,6 +492,62 @@ export default function PlatesClient({ initialPlates, jobs, vendors, machines }:
             ))}
           </div>
         )}
+      </Modal>
+
+      {/* Generate Plate Set Modal */}
+      <Modal open={generateSetModal} onClose={() => setGenerateSetModal(false)} title="Generate Plate Set" size="md"
+        footer={<>
+          <button onClick={() => setGenerateSetModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={generateSet} disabled={generating || !generateJobId}
+            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            {generating ? 'Generating…' : 'Generate Set'}
+          </button>
+        </>}>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select className={inputCls} value={generateJobId} onChange={e => setGenerateJobId(e.target.value)}>
+              <option value="">Select job…</option>
+              {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title} ({j.no_of_colors || '?'} colors)</option>)}
+            </select>
+          </div>
+          {generateSetJob && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Plates to be created</label>
+              {generateSetJob.no_of_colors ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {previewColors(generateSetJob.no_of_colors).map((c, i) => (
+                    <span key={i} className="text-xs px-2 py-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)]">{c}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--color-danger)]">This job has no &quot;No. of Colors&quot; set — add it on the job first.</p>
+              )}
+              <p className="text-xs text-[var(--color-text-muted)]">Color names are editable per plate afterward — this is just a starting point (CMYK for 4-color jobs, generic labels otherwise).</p>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Replace Plate Modal */}
+      <Modal open={!!replaceModal} onClose={() => setReplaceModal(null)} title={`Replace ${replaceModal?.plate_code || ''}`} size="md"
+        footer={<>
+          <button onClick={() => setReplaceModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={replacePlate} disabled={replacing}
+            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            {replacing ? 'Replacing…' : 'Create Replacement'}
+          </button>
+        </>}>
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            This creates a new {replaceModal?.color} plate (v{(replaceModal?.plate_version || 1) + 1}) in the same set —
+            only this one plate is replaced, the rest of the set stays untouched. {replaceModal?.plate_code} stays on record as damaged.
+          </p>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reason (optional)</label>
+            <input className={inputCls} value={replaceReason} onChange={e => setReplaceReason(e.target.value)} placeholder="e.g. Scratched during mounting" />
+          </div>
+        </div>
       </Modal>
     </div>
   )

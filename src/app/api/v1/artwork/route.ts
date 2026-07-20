@@ -60,6 +60,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     file_size:    body.file_size || null,
     file_type:    body.file_type || null,
     designer_notes: body.designer_notes || null,
+    status: 'draft',
     is_production_ready: false,
   }).select().single()
 

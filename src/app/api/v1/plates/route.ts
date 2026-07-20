@@ -79,7 +79,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     die_number:       body.die_number || null,
     plate_size:       body.plate_size || null,
     material:         body.material || 'aluminum',
-    status:           assignToJob ? 'in_use' : 'in_storage',
+    status:           assignToJob ? 'mounted' : 'in_storage',
     origin_job_id:    body.job_id || null,
     vendor_id:        body.vendor_id || null,
     cost:             body.cost || null,

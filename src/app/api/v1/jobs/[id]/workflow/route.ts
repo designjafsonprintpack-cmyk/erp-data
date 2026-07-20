@@ -27,7 +27,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // Load the stage being acted on — needed for the sequential/artwork checks below.
   const { data: targetStage, error: targetErr } = await supabase
     .from('job_stage_progress' as any)
-    .select('id, job_id, sequence_order, workflow_stages(name)')
+    .select('id, job_id, sequence_order, workflow_stages(name, stage_type)')
     .eq('id', stage_progress_id)
     .eq('company_id', companyId)
     .single()
@@ -37,6 +37,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   }
 
   const targetStageName = (targetStage as any).workflow_stages?.name || 'Stage'
+  const targetStageType = (targetStage as any).workflow_stages?.stage_type || null
   const sequenceOrder = (targetStage as any).sequence_order
   const jobId = (targetStage as any).job_id
 
@@ -61,25 +62,25 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     )
   }
 
-  // ─── Artwork production-ready gate ─────────────────────────────────────────
-  // The "Artwork" stage cannot be marked complete until a production-ready
-  // artwork version exists for this job. Since every workflow template puts
-  // Artwork first, this is what actually blocks all downstream production
-  // stages (via the sequential check above) until artwork is approved.
-  if (action === 'complete' && targetStageName === 'Artwork') {
-    const { data: readyArtwork } = await supabase
+  // ─── Artwork approval gate ──────────────────────────────────────────────────
+  // The artwork stage cannot be marked complete until a version of this job's
+  // artwork has status = 'approved'. Matches on workflow_stages.stage_type
+  // ('artwork'), not the stage's display name — renaming the stage in a
+  // template no longer silently disables this gate the way name-matching did.
+  if (action === 'complete' && targetStageType === 'artwork') {
+    const { data: approvedArtwork } = await supabase
       .from('job_artworks' as any)
       .select('id')
       .eq('job_id', jobId)
       .eq('company_id', companyId)
-      .eq('is_production_ready', true)
+      .eq('status', 'approved')
       .is('deleted_at', null)
       .limit(1)
       .maybeSingle()
 
-    if (!readyArtwork) {
+    if (!approvedArtwork) {
       return NextResponse.json(
-        { error: 'Cannot complete the Artwork stage — no production-ready artwork version exists for this job yet.' },
+        { error: `Cannot complete "${targetStageName}" — no approved artwork version exists for this job yet.` },
         { status: 400 }
       )
     }
