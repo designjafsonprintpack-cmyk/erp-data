@@ -40,3 +40,19 @@ body {
   background: var(--color-accent);
   color: #ffffff;
 }
+
+/* Placeholder text — global fix (not per-input) so every field's
+   placeholder (e.g. "Product description *") uses a consistent, legible
+   tone instead of Tailwind's own Preflight default (input::placeholder,
+   textarea::placeholder { color: #9ca3af }). NOTE: the selector must be
+   `input::placeholder, textarea::placeholder` — not the shorter bare
+   `::placeholder` — because Preflight's rule has higher CSS specificity
+   (element + pseudo-element) than a bare pseudo-element selector, so a
+   plain `::placeholder{...}` here is silently outranked no matter where
+   it sits in the file. Matching the same selector shape ties the
+   specificity, and this rule wins on source order (it comes after
+   @tailwind base). */
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.3;
+}

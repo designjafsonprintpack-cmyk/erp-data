@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2, Save, Calculator, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Save, Calculator, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { calculateQuotationItemCost, type UnitBasis } from '@/lib/costing/quotationCosting'
@@ -11,7 +11,11 @@ interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string; sheet_length_in: number | null; sheet_width_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
 interface Tax { id: string; name: string; rate_percent: number }
 interface CostItemType { id: string; name: string; unit_basis: UnitBasis; default_rate: number }
-interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: UnitBasis; rate: string }
+// `active` is the "tick" — a checked Finish Goods line counts toward the
+// total; unchecked ones stay visible (with their rate still editable) but
+// contribute nothing, so switching a line on/off never loses the rate the
+// estimator typed in.
+interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: UnitBasis; rate: string; active: boolean }
 
 interface LineItem {
   product_desc: string; size_l: string; size_w: string; size_h: string; quantity: string
@@ -20,6 +24,8 @@ interface LineItem {
   board_rate_per_sheet: string; board_rate_per_kg: string
   unit_price: string; notes: string
   ups: string; wastage_percent: string
+  profit_margin_percent: string
+  packet_length_in: string; packet_width_in: string; packet_div: string
   costLines: CostLineDraft[]
 }
 
@@ -40,13 +46,19 @@ const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
   per_1000_boxes_wastage: 'Per 1000 Boxes (+ wastage)',
 }
 
-const emptyLine = (): LineItem => ({
+const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
   product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '1', no_of_colors: '4',
   board_type_id: '', board_costing_method: 'per_sheet',
   sheet_length_in: '', sheet_width_in: '', board_gsm: '', board_rate_per_sheet: '', board_rate_per_kg: '',
   unit_price: '0', notes: '',
   ups: '', wastage_percent: DEFAULT_WASTAGE,
-  costLines: [],
+  profit_margin_percent: '0',
+  packet_length_in: '', packet_width_in: '', packet_div: '1',
+  // Every catalog item shows up as a Finish Goods checklist row, unticked
+  // by default — nothing is included in the cost until the estimator
+  // ticks it (and gets a rate pre-filled from the catalog default, still
+  // editable).
+  costLines: costItemTypes.map(c => ({ cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false })),
 })
 
 interface Props {
@@ -66,26 +78,47 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     terms_conditions: initialData?.terms_conditions || '',
   })
   const [items, setItems] = useState<LineItem[]>(
-    initialData?.quotation_items?.map((i: any) => ({
-      product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
-      size_h: String(i.size_h || ''), quantity: String(i.quantity), no_of_colors: String(i.no_of_colors || 4),
-      board_type_id: i.board_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
-      sheet_length_in: String(i.sheet_length_in || ''), sheet_width_in: String(i.sheet_width_in || ''),
-      board_gsm: String(i.board_gsm || ''), board_rate_per_sheet: String(i.board_rate_per_sheet || ''),
-      board_rate_per_kg: String(i.board_rate_per_kg || ''),
-      unit_price: String(i.unit_price), notes: i.notes || '',
-      ups: String(i.ups || ''), wastage_percent: String(i.wastage_percent ?? DEFAULT_WASTAGE),
-      costLines: (i.quotation_item_cost_lines || []).map((l: any) => ({
-        cost_item_type_id: l.cost_item_type_id || '', name: l.name, unit_basis: l.unit_basis, rate: String(l.rate),
-      })),
-    })) || [emptyLine()]
+    initialData?.quotation_items?.map((i: any) => {
+      const saved: any[] = i.quotation_item_cost_lines || []
+      // Merge: every catalog item is a checklist row. If this item has a
+      // saved cost line for that catalog entry, it's ticked with the saved
+      // rate; otherwise it's unticked with the catalog default rate. Any
+      // saved line whose cost_item_type_id no longer matches a live
+      // catalog entry (deleted/renamed item type) is still appended so a
+      // historical quotation doesn't silently lose what it was actually
+      // costed with.
+      const bySavedType = new Map(saved.map(l => [l.cost_item_type_id, l]))
+      const merged: CostLineDraft[] = costItemTypes.map(c => {
+        const s = bySavedType.get(c.id)
+        return s
+          ? { cost_item_type_id: c.id, name: s.name, unit_basis: s.unit_basis, rate: String(s.rate), active: true }
+          : { cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false }
+      })
+      const orphaned = saved.filter(l => l.cost_item_type_id && !costItemTypes.some(c => c.id === l.cost_item_type_id))
+      for (const o of orphaned) merged.push({ cost_item_type_id: o.cost_item_type_id || '', name: o.name, unit_basis: o.unit_basis, rate: String(o.rate), active: true })
+
+      return {
+        product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
+        size_h: String(i.size_h || ''), quantity: String(i.quantity), no_of_colors: String(i.no_of_colors || 4),
+        board_type_id: i.board_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
+        sheet_length_in: String(i.sheet_length_in || ''), sheet_width_in: String(i.sheet_width_in || ''),
+        board_gsm: String(i.board_gsm || ''), board_rate_per_sheet: String(i.board_rate_per_sheet || ''),
+        board_rate_per_kg: String(i.board_rate_per_kg || ''),
+        unit_price: String(i.unit_price), notes: i.notes || '',
+        ups: String(i.ups || ''), wastage_percent: String(i.wastage_percent ?? DEFAULT_WASTAGE),
+        profit_margin_percent: String(i.margin_percent ?? '0'),
+        packet_length_in: String(i.packet_length_in || ''), packet_width_in: String(i.packet_width_in || ''),
+        packet_div: String(i.packet_div ?? '1'),
+        costLines: merged,
+      }
+    }) || [emptyLine(costItemTypes)]
   )
   const [loading, setLoading] = useState(false)
   const [openCalc, setOpenCalc] = useState<number | null>(null)
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const setItem = (idx: number, k: keyof LineItem, v: any) => setItems(prev => prev.map((item, i) => i === idx ? { ...item, [k]: v } : item))
-  const addLine = () => setItems(prev => [...prev, emptyLine()])
+  const addLine = () => setItems(prev => [...prev, emptyLine(costItemTypes)])
   const removeLine = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
   // Selecting a Board Type pre-fills the sheet size/GSM/rate fields — but
@@ -104,16 +137,13 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     } : item))
   }
 
-  const addCostLine = (idx: number, costItemTypeId: string) => {
-    const catalogItem = costItemTypes.find(c => c.id === costItemTypeId)
-    if (!catalogItem) return
+  // Ticking a Finish Goods row includes it in the cost; unticking removes
+  // it from the total but keeps the rate the estimator typed, so toggling
+  // back on doesn't lose it.
+  const toggleCostLine = (idx: number, lineIdx: number) => {
     setItems(prev => prev.map((item, i) => i === idx ? {
-      ...item,
-      costLines: [...item.costLines, { cost_item_type_id: catalogItem.id, name: catalogItem.name, unit_basis: catalogItem.unit_basis, rate: String(catalogItem.default_rate) }],
+      ...item, costLines: item.costLines.map((l, li) => li === lineIdx ? { ...l, active: !l.active } : l),
     } : item))
-  }
-  const removeCostLine = (idx: number, lineIdx: number) => {
-    setItems(prev => prev.map((item, i) => i === idx ? { ...item, costLines: item.costLines.filter((_, li) => li !== lineIdx) } : item))
   }
   const setCostLineRate = (idx: number, lineIdx: number, rate: string) => {
     setItems(prev => prev.map((item, i) => i === idx ? {
@@ -143,20 +173,25 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     boardGsm: parseFloat(item.board_gsm || '0'),
     sheetLengthIn: parseFloat(item.sheet_length_in || '0'),
     sheetWidthIn: parseFloat(item.sheet_width_in || '0'),
-    costLines: item.costLines.map(l => ({ name: l.name, unitBasis: l.unit_basis, rate: parseFloat(l.rate || '0') })),
+    // Only ticked Finish Goods rows count toward the total.
+    costLines: item.costLines.filter(l => l.active).map(l => ({ name: l.name, unitBasis: l.unit_basis, rate: parseFloat(l.rate || '0') })),
+    profitMarginPercent: parseFloat(item.profit_margin_percent || '0'),
+    packetLengthIn: parseFloat(item.packet_length_in || '0'),
+    packetWidthIn: parseFloat(item.packet_width_in || '0'),
+    packetDiv: parseFloat(item.packet_div || '1'),
   })
 
-  // Sets the unit price to exact breakeven cost — there's no automatic
-  // markup (margin/overhead were removed per Mehboob's request). Profit is
-  // shown live below as whatever gap the estimator leaves after raising the
-  // price manually from here.
-  const applyCalculated = (idx: number) => {
+  // Profit Margin % drives the suggested price: Agreed Rate = Total Cost x
+  // (1 + margin%/100), Suggested Unit Price = Agreed Rate / Quantity. This
+  // only sets unit_price when clicked — the estimator can still type over
+  // it by hand afterward, same as before.
+  const applyMargin = (idx: number) => {
     const item = items[idx]
     if (!item.ups || parseFloat(item.ups) <= 0) { toast.error('Enter Ups first'); return }
     if (!item.sheet_length_in || !item.sheet_width_in) { toast.error('Enter sheet size first'); return }
     const result = computeFor(item)
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: String(result.costPerUnit) } : it))
-    toast.success('Unit price set to breakeven cost — adjust for profit')
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: String(result.suggestedUnitPrice) } : it))
+    toast.success(`Unit price set from ${item.profit_margin_percent || 0}% margin`)
   }
 
   const save = async (status = 'draft') => {
@@ -192,14 +227,23 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
             ups: item.ups ? parseInt(item.ups) : null,
             sheet_qty: item.ups ? Math.ceil(parseFloat(item.quantity || '0') / parseFloat(item.ups)) : null,
             wastage_percent: item.wastage_percent ? parseFloat(item.wastage_percent) : null,
+            margin_percent: item.profit_margin_percent ? parseFloat(item.profit_margin_percent) : null,
+            packet_length_in: item.packet_length_in ? parseFloat(item.packet_length_in) : null,
+            packet_width_in: item.packet_width_in ? parseFloat(item.packet_width_in) : null,
+            packet_div: item.packet_div ? parseFloat(item.packet_div) : null,
             board_cost: result.boardCost || null,
             total_cost: result.totalCost || null,
-            cost_lines: item.costLines.map((l, li) => ({
-              cost_item_type_id: l.cost_item_type_id || null,
-              name: l.name, unit_basis: l.unit_basis, rate: parseFloat(l.rate || '0'),
-              quantity: result.costLines[li]?.quantityUsed || 0,
-              amount: result.costLines[li]?.amount || 0,
-            })),
+            // Only ticked rows are saved as cost lines — unticked catalog
+            // rows with a leftover rate typed in don't get persisted.
+            cost_lines: item.costLines.filter(l => l.active).map((l) => {
+              const idx2 = result.costLines.findIndex(rl => rl.name === l.name && rl.unitBasis === l.unit_basis)
+              return {
+                cost_item_type_id: l.cost_item_type_id || null,
+                name: l.name, unit_basis: l.unit_basis, rate: parseFloat(l.rate || '0'),
+                quantity: result.costLines[idx2]?.quantityUsed || 0,
+                amount: result.costLines[idx2]?.amount || 0,
+              }
+            }),
           }
         }),
       }
@@ -290,9 +334,6 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
             const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
             const isOpen = openCalc === idx
             const result = isOpen ? computeFor(item) : null
-            const profitPerUnit = result ? parseFloat(item.unit_price || '0') - result.costPerUnit : 0
-            const profitTotal = result ? profitPerUnit * parseFloat(item.quantity || '0') : 0
-            const profitPct = result && parseFloat(item.unit_price || '0') > 0 ? (profitPerUnit / parseFloat(item.unit_price || '0')) * 100 : 0
             return (
               <div key={idx}>
                 <div className="grid grid-cols-12 gap-2 px-4 py-3 items-center">
@@ -385,35 +426,71 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
                         )}
                       </div>
 
-                      {/* Dynamic cost lines — "+ Add Cost Line" picks from the catalog
-                          instead of every cost driver needing its own fixed field */}
-                      <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-medium text-[var(--color-text-secondary)]">Cost Lines</label>
-                          <select
-                            value=""
-                            onChange={e => { if (e.target.value) addCostLine(idx, e.target.value) }}
-                            className="h-7 px-2 rounded-md border text-xs bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]">
-                            <option value="">+ Add Cost Line…</option>
-                            {costItemTypes.map(c => <option key={c.id} value={c.id}>{c.name} ({UNIT_BASIS_LABELS[c.unit_basis]})</option>)}
-                          </select>
-                        </div>
-                        {item.costLines.length === 0 ? (
-                          <p className="text-xs text-[var(--color-text-muted)]">No cost lines added — pick from the dropdown above (Plate, Printing, UV, Lamination, Foiling, Embossing, Die Making, Die Cutting, Breaking, Pasting, Packing, Cartage, or any custom item set up in Settings → Materials).</p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {item.costLines.map((line, li) => (
-                              <div key={li} className="flex items-center gap-2 text-xs">
-                                <span className="flex-1 text-[var(--color-text-primary)]">{line.name}</span>
-                                <span className="text-[var(--color-text-muted)] w-40">{UNIT_BASIS_LABELS[line.unit_basis]}</span>
-                                <input type="number" value={line.rate} onChange={e => setCostLineRate(idx, li, e.target.value)}
-                                  className="w-24 h-7 px-2 rounded-md border text-xs text-right bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]" placeholder="Rate" />
-                                <button onClick={() => removeCostLine(idx, li)} className="w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ))}
+                      {/* Packet Size + Div — informational bundling detail only,
+                          doesn't affect Board Cost/Total Cost (Div cancels out
+                          mathematically either way). Kept editable for records. */}
+                      <div className="pt-3 border-t border-[var(--color-border-subtle)]">
+                        <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Packet Size <span className="font-normal text-[var(--color-text-muted)]">(record-keeping only — doesn&apos;t change cost)</span></p>
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-[var(--color-text-muted)]">Packet Length (in)</label>
+                            <input type="number" className={smallInputCls} value={item.packet_length_in} onChange={e => setItem(idx, 'packet_length_in', e.target.value)} placeholder="e.g. 20" />
                           </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-[var(--color-text-muted)]">Packet Width (in)</label>
+                            <input type="number" className={smallInputCls} value={item.packet_width_in} onChange={e => setItem(idx, 'packet_width_in', e.target.value)} placeholder="e.g. 30" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-[var(--color-text-muted)]">Div</label>
+                            <input type="number" className={smallInputCls} value={item.packet_div} onChange={e => setItem(idx, 'packet_div', e.target.value)} placeholder="1" />
+                          </div>
+                          {result && (
+                            <div className="space-y-1">
+                              <label className="text-xs text-[var(--color-text-muted)]">Packets / Pkt Weight</label>
+                              <p className="h-8 flex items-center text-sm font-mono text-[var(--color-text-secondary)]">{result.packets.toLocaleString(undefined, { maximumFractionDigits: 2 })} / {result.pktWeightKg.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Finish Goods checklist — tick to include a line in the
+                          cost, type its Rate, Amount computes automatically.
+                          Unticked lines keep whatever Rate was typed so
+                          re-ticking doesn't lose it. */}
+                      <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-2">
+                        <label className="text-xs font-medium text-[var(--color-text-secondary)]">Finish Goods</label>
+                        <div className="grid grid-cols-12 gap-2 px-1 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                          <div className="col-span-1"></div>
+                          <div className="col-span-4">Item</div>
+                          <div className="col-span-3">Basis</div>
+                          <div className="col-span-2 text-right">Rate</div>
+                          <div className="col-span-2 text-right">Amount</div>
+                        </div>
+                        <div className="space-y-1">
+                          {item.costLines.map((line, li) => {
+                            const lineResult = result?.costLines.find((_, ri) => ri === result.costLines.findIndex(rl => rl.name === line.name && rl.unitBasis === line.unit_basis))
+                            const amount = line.active ? (lineResult?.amount ?? 0) : 0
+                            return (
+                              <div key={li} className={cn('grid grid-cols-12 gap-2 items-center py-1 px-1 rounded', line.active && 'bg-[var(--color-accent)]/5')}>
+                                <div className="col-span-1">
+                                  <input type="checkbox" checked={line.active} onChange={() => toggleCostLine(idx, li)}
+                                    className="w-4 h-4 rounded accent-[var(--color-accent)] cursor-pointer" />
+                                </div>
+                                <div className={cn('col-span-4 text-xs', line.active ? 'text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-muted)]')}>{line.name}</div>
+                                <div className="col-span-3 text-[10px] text-[var(--color-text-muted)]">{UNIT_BASIS_LABELS[line.unit_basis]}</div>
+                                <div className="col-span-2">
+                                  <input type="number" value={line.rate} onChange={e => setCostLineRate(idx, li, e.target.value)}
+                                    className="w-full h-7 px-2 rounded-md border text-xs text-right bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]" placeholder="Rate" />
+                                </div>
+                                <div className="col-span-2 text-right text-xs font-mono text-[var(--color-text-primary)]">
+                                  {line.active ? amount.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {costItemTypes.length === 0 && (
+                          <p className="text-xs text-[var(--color-text-muted)]">No cost items set up yet — add Plate, Printing, UV, Lamination, Foiling, Embossing, Die Making, Die Cutting, Breaking, Pasting, Packing, Cartage (or custom items) from Settings → Materials.</p>
                         )}
                       </div>
 
@@ -423,7 +500,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
                           ['1000-Blocks', result.sheetsBilledBlocks.toLocaleString()],
                           ...(item.board_costing_method === 'per_kg' ? [['Board Weight (kg)', result.boardWeightKg] as [string, number]] : []),
                           ['Board Cost', result.boardCost],
-                          ...result.costLines.map(l => [l.name, l.amount] as [string, number]),
+                          ['Finish Goods Total', result.costLinesTotal],
                         ].map(([label, val], i) => (
                           <div key={i}>
                             <p className="text-[var(--color-text-muted)]">{label}</p>
@@ -431,18 +508,40 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
                           </div>
                         ))}
                       </div>
+
+                      {/* Profit Margin % — editable, drives the suggested price
+                          live: Agreed Rate = Total Cost x (1 + margin%/100). */}
                       {result && (
-                        <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border-subtle)]">
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                            <span className="text-[var(--color-text-muted)]">Total cost: <b className="text-[var(--color-text-primary)] font-mono">PKR {result.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span>
-                            <span className="text-[var(--color-text-muted)]">Cost/unit: <b className="text-[var(--color-text-primary)] font-mono">PKR {result.costPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span>
-                            <span className="text-[var(--color-text-muted)]">Profit/unit: <b className={cn('font-mono', profitPerUnit >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>PKR {profitPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span>
-                            <span className="text-[var(--color-text-muted)]">Total profit: <b className={cn('font-mono', profitTotal >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>PKR {profitTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b> ({profitPct.toFixed(1)}%)</span>
+                        <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-3">
+                          <div className="grid grid-cols-4 gap-3 items-end">
+                            <div className="space-y-1">
+                              <label className="text-xs text-[var(--color-text-muted)]">Total Cost</label>
+                              <p className="h-8 flex items-center text-sm font-mono text-[var(--color-text-primary)]">PKR {result.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-[var(--color-text-muted)]">Profit Margin %</label>
+                              <input type="number" className={smallInputCls} value={item.profit_margin_percent} onChange={e => setItem(idx, 'profit_margin_percent', e.target.value)} placeholder="e.g. 20" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-[var(--color-text-muted)]">Agreed Rate (order total)</label>
+                              <p className="h-8 flex items-center text-sm font-mono text-[var(--color-text-primary)]">PKR {result.agreedRate.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-[var(--color-text-muted)]">Suggested Unit Price</label>
+                              <p className="h-8 flex items-center text-sm font-mono text-[var(--color-success)]">PKR {result.suggestedUnitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                            </div>
                           </div>
-                          <button onClick={() => applyCalculated(idx)}
-                            className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
-                            Set Unit Price to Cost
-                          </button>
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                              <span className="text-[var(--color-text-muted)]">Cost/unit: <b className="text-[var(--color-text-primary)] font-mono">PKR {result.costPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span>
+                              <span className="text-[var(--color-text-muted)]">Profit amount: <b className="text-[var(--color-success)] font-mono">PKR {result.profitAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span>
+                              <span className="text-[var(--color-text-muted)]">Sales Tax: <span className="text-[var(--color-text-secondary)]">set once for the whole quotation above (or leave &quot;No tax&quot;)</span></span>
+                            </div>
+                            <button onClick={() => applyMargin(idx)}
+                              className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                              Apply to Unit Price
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

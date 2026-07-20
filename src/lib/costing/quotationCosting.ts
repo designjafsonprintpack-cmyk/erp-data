@@ -1,25 +1,37 @@
-// Quotation Costing Engine — pure calculation, no I/O. Ups is always a manual
-// estimator input (same convention as jobs.ups): box dieline nesting isn't a
-// simple L/W grid, so it's never auto-derived from raw dimensions.
+// Quotation Costing Engine — pure calculation, no I/O.
 //
-// v3 — removed overhead%/margin% auto-pricing per Mehboob's request: the
-// engine now only computes COST. Profit is whatever the estimator's chosen
-// unit price leaves after cost — an output shown live, not an input that
-// drives the price. Sheet size, board GSM, and board rate are all editable
-// per line (pre-filled from the selected Board Type but overridable), since
-// a custom/one-off sheet size not in the catalog still needs to be costable.
+// v4 — rebuilt to match Mehboob's Cost.xlsx line-by-line (formulas analyzed
+// cell by cell, not just item names). Ups is always a manual estimator
+// input (same convention as jobs.ups): box dieline nesting isn't a simple
+// L/W grid, so it's never auto-derived from raw dimensions.
 //
-//   - Board weight: L(in) × W(in) × GSM / 15500 per sheet (trade formula,
-//     verified against Mehboob's own worksheet).
-//   - UV/Lamination/Foiling are area-based (rate × sheet sqft × sheet qty),
-//     same formula as each other — part of the generic cost-line list with
-//     a 'per_sqft' basis.
-//   - Printing needs a color multiplier AND stepped-1000 rounding together
-//     ('per_1000_sheets_per_color'). Embossing/Die-Cutting/Breaking use
-//     plain 'per_1000_sheets' — no color multiplier.
-//   - Pasting is priced on box quantity + wastage%, per 1000 — not sheets.
-//   - "Stepped 1000" rounding: remainder ≤ 200 rounds down to the block
+//   - Board weight: the Excel's own "Packets / Pkt Weight" section proves
+//     `L(in) x W(in) x GSM / 15500` is the weight of a BATCH OF 100 SHEETS
+//     in kg — not one sheet. (Verified: a real 20x30in 300gsm sheet weighs
+//     ~0.116kg; that formula gives 11.6129, which is exactly 100x — i.e.
+//     the weight of 100 such sheets.) The v3 engine multiplied this
+//     constant directly by sheet count with no /100, overstating Board
+//     Weight (and Board Cost under Per-KG costing) by 100x. Fixed here.
+//   - UV/Lamination/Foiling are area-based (rate x sheet sqft x sheet qty).
+//   - Printing multiplies by BOTH the color count AND stepped-1000
+//     rounding ('per_1000_sheets_per_color') — confirmed with Mehboob;
+//     the raw Excel is missing the color multiplier there (a mistake).
+//   - Embossing/Die-Cutting/Breaking use plain 'per_1000_sheets' — no
+//     color multiplier. The raw Excel's Breaking row multiplies by color
+//     (copied from the Printing row by mistake) — confirmed with Mehboob
+//     to drop it, consistent with Embossing/Die-Cutting.
+//   - Pasting is priced on box quantity + wastage%, per 1000.
+//   - "Stepped 1000" rounding: remainder <= 200 rounds down to the block
 //     below, otherwise rounds up — always at least 1 block for qty > 0.
+//   - Packet Size (L/W) + Div: the Excel has these fields but its own Pkt
+//     Weight formula actually reads the Sheet Size cells, not the Packet
+//     Size cells — dead/decorative in the original. Kept editable per
+//     Mehboob's request for future use, and wired to an actual formula
+//     using the real packet dimensions here (informational only — does
+//     NOT feed into Board Weight/Board Cost/Total Cost).
+//   - Profit Margin %: re-activated per Mehboob's request. Suggested Unit
+//     Price = (Total Cost x (1 + margin% / 100)) / Quantity. Still just a
+//     suggestion the estimator can override — see applyMargin in the form.
 
 export type UnitBasis =
   | 'per_sheet' | 'per_1000_sheets' | 'per_1000_sheets_per_color' | 'per_plate'
@@ -43,6 +55,11 @@ export interface CostingInput {
   sheetLengthIn: number
   sheetWidthIn: number
   costLines: DynamicCostLine[]
+  profitMarginPercent: number
+  // Informational only — Packet Size + Div (Excel parity, does not affect cost)
+  packetLengthIn?: number
+  packetWidthIn?: number
+  packetDiv?: number
 }
 
 export interface DynamicCostLineResult extends DynamicCostLine {
@@ -60,17 +77,23 @@ export interface CostingResult {
   costLinesTotal: number
   totalCost: number
   costPerUnit: number
+  profitAmount: number
+  agreedRate: number           // Total Cost + Profit Amount, for the whole order quantity
+  suggestedUnitPrice: number   // Agreed Rate / Quantity
+  // Informational only (Excel "Packets" / "Pkt Weight") — not a cost driver
+  packets: number
+  pktWeightKg: number
 }
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-// One sheet's weight in KG — trade formula: L(in) × W(in) × GSM / 15500.
-function sheetWeightKg(lengthIn: number, widthIn: number, gsm: number): number {
+// Weight of ONE HUNDRED sheets, in kg — trade constant: L(in) x W(in) x GSM / 15500.
+function sheetWeightPer100Kg(lengthIn: number, widthIn: number, gsm: number): number {
   if (!lengthIn || !widthIn || !gsm) return 0
   return (lengthIn * widthIn * gsm) / 15500
 }
 
-// "Stepped 1000" block count: remainder ≤ 200 rounds down, otherwise up,
+// "Stepped 1000" block count: remainder <= 200 rounds down, otherwise up,
 // minimum 1 block for any quantity > 0.
 function steppedThousandBlocks(sheets: number): number {
   if (sheets <= 0) return 0
@@ -110,8 +133,11 @@ export function calculateQuotationItemCost(input: CostingInput): CostingResult {
   const boxQty = quantity
   const sqftPerSheet = input.sheetLengthIn && input.sheetWidthIn ? (input.sheetLengthIn * input.sheetWidthIn) / 144 : 0
 
+  // Board weight — FIXED: sheetWeightPer100Kg is the weight of a batch of
+  // 100 sheets, so total weight = grossSheetQty / 100 x that constant, not
+  // grossSheetQty x that constant directly (the old 100x-overstated bug).
   const boardWeightKg = input.boardCostingMethod === 'per_kg'
-    ? sheetWeightKg(input.sheetLengthIn, input.sheetWidthIn, input.boardGsm) * grossSheetQty
+    ? (grossSheetQty / 100) * sheetWeightPer100Kg(input.sheetLengthIn, input.sheetWidthIn, input.boardGsm)
     : 0
   const boardCost = input.boardCostingMethod === 'per_kg'
     ? boardWeightKg * (input.boardRatePerKg || 0)
@@ -126,6 +152,20 @@ export function calculateQuotationItemCost(input: CostingInput): CostingResult {
   const totalCost = boardCost + costLinesTotal
   const costPerUnit = quantity > 0 ? totalCost / quantity : 0
 
+  const profitMarginPercent = Math.max(input.profitMarginPercent || 0, 0)
+  const profitAmount = totalCost * (profitMarginPercent / 100)
+  const agreedRate = totalCost + profitAmount
+  const suggestedUnitPrice = quantity > 0 ? agreedRate / quantity : 0
+
+  // Informational Packets / Pkt Weight — uses the actual Packet Size
+  // fields (unlike the raw Excel, which reads Sheet Size here by mistake).
+  // Div cancels out of Total KG either way, so this never feeds boardCost.
+  const div = input.packetDiv && input.packetDiv > 0 ? input.packetDiv : 1
+  const packets = div > 0 ? grossSheetQty / 100 / div : 0
+  const pktWeightKg = input.packetLengthIn && input.packetWidthIn
+    ? sheetWeightPer100Kg(input.packetLengthIn, input.packetWidthIn, input.boardGsm) / 100 * div
+    : 0
+
   return {
     sheetQty,
     grossSheetQty,
@@ -136,5 +176,10 @@ export function calculateQuotationItemCost(input: CostingInput): CostingResult {
     costLinesTotal: round2(costLinesTotal),
     totalCost: round2(totalCost),
     costPerUnit: round2(costPerUnit),
+    profitAmount: round2(profitAmount),
+    agreedRate: round2(agreedRate),
+    suggestedUnitPrice: round2(suggestedUnitPrice),
+    packets: round2(packets),
+    pktWeightKg: round2(pktWeightKg),
   }
 }

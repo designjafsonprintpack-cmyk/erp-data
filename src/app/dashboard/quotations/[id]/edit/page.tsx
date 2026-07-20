@@ -9,10 +9,10 @@ export default async function EditQuotationPage({ params }: { params: { id: stri
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
   const [qtRes, customersRes, boardTypesRes, costItemTypesRes, taxesRes] = await Promise.all([
-    supabase.from('quotations' as any).select('*, quotation_items(*, quotation_item_cost_lines(*))').eq('id', params.id).single(),
-    supabase.from('customers' as any).select('id, name, customer_code').eq('company_id', companyId).is('deleted_at', null).order('name'),
-    supabase.from('board_types' as any).select('id, name, sheet_length_in, sheet_width_in, rate_per_sheet, rate_per_kg, gsm').eq('company_id', companyId).is('deleted_at', null),
-    supabase.from('cost_item_types' as any).select('id, name, unit_basis, default_rate').eq('company_id', companyId).is('deleted_at', null).order('name'),
+    supabase.from('quotations' as any).select('*, quotation_items(*, quotation_item_cost_lines(*))').eq('id', params.id).eq('company_id', companyId).single(),
+    supabase.from('customers' as any).select('id, name, customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('board_types' as any).select('id, name, sheet_length_in, sheet_width_in, rate_per_sheet, rate_per_kg, gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true),
+    supabase.from('cost_item_types' as any).select('id, name, unit_basis, default_rate').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
     supabase.from('taxes' as any).select('id, name, rate_percent').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
   ])
   if (!qtRes.data) notFound()

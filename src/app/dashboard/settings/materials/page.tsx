@@ -13,7 +13,7 @@ export default async function MaterialsPage() {
     supabase.from('ink_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('glue_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('foil_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
-    supabase.from('cost_item_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
+    supabase.from('cost_item_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('sort_order').order('name'),
   ])
 
   return (
