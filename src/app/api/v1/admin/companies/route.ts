@@ -23,7 +23,7 @@ export const GET = withErrorHandling(async function GET(_req: NextRequest) {
   // role is written onto the TOP LEVEL of the JWT claims by
   // custom_access_token_hook — not into app_metadata/user_metadata.
   const { data: { session } } = await supabase.auth.getSession()
-  const role = session?.access_token ? decodeJwtPayload(session.access_token)?.role : undefined
+  const role = session?.access_token ? decodeJwtPayload(session.access_token)?.app_role : undefined
 
   if (!['superadmin','super_admin'].includes(role)) {
     // Regular users: return only their own company

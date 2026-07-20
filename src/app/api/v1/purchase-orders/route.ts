@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { createPurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
@@ -25,7 +26,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .is('deleted_at', null)
 
   if (status) q = q.eq('status', status)
-  if (search) q = q.or(`po_number.ilike.%${search}%`)
+  if (search) q = q.or(`po_number.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false }).range(offset, offset + limit - 1)

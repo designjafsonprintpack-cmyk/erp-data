@@ -2,6 +2,17 @@
 import { createSupabaseClient } from '@/lib/supabase/client'
 import type { PermissionAction, ModuleKey } from '../types/permission.types'
 
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(base64))
+  } catch {
+    return null
+  }
+}
+
 // Cache permissions in memory for the session
 let cachedPermissions: Set<string> | null = null
 let cachedRole: string | null = null
@@ -11,7 +22,8 @@ async function loadPermissions(): Promise<{ perms: Set<string>; role: string }> 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { perms: new Set(), role: '' }
 
-  const role = (session.user.app_metadata?.role || session.user.user_metadata?.role || '') as string
+  const claims = session.access_token ? decodeJwtPayload(session.access_token) : null
+  const role = (claims?.app_role || '') as string
   cachedRole = role
 
   // Superadmin/owner bypass — all permissions granted

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 // Entity → table + allowlisted columns. Deliberately an allowlist, not
@@ -81,6 +83,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'reports', 'view', supabase)
+  if (denied) return denied
 
   const body = await req.json()
   const entityConfig = ENTITIES[body.entity]

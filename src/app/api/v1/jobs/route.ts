@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
@@ -29,7 +30,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status)   q = q.eq('status', status)
   if (priority) q = q.eq('priority', priority)
   if (customer) q = q.eq('customer_id', customer)
-  if (search)   q = q.or(`job_number.ilike.%${search}%,job_title.ilike.%${search}%`)
+  if (search)   q = q.or(`job_number.ilike."%${escapeFilterValue(search)}%",job_title.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })

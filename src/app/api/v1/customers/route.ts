@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { customerSchema } from '@/lib/schemas/customer'
@@ -22,7 +23,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   if (stage) query = query.eq('pipeline_stage', stage)
   if (search) {
-    query = query.or(`name.ilike.%${search}%,customer_code.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    query = query.or(`name.ilike."%${escapeFilterValue(search)}%",customer_code.ilike."%${escapeFilterValue(search)}%",email.ilike."%${escapeFilterValue(search)}%",phone.ilike."%${escapeFilterValue(search)}%"`)
   }
 
   const { data, error, count } = await query.order('name').range(offset, offset + limit - 1)

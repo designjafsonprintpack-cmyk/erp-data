@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
@@ -43,7 +44,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .eq('is_active', true)
 
   if (status) q = q.eq('status', status)
-  if (search) q = q.or(`plate_code.ilike.%${search}%,color.ilike.%${search}%,die_number.ilike.%${search}%`)
+  if (search) q = q.or(`plate_code.ilike."%${escapeFilterValue(search)}%",color.ilike."%${escapeFilterValue(search)}%",die_number.ilike."%${escapeFilterValue(search)}%"`)
   if (plateIdsForJob) q = q.in('id', plateIdsForJob)
 
   const { data, error, count } = await q

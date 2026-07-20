@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
@@ -17,7 +18,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   let q = supabase.from('vendors' as any).select('*', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
-  if (search) q = q.or(`name.ilike.%${search}%,vendor_code.ilike.%${search}%`)
+  if (search) q = q.or(`name.ilike."%${escapeFilterValue(search)}%",vendor_code.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q.order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
@@ -9,6 +11,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'reports', 'view', supabase)
+  if (denied) return denied
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type') || 'kpi'
   const days = parseInt(searchParams.get('days') || '30')

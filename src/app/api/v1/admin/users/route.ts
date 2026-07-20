@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
+import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { createClient } from '@supabase/supabase-js'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
@@ -18,6 +19,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -25,9 +27,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   let q = supabase.from('users' as any)
     .select(USER_SELECT, { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null)
 
-  if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,employee_code.ilike.%${search}%`)
+  if (search) q = q.or(`full_name.ilike."%${escapeFilterValue(search)}%",email.ilike."%${escapeFilterValue(search)}%",employee_code.ilike."%${escapeFilterValue(search)}%"`)
   if (role)   q = q.eq('role', role)
 
   const { data, error, count } = await q.order('full_name')
