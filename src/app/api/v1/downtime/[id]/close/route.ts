@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { downtimeCloseSchema } from '@/lib/schemas/machine'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -15,7 +17,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'machines', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, downtimeCloseSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await (supabase as any).rpc('close_machine_downtime', {
     p_company_id: companyId,

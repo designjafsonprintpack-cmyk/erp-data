@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobHoldSchema } from '@/lib/schemas/jobActions'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -17,8 +19,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   if (denied) return denied
 
 
-  const { hold_reason_id, hold_notes } = await req.json()
-  if (!hold_reason_id) return NextResponse.json({ error: 'Delay reason is required' }, { status: 400 })
+  const parsed = await parseBody(req, jobHoldSchema)
+  if ('error' in parsed) return parsed.error
+  const { hold_reason_id, hold_notes } = parsed.data
 
   // Fetch current job state
   const { data: job } = await supabase.from('jobs' as any)

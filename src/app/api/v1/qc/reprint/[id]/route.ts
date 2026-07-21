@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { reprintRequestUpdateSchema } from '@/lib/schemas/qc'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
-  const body = await req.json()
+  const parsed = await parseBody(req, reprintRequestUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const denied = await requirePermission(
     userTableId, 'qc', body.action === 'approve' ? 'approve' : body.action === 'reject' ? 'reject' : 'edit', supabase
@@ -78,7 +82,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
     // Optional: auto-consume the extra material this re-print used, same
     // pattern as MRN issuance (see /api/v1/store/[id]).
-    const qty = parseFloat(body.material_quantity || '0')
+    const qty = parseFloat(String(body.material_quantity ?? '0'))
     if (body.board_item_id && qty > 0) {
       const { data: boardItem } = await supabase.from('board_inventory' as any)
         .select('current_stock').eq('id', body.board_item_id).eq('company_id', companyId).single()

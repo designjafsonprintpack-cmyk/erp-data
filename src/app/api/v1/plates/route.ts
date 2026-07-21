@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { addPlatesSchema } from '@/lib/schemas/plate'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -69,13 +71,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'plates', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, addPlatesSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const jobId: string | null = body.job_id || null
   const plateSize: string | null = body.plate_size || null
   const machineId: string | null = body.machine_id || null
-  const rows: Array<{ color: string; mode: 'new' | 'old'; existing_plate_id?: string }> = body.colors || []
+  const rows = body.colors
 
-  if (rows.length === 0) return NextResponse.json({ error: 'Add at least one color' }, { status: 400 })
   if (plateSize && !['1030 x 790', '1030 x 770'].includes(plateSize)) {
     return NextResponse.json({ error: 'Invalid plate size' }, { status: 400 })
   }

@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { createClient } from '@supabase/supabase-js'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { createUserSchema } from '@/lib/schemas/adminUser'
 
 // NOTE: the users table columns are `role` and `phone` (see migration 002).
 // The Settings → Users UI (UsersClient.tsx) calls them `app_role` and `mobile`.
@@ -49,7 +51,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'users', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, createUserSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Create auth user via admin client
   const adminClient = createClient(

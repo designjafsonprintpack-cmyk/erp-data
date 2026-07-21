@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobWorkflowActionSchema } from '@/lib/schemas/jobActions'
 
 // PATCH — advance a stage (start / complete / skip)
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -17,12 +19,10 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
   if (denied) return denied
 
-  const { stage_progress_id, action, notes } = await req.json()
+  const parsed = await parseBody(req, jobWorkflowActionSchema)
+  if ('error' in parsed) return parsed.error
+  const { stage_progress_id, action, notes } = parsed.data
   // action: 'start' | 'complete' | 'skip'
-
-  if (!['start', 'complete', 'skip'].includes(action)) {
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  }
 
   // Load the stage being acted on — needed for the sequential/artwork checks below.
   const { data: targetStage, error: targetErr } = await supabase

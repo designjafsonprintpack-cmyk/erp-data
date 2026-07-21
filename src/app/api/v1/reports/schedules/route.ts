@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { reportScheduleSchema } from '@/lib/schemas/report'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -27,10 +29,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'reports', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  if (!body.report_type || !body.frequency || !body.recipients?.length) {
-    return NextResponse.json({ error: 'report_type, frequency and at least one recipient are required' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, reportScheduleSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase.from('report_schedules' as any).insert({
     company_id:  companyId,

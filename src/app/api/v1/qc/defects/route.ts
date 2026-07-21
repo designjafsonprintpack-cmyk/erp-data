@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { qcDefectSchema } from '@/lib/schemas/qc'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -16,6 +18,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const inspectionId = searchParams.get('inspection_id') || ''
   const severity     = searchParams.get('severity') || ''
   const unresolved   = searchParams.get('unresolved') === 'true'
+  const page  = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '50')
+  const offset = (page - 1) * limit
 
   let q = supabase.from('qc_defects' as any)
     .select('*, jobs(job_number,job_title), qc_inspections(inspection_no)', { count: 'exact' })
@@ -28,10 +33,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (unresolved)   q = q.eq('resolved', false)
 
   const { data, error, count } = await q
-    .order('created_at', { ascending: false }).limit(50)
+    .order('created_at', { ascending: false }).range(offset, offset + limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
@@ -44,7 +49,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'qc', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, qcDefectSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase.from('qc_defects' as any).insert({
     company_id:        companyId,
@@ -52,7 +59,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     job_id:            body.job_id,
     defect_type:       body.defect_type,
     severity:          body.severity || 'minor',
-    quantity_affected: body.quantity_affected ? parseInt(body.quantity_affected) : 0,
+    quantity_affected: body.quantity_affected ? parseInt(String(body.quantity_affected)) : 0,
     description:       body.description || null,
     photo_url:         Array.isArray(body.photo_urls) && body.photo_urls[0] ? body.photo_urls[0] : (body.photo_url || null),
     photo_urls:        Array.isArray(body.photo_urls) ? body.photo_urls : [],

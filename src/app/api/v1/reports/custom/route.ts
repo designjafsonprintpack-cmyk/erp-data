@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { customReportSchema } from '@/lib/schemas/report'
 
 // Entity → table + allowlisted columns. Deliberately an allowlist, not
 // arbitrary user-supplied column names — this endpoint builds a real SQL
@@ -87,7 +89,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'reports', 'view', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, customReportSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const entityConfig = ENTITIES[body.entity]
   if (!entityConfig) return NextResponse.json({ error: 'Unknown report entity' }, { status: 400 })
 

@@ -4,6 +4,9 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { costItemTypeSchema } from '@/lib/schemas/costItemType'
+import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -15,7 +18,7 @@ export const GET = withErrorHandling(async function GET() {
     .select('*').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true)
     .order('sort_order').order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [] })
+  return NextResponse.json({ data: data ?? [] }, { headers: REFERENCE_DATA_CACHE_HEADERS })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
@@ -28,8 +31,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'settings', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  if (!body.name || !body.unit_basis) return NextResponse.json({ error: 'name and unit_basis are required' }, { status: 400 })
+  const parsed = await parseBody(req, costItemTypeSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // New custom items always append after the workflow-ordered defaults
   // rather than landing wherever alphabetical sort happens to put them.
@@ -41,7 +45,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     company_id: companyId,
     name: body.name,
     unit_basis: body.unit_basis,
-    default_rate: body.default_rate ? parseFloat(body.default_rate) : 0,
+    default_rate: body.default_rate ? parseFloat(String(body.default_rate)) : 0,
     sort_order: nextSortOrder,
   }).select().single()
 

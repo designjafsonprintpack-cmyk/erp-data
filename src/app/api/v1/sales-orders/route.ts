@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { salesOrderSchema } from '@/lib/schemas/salesOrder'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -38,7 +40,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'sales_orders', 'create', supabase)
   if (denied) return denied
 
-  const { items, ...body } = await req.json()
+  const parsed = await parseBody(req, salesOrderSchema)
+  if ('error' in parsed) return parsed.error
+  const { items, ...body } = parsed.data
 
   const { data: soNumber } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId, p_document_type: 'SO',

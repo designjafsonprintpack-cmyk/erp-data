@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobRepeatSchema } from '@/lib/schemas/jobActions'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -16,7 +18,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'jobs', 'create', supabase)
   if (denied) return denied
 
-  const { quantity, required_date, notes, same_artwork } = await req.json()
+  const parsed = await parseBody(req, jobRepeatSchema)
+  if ('error' in parsed) return parsed.error
+  const { quantity, required_date, notes, same_artwork } = parsed.data
 
   // Fetch original job
   const { data: original, error: origErr } = await supabase.from('jobs' as any)
@@ -53,7 +57,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     size_w:               orig.size_w,
     size_h:               orig.size_h,
     sheet_size:           orig.sheet_size,
-    quantity:             quantity ? parseFloat(quantity) : orig.quantity,
+    quantity:             quantity ? parseFloat(String(quantity)) : orig.quantity,
     no_of_colors:         orig.no_of_colors,
     die_number:           orig.die_number,
     board_type_id:        orig.board_type_id,

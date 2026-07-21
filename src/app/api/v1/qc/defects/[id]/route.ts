@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { qcDefectUpdateSchema } from '@/lib/schemas/qc'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'qc', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, qcDefectUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const updateData: Record<string, any> = { ...body }
 
   if (body.action === 'resolve') {

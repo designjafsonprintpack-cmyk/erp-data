@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { artworkSchema } from '@/lib/schemas/artwork'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -38,7 +40,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'artwork', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, artworkSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Get next version number for this job
   const { data: existing } = await supabase

@@ -1,12 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { rateLimit, getClientIp } from '@/lib/utils/rateLimit'
 
 // Public, unauthenticated — reachable from a shared portal link. Every query
 // is scoped by the token itself (never by any auth session), same pattern as
 // /api/v1/public/quotations/[token]. Read-only: no POST/PATCH/DELETE here —
 // the portal shows status, it doesn't let customers change anything.
-export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { token: string } }) {
+export const GET = withErrorHandling(async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-portal-view:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 30 })
+  if (limited) return limited
+
   const supabase = createSupabaseAdminClient()
 
   const { data: customer, error } = await supabase.from('customers' as any)

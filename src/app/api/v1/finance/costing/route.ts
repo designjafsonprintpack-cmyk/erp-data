@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { costingSchema } from '@/lib/schemas/costing'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -36,40 +38,43 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'finance', 'create', supabase)
   if (denied) return denied
 
-  const { extra_lines, ...body } = await req.json()
+  const parsed = await parseBody(req, costingSchema)
+  if ('error' in parsed) return parsed.error
+  const { extra_lines, ...body } = parsed.data
+  const rawBody = body as Record<string, any>
 
   // Compute totals
   const directCosts = [
     'board_cost','printing_cost','plate_cost','ink_cost',
     'lamination_cost','foiling_cost','uv_cost','die_cutting_cost',
     'pasting_cost','other_finishing','labour_cost',
-  ].reduce((s, k) => s + parseFloat(body[k] || '0'), 0)
+  ].reduce((s, k) => s + parseFloat(String(rawBody[k] ?? '0')), 0)
 
-  const extraTotal  = (extra_lines || []).reduce((s: number, l: any) => s + parseFloat(l.amount || '0'), 0)
-  const overheadPct = parseFloat(body.overhead_pct || '15')
+  const extraTotal  = (extra_lines || []).reduce((s: number, l: any) => s + parseFloat(String(l.amount ?? '0')), 0)
+  const overheadPct = parseFloat(String(body.overhead_pct ?? '15'))
   const overhead    = (directCosts + extraTotal) * overheadPct / 100
   const totalCost   = directCosts + extraTotal + overhead
-  const quoted      = body.quoted_amount ? parseFloat(body.quoted_amount) : null
+  const quoted      = body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null
   const margin      = quoted ? quoted - totalCost : null
   const marginPct   = quoted && quoted > 0 ? ((margin! / quoted) * 100) : null
 
   const { data: costing, error } = await supabase.from('job_costings' as any).upsert({
     company_id:       companyId,
     job_id:           body.job_id,
-    board_cost:       parseFloat(body.board_cost || '0'),
-    board_sheets:     body.board_sheets ? parseFloat(body.board_sheets) : null,
-    board_rate:       body.board_rate ? parseFloat(body.board_rate) : null,
-    printing_cost:    parseFloat(body.printing_cost || '0'),
-    printing_plates:  body.printing_plates ? parseInt(body.printing_plates) : 0,
-    plate_cost:       parseFloat(body.plate_cost || '0'),
-    ink_cost:         parseFloat(body.ink_cost || '0'),
-    lamination_cost:  parseFloat(body.lamination_cost || '0'),
-    foiling_cost:     parseFloat(body.foiling_cost || '0'),
-    uv_cost:          parseFloat(body.uv_cost || '0'),
-    die_cutting_cost: parseFloat(body.die_cutting_cost || '0'),
-    pasting_cost:     parseFloat(body.pasting_cost || '0'),
-    other_finishing:  parseFloat(body.other_finishing || '0'),
-    labour_cost:      parseFloat(body.labour_cost || '0'),
+    board_cost:       parseFloat(String(body.board_cost ?? '0')),
+    board_sheets:     body.board_sheets ? parseFloat(String(body.board_sheets)) : null,
+    board_rate:       body.board_rate ? parseFloat(String(body.board_rate)) : null,
+    printing_cost:    parseFloat(String(body.printing_cost ?? '0')),
+    printing_plates:  body.printing_plates ? parseInt(String(body.printing_plates)) : 0,
+    plate_cost:       parseFloat(String(body.plate_cost ?? '0')),
+    ink_cost:         parseFloat(String(body.ink_cost ?? '0')),
+    lamination_cost:  parseFloat(String(body.lamination_cost ?? '0')),
+    foiling_cost:     parseFloat(String(body.foiling_cost ?? '0')),
+    uv_cost:          parseFloat(String(body.uv_cost ?? '0')),
+    die_cutting_cost: parseFloat(String(body.die_cutting_cost ?? '0')),
+    pasting_cost:     parseFloat(String(body.pasting_cost ?? '0')),
+    other_finishing:  parseFloat(String(body.other_finishing ?? '0')),
+    labour_cost:      parseFloat(String(body.labour_cost ?? '0')),
     overhead_pct:     overheadPct,
     overhead_amount:  overhead,
     total_cost:       totalCost,
@@ -95,9 +100,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         costing_id:  cost.id,
         description: l.description,
         category:    l.category || null,
-        quantity:    parseFloat(l.quantity || '1'),
-        unit_rate:   parseFloat(l.unit_rate || '0'),
-        amount:      parseFloat(l.amount || '0'),
+        quantity:    parseFloat(String(l.quantity ?? '1')),
+        unit_rate:   parseFloat(String(l.unit_rate ?? '0')),
+        amount:      parseFloat(String(l.amount ?? '0')),
         sort_order:  idx + 1,
       }))
     )

@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { boardInventoryUpdateSchema } from '@/lib/schemas/inventory'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -30,7 +32,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'store', 'edit', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, boardInventoryUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Stock movement actions
   if (body.action && ['in', 'out', 'adjustment'].includes(body.action)) {
@@ -38,7 +42,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       .select('current_stock').eq('id', params.id).eq('company_id', companyId).single()
     if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const qty = parseFloat(body.quantity || '0')
+    const qty = parseFloat(String(body.quantity ?? '0'))
     const currentStock = (current as any).current_stock
     let newStock: number
 
@@ -76,7 +80,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         reference_id:       body.reference_id || null,
         quantity_received:  qty,
         quantity_remaining: qty,
-        unit_cost:          body.unit_cost ? parseFloat(body.unit_cost) : null,
+        unit_cost:          body.unit_cost ? parseFloat(String(body.unit_cost)) : null,
         notes:              body.notes || null,
         created_by:         userTableId,
       })

@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobPlateReturnSchema } from '@/lib/schemas/plate'
 
 // PATCH — return the plate (job is done with it). Updates the plate's own
 // status based on the condition it came back in.
@@ -18,8 +20,10 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'plates', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  const condition = body.condition_on_return as string
+  const parsed = await parseBody(req, jobPlateReturnSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
+  const condition = body.condition_on_return
   if (!['good', 'worn', 'damaged'].includes(condition)) {
     return NextResponse.json({ error: 'condition_on_return must be good, worn or damaged' }, { status: 400 })
   }

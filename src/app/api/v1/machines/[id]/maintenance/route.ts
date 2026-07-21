@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { machineMaintenanceSchema } from '@/lib/schemas/machine'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -32,10 +34,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'machines', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  if (!body.maintenance_type || !body.description) {
-    return NextResponse.json({ error: 'maintenance_type and description are required' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, machineMaintenanceSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase.from('machine_maintenance_log' as any).insert({
     company_id:       companyId,
@@ -46,7 +47,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     completed_date:   body.status === 'completed' ? (body.completed_date || new Date().toISOString().slice(0, 10)) : null,
     description:      body.description,
     performed_by:     body.performed_by || null,
-    cost:             body.cost ? parseFloat(body.cost) : null,
+    cost:             body.cost ? parseFloat(String(body.cost)) : null,
     next_due_date:    body.next_due_date || null,
     notes:            body.notes || null,
   }).select().single()

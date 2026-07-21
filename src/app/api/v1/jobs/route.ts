@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobSchema } from '@/lib/schemas/job'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -50,7 +52,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'jobs', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, jobSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Respect the "Auto-assign jobs to default workflow" system setting
   // (Settings → System Settings). It existed in the UI but nothing checked
@@ -81,17 +85,17 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     sales_order_id:       body.sales_order_id || null,
     job_title:            body.job_title,
     description:          body.description || null,
-    size_l:               body.size_l ? parseFloat(body.size_l) : null,
-    size_w:               body.size_w ? parseFloat(body.size_w) : null,
-    size_h:               body.size_h ? parseFloat(body.size_h) : null,
+    size_l:               body.size_l ? parseFloat(String(body.size_l)) : null,
+    size_w:               body.size_w ? parseFloat(String(body.size_w)) : null,
+    size_h:               body.size_h ? parseFloat(String(body.size_h)) : null,
     sheet_size:           body.sheet_size || null,
-    quantity:             parseFloat(body.quantity || '0'),
-    no_of_colors:         body.no_of_colors ? parseInt(body.no_of_colors) : 4,
+    quantity:             parseFloat(String(body.quantity ?? '0')),
+    no_of_colors:         body.no_of_colors ? parseInt(String(body.no_of_colors)) : 4,
     die_number:           body.die_number || null,
     grain_direction:      body.grain_direction || null,
-    ups:                  body.ups ? parseInt(body.ups) : null,
-    sheet_qty:            body.ups && parseInt(body.ups) > 0
-                             ? Math.ceil(parseFloat(body.quantity || '0') / parseInt(body.ups))
+    ups:                  body.ups ? parseInt(String(body.ups)) : null,
+    sheet_qty:            body.ups && parseInt(String(body.ups)) > 0
+                             ? Math.ceil(parseFloat(String(body.quantity ?? '0')) / parseInt(String(body.ups)))
                              : null,
     board_type_id:        body.board_type_id || null,
     paper_type_id:        body.paper_type_id || null,
@@ -103,7 +107,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     workflow_template_id: workflowTemplateId,
     priority:             body.priority || 'normal',
     required_date:        body.required_date || null,
-    quoted_amount:        body.quoted_amount ? parseFloat(body.quoted_amount) : null,
+    quoted_amount:        body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null,
     internal_remarks:     body.internal_remarks || null,
     status:               'new',
   }).select().single()

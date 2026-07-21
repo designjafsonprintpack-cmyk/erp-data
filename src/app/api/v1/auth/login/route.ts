@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { rateLimit, getClientIp } from '@/lib/utils/rateLimit'
+import { parseBody } from '@/lib/utils/validate'
+import { loginSchema } from '@/lib/schemas/auth'
 
 const MAX_ATTEMPTS = 5
 const LOCKOUT_MINUTES = 15
@@ -15,10 +18,18 @@ const LOCKOUT_MINUTES = 15
 // check and to update the failure counter, since there is no session yet to
 // authorize those reads/writes through RLS.
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
-  const { email, password } = await req.json()
-  if (!email || !password) {
-    return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
-  }
+  // IP-based limit, complementary to the per-account lockout below: the
+  // per-account lockout only starts counting once a *known* email is
+  // guessed against, so an attacker spraying many different (including
+  // nonexistent) emails from one IP would otherwise never be throttled at
+  // all. This doesn't replace the per-account lockout, it covers the gap
+  // that lockout can't see.
+  const limited = rateLimit(`login:${getClientIp(req)}`, { windowMs: 15 * 60_000, max: 10 })
+  if (limited) return limited
+
+  const parsed = await parseBody(req, loginSchema)
+  if ('error' in parsed) return parsed.error
+  const { email, password } = parsed.data
 
   const admin = createSupabaseAdminClient()
 

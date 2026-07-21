@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { invoicePaymentSchema } from '@/lib/schemas/payment'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -28,14 +30,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'finance', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, invoicePaymentSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Validate amount against balance
   const { data: invoice } = await supabase.from('invoices' as any)
     .select('balance_due, customer_id, total_amount').eq('id', params.id).eq('company_id', companyId).single()
   if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-  const amount = parseFloat(body.amount || '0')
+  const amount = parseFloat(String(body.amount ?? '0'))
   if (amount <= 0) return NextResponse.json({ error: 'Amount must be greater than 0' }, { status: 400 })
 
   const { data, error } = await supabase.from('payments' as any).insert({

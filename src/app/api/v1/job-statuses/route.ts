@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobStatusSchema, jobStatusUpdateSchema } from '@/lib/schemas/settingsConfig'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -21,7 +23,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'create', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, jobStatusSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const { data, error } = await supabase.from('job_statuses' as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
@@ -34,7 +38,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
-  const { id, ...fields } = await req.json()
+  const parsed = await parseBody(req, jobStatusUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const { id, ...fields } = parsed.data
   const { data, error } = await supabase.from('job_statuses' as any).update(fields).eq('id', id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

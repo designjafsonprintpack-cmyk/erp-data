@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { qcInspectionSchema } from '@/lib/schemas/qc'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -52,7 +54,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'qc', 'create', supabase)
   if (denied) return denied
 
-  const { responses, ...body } = await req.json()
+  const parsed = await parseBody(req, qcInspectionSchema)
+  if ('error' in parsed) return parsed.error
+  const { responses, ...body } = parsed.data
 
   // Count existing inspections for this job
   const { count: existingCount } = await supabase
@@ -68,7 +72,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
       template_id:    body.template_id || null,
       inspection_no:  (existingCount ?? 0) + 1,
       inspector_id:   userTableId,
-      sample_size:    body.sample_size ? parseInt(body.sample_size) : null,
+      sample_size:    body.sample_size ? parseInt(String(body.sample_size)) : null,
       notes:          body.notes || null,
       inspected_at:   new Date().toISOString(),
     }).select().single()

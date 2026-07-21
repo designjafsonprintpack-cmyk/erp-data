@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { dispatchSchema } from '@/lib/schemas/dispatch'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -48,7 +50,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'dispatch', 'create', supabase)
   if (denied) return denied
 
-  const { items, ...body } = await req.json()
+  const parsed = await parseBody(req, dispatchSchema)
+  if ('error' in parsed) return parsed.error
+  const { items, ...body } = parsed.data
 
   // Auto dispatch number
   const { data: dispNumber } = await (supabase as any).rpc('get_next_sequence_number', {
@@ -71,7 +75,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     courier_name:        body.courier_name || null,
     tracking_number:     body.tracking_number || null,
     scheduled_date:      body.scheduled_date || null,
-    delivery_charges:    body.delivery_charges ? parseFloat(body.delivery_charges) : 0,
+    delivery_charges:    body.delivery_charges ? parseFloat(String(body.delivery_charges)) : 0,
     notes:               body.notes || null,
   }).select().single()
 
@@ -109,7 +113,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   // cancelled dispatch orders) must not exceed the job's ordered quantity.
   if (items?.length) {
     for (const item of items) {
-      const qty = parseFloat(item.quantity_dispatched || item.quantity_ordered || '0')
+      const qty = parseFloat(String(item.quantity_dispatched || item.quantity_ordered || '0'))
       if (qty <= 0) continue
 
       const { data: jobRow } = await supabase.from('jobs' as any)
@@ -144,10 +148,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         company_id:          companyId,
         dispatch_id:         disp.id,
         job_id:              item.job_id,
-        quantity_ordered:    parseFloat(item.quantity_ordered || '0'),
-        quantity_dispatched: parseFloat(item.quantity_dispatched || item.quantity_ordered || '0'),
-        carton_count:        item.carton_count ? parseInt(item.carton_count) : 0,
-        weight_kg:           item.weight_kg ? parseFloat(item.weight_kg) : null,
+        quantity_ordered:    parseFloat(String(item.quantity_ordered || '0')),
+        quantity_dispatched: parseFloat(String(item.quantity_dispatched || item.quantity_ordered || '0')),
+        carton_count:        item.carton_count ? parseInt(String(item.carton_count)) : 0,
+        weight_kg:           item.weight_kg ? parseFloat(String(item.weight_kg)) : null,
         notes:               item.notes || null,
         sort_order:          idx + 1,
       }))

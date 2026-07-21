@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { updatePurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -28,7 +30,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'purchase', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, updatePurchaseOrderSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Receive goods — update received quantities + auto-update board inventory
   if (body.action === 'receive' && body.items) {
@@ -38,7 +42,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     const poNumber = (poRow as any)?.po_number ?? params.id
 
     for (const item of body.items) {
-      const qtyReceived = parseFloat(item.quantity_received || '0')
+      const qtyReceived = parseFloat(String(item.quantity_received ?? '0'))
       await supabase.from('purchase_order_items' as any)
         .update({ quantity_received: qtyReceived }).eq('id', item.id).eq('company_id', companyId)
 
@@ -73,7 +77,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             reference_id:       params.id,
             quantity_received:  qtyReceived,
             quantity_remaining: qtyReceived,
-            unit_cost:          item.unit_price ? parseFloat(item.unit_price) : null,
+            unit_cost:          item.unit_price ? parseFloat(String(item.unit_price)) : null,
             created_by:         userTableId,
           })
         }

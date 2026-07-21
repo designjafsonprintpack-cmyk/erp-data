@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { customerUpdateSchema } from '@/lib/schemas/customer'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -31,7 +33,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'customers', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, customerUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   // Explicit allowlist — never spread raw body into update (mass-assignment risk:
   // company_id/id/deleted_at/is_active/created_by must not be client-settable).
   const {
@@ -51,8 +55,8 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (notes !== undefined) patch.notes = notes
   if (contact_person !== undefined) patch.contact_person = contact_person
   if (lead_source !== undefined) patch.lead_source = lead_source
-  if (credit_limit != null) patch.credit_limit = parseFloat(credit_limit)
-  if (payment_terms != null) patch.payment_terms = parseInt(payment_terms)
+  if (credit_limit != null) patch.credit_limit = parseFloat(String(credit_limit))
+  if (payment_terms != null) patch.payment_terms = parseInt(String(payment_terms))
 
   const { data, error } = await supabase.from('customers' as any).update(patch)
     .eq('id', params.id).eq('company_id', companyId).select().single()

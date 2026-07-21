@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { reprintRequestSchema } from '@/lib/schemas/qc'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -37,14 +39,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'qc', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, reprintRequestSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase.from('reprint_requests' as any).insert({
     company_id:      companyId,
     original_job_id: body.original_job_id,
     inspection_id:   body.inspection_id || null,
     reason:          body.reason,
-    quantity:        parseFloat(body.quantity || '0'),
+    quantity:        parseFloat(String(body.quantity ?? '0')),
     priority:        body.priority || 'normal',
     notes:           body.notes || null,
     requested_by:    userTableId,

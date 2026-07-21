@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { systemSettingsSchema } from '@/lib/schemas/adminUser'
 
 export const GET = withErrorHandling(async function GET(_req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -30,7 +32,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, systemSettingsSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const updates = Object.entries(body).map(([key, value]) => ({
     company_id: companyId,

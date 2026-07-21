@@ -8,6 +8,8 @@ import { sendWhatsApp } from '@/lib/utils/sendWhatsApp'
 import { sendEmail } from '@/lib/utils/sendEmail'
 import { notify } from '@/modules/notifications/services/notificationService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { dispatchUpdateSchema } from '@/lib/schemas/dispatch'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -37,7 +39,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'dispatch', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, dispatchUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Fetch current dispatch + items for event recording
   const { data: current } = await supabase.from('dispatch_orders' as any)

@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { plateReplaceSchema } from '@/lib/schemas/plate'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +15,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'plates', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json().catch(() => ({}))
+  // Tolerates a missing/empty body (reason is optional) — validates the
+  // same schema manually instead of via parseBody, since parseBody's
+  // hard-400-on-unparseable-JSON behavior would be a regression for a
+  // caller that sends no body at all.
+  const rawBody = await req.json().catch(() => ({}))
+  const bodyResult = plateReplaceSchema.safeParse(rawBody)
+  if (!bodyResult.success) {
+    return NextResponse.json({ error: 'Validation failed', fieldErrors: bodyResult.error.flatten().fieldErrors }, { status: 400 })
+  }
+  const body = bodyResult.data
 
   const { data: newPlateId, error } = await (supabase as any).rpc('replace_plate', {
     p_plate_id: params.id,

@@ -7,6 +7,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { sendEmail } from '@/lib/utils/sendEmail'
 import { notify } from '@/modules/notifications/services/notificationService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { quotationUpdateSchema } from '@/lib/schemas/quotation'
 
 // Allowed quotation status transitions. 'converted' is intentionally excluded
 // as a target here — it can only be reached via the dedicated /convert
@@ -45,7 +47,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'quotations', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, quotationUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const { items, ...headerBody } = body
 
   if (headerBody.status !== undefined) {

@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { productionAssignmentUpdateSchema } from '@/lib/schemas/production'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -36,7 +38,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'production', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, productionAssignmentUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const { action, notes, quantity_done } = body
 
   // Fetch current assignment
@@ -83,6 +87,46 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       delete updateData.action
       delete updateData.notes
       delete updateData.quantity_done
+
+      // Re-check for scheduling conflicts whenever the machine, start time,
+      // or duration changes. The POST /production/assignments route already
+      // does this on create — this closes the gap where editing an existing
+      // assignment (reschedule, machine reassignment) bypassed the check
+      // entirely, allowing a double-booking the create-time check exists
+      // specifically to prevent.
+      {
+        const effectiveMachineId = updateData.machine_id ?? (current as any).machine_id
+        const effectiveStart = updateData.scheduled_start !== undefined ? updateData.scheduled_start : (current as any).scheduled_start
+        const effectiveMinutes = updateData.estimated_minutes !== undefined ? updateData.estimated_minutes : (current as any).estimated_minutes
+
+        if (effectiveStart && effectiveMinutes) {
+          const newStart = new Date(effectiveStart)
+          const newEnd = new Date(newStart.getTime() + Number(effectiveMinutes) * 60000)
+
+          const { data: existing } = await supabase.from('production_assignments' as any)
+            .select('scheduled_start, estimated_minutes, jobs(job_number)')
+            .eq('machine_id', effectiveMachineId)
+            .eq('company_id', companyId)
+            .neq('id', params.id)
+            .in('status', ['queued', 'running', 'paused'])
+            .is('deleted_at', null)
+            .not('scheduled_start', 'is', null)
+            .not('estimated_minutes', 'is', null)
+
+          const conflict = ((existing ?? []) as any[]).find(a => {
+            const aStart = new Date(a.scheduled_start)
+            const aEnd = new Date(aStart.getTime() + a.estimated_minutes * 60000)
+            return newStart < aEnd && aStart < newEnd
+          })
+
+          if (conflict) {
+            return NextResponse.json({
+              error: `This machine is already scheduled for job ${conflict.jobs?.job_number || 'another job'} ` +
+                     `from ${new Date(conflict.scheduled_start).toLocaleString()} for ${conflict.estimated_minutes} min — overlaps with the requested time.`,
+            }, { status: 400 })
+          }
+        }
+      }
   }
 
   let assignment = current
@@ -102,7 +146,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       machine_id:    (current as any).machine_id,
       event_type:    logEvent,
       notes:         notes || null,
-      quantity_done: quantity_done ? parseFloat(quantity_done) : null,
+      quantity_done: quantity_done ? parseFloat(String(quantity_done)) : null,
       actor_id:      userTableId,
     })
 

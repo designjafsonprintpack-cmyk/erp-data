@@ -4,6 +4,7 @@ import { z } from 'zod'
 // sync deliberately so create and edit accept the same shape.
 export const customerSchema = z.object({
   name: z.string().trim().min(1, 'Customer name is required'),
+  customer_code: z.string().optional(), // ignored on create (server-generated), editable on update
   email: z.string().email().optional().or(z.literal('')).nullable(),
   phone: z.string().optional().nullable(),
   mobile: z.string().optional().nullable(),

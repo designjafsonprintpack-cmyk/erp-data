@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { plateUpdateSchema } from '@/lib/schemas/plate'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -45,7 +47,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'plates', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, plateUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const update: Record<string, any> = { updated_by: userTableId }
 
   // Changing the size (the "plate got manually cut down" case) auto-notes

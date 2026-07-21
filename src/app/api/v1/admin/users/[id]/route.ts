@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { updateUserSchema } from '@/lib/schemas/adminUser'
 
 const USER_SELECT =
   'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at'
@@ -16,7 +18,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'users', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, updateUserSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const updateData: Record<string, any> = {}
 
   if (body.full_name !== undefined)     updateData.full_name     = body.full_name

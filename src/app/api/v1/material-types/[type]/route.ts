@@ -4,6 +4,9 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { materialTypeSchema, materialTypeUpdateSchema } from '@/lib/schemas/settingsConfig'
+import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
 
 const VALID_TABLES: Record<string, string> = {
   board:      'board_types',
@@ -26,7 +29,7 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
 
   const { data, error } = await supabase.from(table as any).select('*').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  return NextResponse.json({ data }, { headers: REFERENCE_DATA_CACHE_HEADERS })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { type: string } }) {
@@ -41,7 +44,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'create', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, materialTypeSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const { data, error } = await supabase.from(table as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
@@ -59,7 +64,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
 
-  const { id, ...fields } = await req.json()
+  const parsed = await parseBody(req, materialTypeUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const { id, ...fields } = parsed.data
   const { data, error } = await supabase.from(table as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { qcInspectionUpdateSchema } from '@/lib/schemas/qc'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -33,7 +35,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
-  const body = await req.json()
+  const parsed = await parseBody(req, qcInspectionUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const denied = await requirePermission(userTableId, 'qc', body.action === 'signoff' ? 'approve' : 'edit', supabase)
   if (denied) return denied

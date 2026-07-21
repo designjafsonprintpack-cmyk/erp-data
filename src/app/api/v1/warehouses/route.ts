@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { warehouseSchema, warehouseUpdateSchema } from '@/lib/schemas/inventory'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'create', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, warehouseSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase
     .from('warehouses' as any)
@@ -34,8 +38,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  const { id, ...fields } = body
+  const parsed = await parseBody(req, warehouseUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const { id, ...fields } = parsed.data
 
   const { data, error } = await supabase
     .from('warehouses' as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()

@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { sequenceUpdateSchema } from '@/lib/schemas/settingsConfig'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
-  const { document_type, prefix, padding } = await req.json()
+  const parsed = await parseBody(req, sequenceUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const { document_type, prefix, padding } = parsed.data
 
   const { error } = await supabase
     .from('document_sequences' as any)

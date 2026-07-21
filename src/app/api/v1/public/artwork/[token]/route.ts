@@ -3,12 +3,18 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { notifyArtworkStatusChange } from '@/lib/utils/notifyArtworkStatusChange'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { rateLimit, getClientIp } from '@/lib/utils/rateLimit'
+import { parseBody } from '@/lib/utils/validate'
+import { publicArtworkActionSchema } from '@/lib/schemas/publicToken'
 
 // Public, unauthenticated — reachable from the shared link, same trust
 // model as /api/v1/public/quotations/[token]: every query is scoped by the
 // token itself, never by an auth session, using the service-role client
 // because there's no logged-in user/company to satisfy RLS with.
-export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { token: string } }) {
+export const GET = withErrorHandling(async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-artwork-view:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 30 })
+  if (limited) return limited
+
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('job_artworks' as any)
@@ -50,12 +56,14 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-artwork-action:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 20 })
+  if (limited) return limited
+
   const supabase = createSupabaseAdminClient()
-  const body = await req.json()
-  const action = body.action as string
-  if (!['approve', 'reject', 'request_changes', 'comment'].includes(action)) {
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, publicArtworkActionSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
+  const action = body.action
 
   const { data: artwork, error: findErr } = await supabase.from('job_artworks' as any)
     .select('id, company_id, job_id, version, status, approval_token_expires_at')

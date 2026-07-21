@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { machineDowntimeSchema } from '@/lib/schemas/machine'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -33,8 +35,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'machines', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  if (!body.category) return NextResponse.json({ error: 'category is required' }, { status: 400 })
+  const parsed = await parseBody(req, machineDowntimeSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // A machine can only be down once at a time — guard against double-logging
   // if two people report the same breakdown within seconds of each other.

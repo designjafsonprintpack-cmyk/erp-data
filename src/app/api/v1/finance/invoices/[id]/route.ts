@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { sendEmail } from '@/lib/utils/sendEmail'
 import { notify } from '@/modules/notifications/services/notificationService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { updateInvoiceSchema } from '@/lib/schemas/invoice'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -30,7 +32,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'finance', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, updateInvoiceSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const update: Record<string, any> = { ...body }
   delete update.action
 

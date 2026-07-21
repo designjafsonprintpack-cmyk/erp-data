@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { notificationUpdateSchema } from '@/lib/schemas/notification'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -19,7 +21,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userTableId = await getUserTableId(user, supabase)
-  const body = await req.json()
+  const parsed = await parseBody(req, notificationUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   // No requirePermission() here deliberately — every user, regardless of
   // role, is allowed to mark THEIR OWN notifications read. The .eq('user_id',
   // userTableId) below already scopes both branches to the caller's own

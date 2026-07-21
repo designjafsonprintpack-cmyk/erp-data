@@ -4,6 +4,9 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { workflowTemplateSchema, workflowTemplateUpdateSchema } from '@/lib/schemas/settingsConfig'
+import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -28,7 +31,7 @@ export const GET = withErrorHandling(async function GET() {
       : [],
   }))
 
-  return NextResponse.json({ data: templates })
+  return NextResponse.json({ data: templates }, { headers: REFERENCE_DATA_CACHE_HEADERS })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
@@ -39,7 +42,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'workflow', 'create', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, workflowTemplateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const { data, error } = await supabase.from('workflow_templates' as any)
     .insert({ name: body.name, description: body.description, company_id: companyId })
     .select().single()
@@ -55,7 +60,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'workflow', 'edit', supabase)
   if (denied) return denied
-  const { id, ...fields } = await req.json()
+  const parsed = await parseBody(req, workflowTemplateUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const { id, ...fields } = parsed.data
   const { data, error } = await supabase.from('workflow_templates' as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

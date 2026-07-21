@@ -5,6 +5,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { artworkApprovalLinkSchema } from '@/lib/schemas/artwork'
 
 const EXPIRY_MS: Record<string, number | null> = {
   '7d':   7  * 24 * 60 * 60 * 1000,
@@ -27,7 +28,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'artwork', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json().catch(() => ({}))
+  // Tolerates a missing/empty body (client may POST with no payload to use
+  // the default 7d expiry) — parseBody's hard-400-on-unparseable-JSON
+  // behavior would be a regression here, so this validates the same schema
+  // manually instead, still rejecting anything that IS sent but malformed.
+  const rawBody = await req.json().catch(() => ({}))
+  const bodyResult = artworkApprovalLinkSchema.safeParse(rawBody)
+  if (!bodyResult.success) {
+    return NextResponse.json({ error: 'Validation failed', fieldErrors: bodyResult.error.flatten().fieldErrors }, { status: 400 })
+  }
+  const body = bodyResult.data
   const expiryKey = body.expiry && body.expiry in EXPIRY_MS ? body.expiry : '7d'
   const expiryMs = EXPIRY_MS[expiryKey]
 

@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { quotationConvertSchema } from '@/lib/schemas/quotation'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'sales_orders', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, quotationConvertSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Fetch quotation with items
   const { data: qt, error: qtErr } = await supabase.from('quotations' as any)

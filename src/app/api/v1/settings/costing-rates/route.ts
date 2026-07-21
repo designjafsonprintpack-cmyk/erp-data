@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { costingRatesUpdateSchema } from '@/lib/schemas/settingsResource'
 
 const KEYS = [
   'costing_plate_rate_per_color',
@@ -46,7 +48,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, costingRatesUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const updates = KEYS.filter(k => body[k] !== undefined)
   if (updates.length === 0) return NextResponse.json({ error: 'No valid costing rate fields provided' }, { status: 400 })
 

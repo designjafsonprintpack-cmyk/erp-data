@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobPlanSchema } from '@/lib/schemas/planning'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -40,7 +42,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'planning', 'create', supabase)
   if (denied) return denied
 
-  const { machines, ...body } = await req.json()
+  const parsed = await parseBody(req, jobPlanSchema)
+  if ('error' in parsed) return parsed.error
+  const { machines, ...body } = parsed.data
 
   const { data: plan, error } = await supabase.from('job_plans' as any).insert({
     company_id:  companyId,
@@ -62,7 +66,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         job_id:          body.job_id,
         machine_id:      m.machine_id,
         stage_id:        m.stage_id || null,
-        estimated_hours: m.estimated_hours ? parseFloat(m.estimated_hours) : null,
+        estimated_hours: m.estimated_hours ? parseFloat(String(m.estimated_hours)) : null,
         operator_id:     m.operator_id || null,
         notes:           m.notes || null,
       }))

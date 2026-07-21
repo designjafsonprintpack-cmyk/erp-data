@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobWastageSchema } from '@/lib/schemas/jobActions'
 
 export const GET = withErrorHandling(async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -33,10 +35,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, jobWastageSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
-  if (!body.wastage_reason_id) return NextResponse.json({ error: 'Reason is required' }, { status: 400 })
-  const quantity = parseFloat(body.quantity)
+  const quantity = parseFloat(String(body.quantity ?? '0'))
   if (!quantity || quantity <= 0) return NextResponse.json({ error: 'Quantity must be greater than 0' }, { status: 400 })
 
   // recorded_by / actor_id below are FKs to public.users(id) — NOT the same UUID

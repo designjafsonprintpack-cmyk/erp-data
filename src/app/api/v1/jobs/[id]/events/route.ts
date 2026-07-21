@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobRemarkSchema } from '@/lib/schemas/jobActions'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -39,8 +41,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'jobs', 'edit', supabase)
   if (denied) return denied
-  const { notes } = await req.json()
-  if (!notes?.trim()) return NextResponse.json({ error: 'Notes required' }, { status: 400 })
+  const parsed = await parseBody(req, jobRemarkSchema)
+  if ('error' in parsed) return parsed.error
+  const { notes } = parsed.data
 
   await recordJobEvent({
     company_id: companyId,

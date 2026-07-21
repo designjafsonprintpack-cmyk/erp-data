@@ -1,12 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { rateLimit, getClientIp } from '@/lib/utils/rateLimit'
+import { parseBody } from '@/lib/utils/validate'
+import { publicQuotationActionSchema } from '@/lib/schemas/publicToken'
 
 // Public, unauthenticated — reachable from the emailed/shared link. Every
 // query is scoped by the token itself (never by any auth session), and we
 // use the service-role client because there is no logged-in user/company
 // context to satisfy RLS with.
-export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { token: string } }) {
+export const GET = withErrorHandling(async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-quotation-view:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 30 })
+  if (limited) return limited
+
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('quotations' as any)
@@ -29,12 +35,13 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-quotation-action:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 10 })
+  if (limited) return limited
+
   const supabase = createSupabaseAdminClient()
-  const body = await req.json()
-  const action = body.action as string
-  if (!['approve', 'reject'].includes(action)) {
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, publicQuotationActionSchema)
+  if ('error' in parsed) return parsed.error
+  const { action } = parsed.data
 
   const { data: quotation, error: findErr } = await supabase.from('quotations' as any)
     .select('id, status, approval_token_expires_at, approval_responded_at')

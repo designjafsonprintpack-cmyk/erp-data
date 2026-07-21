@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { materialRequisitionSchema } from '@/lib/schemas/inventory'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -41,7 +43,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'store', 'create', supabase)
   if (denied) return denied
 
-  const { items, ...body } = await req.json()
+  const parsed = await parseBody(req, materialRequisitionSchema)
+  if ('error' in parsed) return parsed.error
+  const { items, ...body } = parsed.data
 
   const { data: mrnNumber } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId, p_document_type: 'MRN',
@@ -67,7 +71,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         material_name:    item.material_name,
         material_type:    item.material_type || null,
         specification:    item.specification || null,
-        quantity_required: parseFloat(item.quantity_required || '0'),
+        quantity_required: parseFloat(String(item.quantity_required ?? '0')),
         unit_id:          item.unit_id || null,
         notes:            item.notes || null,
       }))

@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { quotationSchema } from '@/lib/schemas/quotation'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -37,7 +39,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'quotations', 'create', supabase)
   if (denied) return denied
 
-  const { items, ...body } = await req.json()
+  const parsed = await parseBody(req, quotationSchema)
+  if ('error' in parsed) return parsed.error
+  const { items, ...body } = parsed.data
 
   const { data: seqData } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId, p_document_type: 'QT',

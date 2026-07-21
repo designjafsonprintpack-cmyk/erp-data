@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { productionAssignmentSchema } from '@/lib/schemas/production'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -15,6 +17,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const jobId     = searchParams.get('job_id') || ''
   const machineId = searchParams.get('machine_id') || ''
   const status    = searchParams.get('status') || ''
+  const page  = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '50')
+  const offset = (page - 1) * limit
 
   let q = supabase.from('production_assignments' as any)
     .select('*, jobs(job_number,job_title,priority,required_date,customers(name)), machines(name,machine_type), users(full_name)', { count: 'exact' })
@@ -27,10 +32,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status)    q = q.eq('status', status)
 
   const { data, error, count } = await q
-    .order('created_at', { ascending: false }).limit(50)
+    .order('created_at', { ascending: false }).range(offset, offset + limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
@@ -43,7 +48,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const denied = await requirePermission(userTableId, 'production', 'create', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, productionAssignmentSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   if (!body.job_id || !body.machine_id) {
     return NextResponse.json({ error: 'job_id and machine_id required' }, { status: 400 })
@@ -54,7 +61,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   // no window to conflict with.
   if (body.scheduled_start && body.estimated_minutes) {
     const newStart = new Date(body.scheduled_start)
-    const newEnd = new Date(newStart.getTime() + parseInt(body.estimated_minutes) * 60000)
+    const newEnd = new Date(newStart.getTime() + parseInt(String(body.estimated_minutes)) * 60000)
 
     const { data: existing } = await supabase.from('production_assignments' as any)
       .select('scheduled_start, estimated_minutes, jobs(job_number)')
@@ -87,7 +94,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     operator_id:        body.operator_id || null,
     status:             'queued',
     scheduled_start:    body.scheduled_start || null,
-    estimated_minutes:  body.estimated_minutes ? parseInt(body.estimated_minutes) : null,
+    estimated_minutes:  body.estimated_minutes ? parseInt(String(body.estimated_minutes)) : null,
     notes:              body.notes || null,
   }).select('*, jobs(job_number,job_title,priority,customers(name)), machines(name,machine_type)').single()
 

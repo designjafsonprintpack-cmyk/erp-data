@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { podSchema } from '@/lib/schemas/dispatch'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +16,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'dispatch', 'edit', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, podSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Upsert POD
   const { data, error } = await supabase.from('proof_of_delivery' as any).upsert({

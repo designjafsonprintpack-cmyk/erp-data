@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { customerActivitySchema } from '@/lib/schemas/crmSubResource'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -30,10 +32,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const denied = await requirePermission(userTableId, 'customers', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
-  if (!body.activity_type || !body.subject) {
-    return NextResponse.json({ error: 'activity_type and subject are required' }, { status: 400 })
-  }
+  const parsed = await parseBody(req, customerActivitySchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data, error } = await supabase.from('customer_activities' as any).insert({
     company_id:    companyId,

@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobResumeSchema } from '@/lib/schemas/jobActions'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -17,7 +19,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   if (denied) return denied
 
 
-  const { notes } = await req.json()
+  const parsed = await parseBody(req, jobResumeSchema)
+  if ('error' in parsed) return parsed.error
+  const { notes } = parsed.data
 
   const { data: job } = await supabase.from('jobs' as any)
     .select('is_on_hold').eq('id', params.id).eq('company_id', companyId).single()

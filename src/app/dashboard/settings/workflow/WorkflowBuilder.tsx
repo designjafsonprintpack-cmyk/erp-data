@@ -21,7 +21,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
   const [addingStage, setAddingStage] = useState(false)
   const [stageForm, setStageForm] = useState({ name: '', department_id: '', is_optional: false })
   const [editingStageId, setEditingStageId] = useState<string | null>(null)
-  const [editStageForm, setEditStageForm] = useState({ name: '', department_id: '', is_optional: false })
+  const [editStageForm, setEditStageForm] = useState({ name: '', department_id: '', is_optional: false, sequence_order: '' })
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'template' | 'stage'; id: string; name: string } | null>(null)
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId)
@@ -70,10 +70,10 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
     setLoading(true)
     try {
       const nextOrder = selectedStages.length > 0 ? Math.max(...selectedStages.map(s => s.sequence_order)) + 1 : 1
-      const res = await fetch('/api/v1/workflow', {
+      const res = await fetch('/api/v1/workflow-stages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          _type: 'stage', name: stageForm.name,
+          name: stageForm.name,
           workflow_template_id: selectedTemplateId,
           department_id: stageForm.department_id || null,
           is_optional: stageForm.is_optional,
@@ -91,14 +91,17 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
   }
 
   const updateStage = async (stage: Stage) => {
+    const seqOrder = parseInt(editStageForm.sequence_order)
+    if (!seqOrder || seqOrder < 1) { toast.error('Order must be a positive number'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/workflow', {
+      const res = await fetch('/api/v1/workflow-stages', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          _type: 'stage', id: stage.id, name: editStageForm.name,
+          id: stage.id, name: editStageForm.name,
           department_id: editStageForm.department_id || null,
           is_optional: editStageForm.is_optional,
+          sequence_order: seqOrder,
         }),
       })
       if (!res.ok) throw new Error()
@@ -113,9 +116,9 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
   const toggleStageActive = async (stage: Stage) => {
     const newActive = !stage.is_active
     setStages(prev => prev.map(s => s.id === stage.id ? { ...s, is_active: newActive } : s))
-    await fetch('/api/v1/workflow', {
+    await fetch('/api/v1/workflow-stages', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _type: 'stage', id: stage.id, is_active: newActive }),
+      body: JSON.stringify({ id: stage.id, is_active: newActive }),
     })
   }
 
@@ -136,8 +139,8 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
     }))
 
     await Promise.all([
-      fetch('/api/v1/workflow', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _type: 'stage', id: stage.id, sequence_order: swapOrder }) }),
-      fetch('/api/v1/workflow', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _type: 'stage', id: swapStage.id, sequence_order: newOrder }) }),
+      fetch('/api/v1/workflow-stages', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: stage.id, sequence_order: swapOrder }) }),
+      fetch('/api/v1/workflow-stages', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: swapStage.id, sequence_order: newOrder }) }),
     ])
   }
 
@@ -145,9 +148,10 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
     if (!deleteTarget) return
     setLoading(true)
     try {
-      await fetch('/api/v1/workflow', {
+      const endpoint = deleteTarget.type === 'template' ? '/api/v1/workflow' : '/api/v1/workflow-stages'
+      await fetch(endpoint, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _type: deleteTarget.type, id: deleteTarget.id }),
+        body: JSON.stringify({ id: deleteTarget.id }),
       })
       if (deleteTarget.type === 'template') {
         setTemplates(prev => prev.filter(t => t.id !== deleteTarget.id))
@@ -226,17 +230,24 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
             <div className="divide-y divide-[var(--color-border-subtle)]">
               {selectedStages.map((stage, idx) => {
                 const dept = departments.find(d => d.id === stage.department_id)
+                const isParallel = selectedStages.some(s => s.id !== stage.id && s.sequence_order === stage.sequence_order)
                 return (
                   <div key={stage.id} className={cn('flex items-center gap-3 px-5 py-3', !stage.is_active && 'opacity-50')}>
-                    {/* Order indicator */}
-                    <div className="w-6 h-6 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-mono text-[var(--color-text-muted)]">{idx + 1}</span>
+                    {/* Order indicator — shows the actual order number (not row position), since
+                        stages sharing a number run in parallel and won't line up 1:1 with rows. */}
+                    <div className="w-6 h-6 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center flex-shrink-0"
+                      title={isParallel ? 'Runs in parallel with another stage at this same order number' : undefined}>
+                      <span className="text-xs font-mono text-[var(--color-text-muted)]">{stage.sequence_order}</span>
                     </div>
 
                     {editingStageId === stage.id ? (
                       <>
                         <input className="flex-1 h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
                           value={editStageForm.name} onChange={e => setEditStageForm(p => ({ ...p, name: e.target.value }))} />
+                        <input type="number" min={1}
+                          title="Two stages sharing the same order number run in parallel — neither waits for the other, only for earlier-numbered stages."
+                          className="w-16 h-8 px-2 rounded border text-xs text-center bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
+                          value={editStageForm.sequence_order} onChange={e => setEditStageForm(p => ({ ...p, sequence_order: e.target.value }))} />
                         <select className="w-36 h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
                           value={editStageForm.department_id} onChange={e => setEditStageForm(p => ({ ...p, department_id: e.target.value }))}>
                           <option value="">No dept</option>
@@ -254,6 +265,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className={cn('text-sm font-medium', stage.is_active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)] line-through')}>{stage.name}</span>
+                            {isParallel && <span className="text-xs text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-1.5 py-0.5 rounded-full">Parallel</span>}
                             {stage.is_optional && <span className="text-xs text-[var(--color-info)] bg-[var(--color-info)]/10 border border-[var(--color-info)]/20 px-1.5 py-0.5 rounded-full">Optional</span>}
                             {dept && <span className="text-xs text-[var(--color-text-muted)]">→ {dept.name}</span>}
                           </div>
@@ -276,7 +288,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                                 : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]')}>
                             {stage.is_active ? 'Active' : 'Disabled'}
                           </button>
-                          <button onClick={() => { setEditStageForm({ name: stage.name, department_id: stage.department_id ?? '', is_optional: stage.is_optional }); setEditingStageId(stage.id) }}
+                          <button onClick={() => { setEditStageForm({ name: stage.name, department_id: stage.department_id ?? '', is_optional: stage.is_optional, sequence_order: String(stage.sequence_order) }); setEditingStageId(stage.id) }}
                             className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors">
                             <Pencil size={12} />
                           </button>

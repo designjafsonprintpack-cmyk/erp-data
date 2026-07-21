@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { materialRequisitionUpdateSchema } from '@/lib/schemas/inventory'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -16,7 +18,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'store', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, materialRequisitionUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Approve action
   if (body.action === 'approve') {
@@ -41,7 +45,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     const currentById = new Map(((currentItems ?? []) as any[]).map(i => [i.id, i]))
 
     for (const item of body.items) {
-      const newQtyIssued = parseFloat(item.quantity_issued || '0')
+      const newQtyIssued = parseFloat(String(item.quantity_issued ?? '0'))
       const current = currentById.get(item.id)
       const boardItemId = item.board_item_id || current?.board_item_id || null
       const delta = newQtyIssued - (current?.quantity_issued ?? 0)

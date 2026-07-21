@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { requireSuperadmin } from '@/lib/utils/requireSuperadmin'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { jobUpdateSchema } from '@/lib/schemas/job'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -43,20 +45,22 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requireSuperadmin(user, supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, jobUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   // Get current state for event recording
   const { data: current } = await supabase.from('jobs' as any)
     .select('status, priority, quantity, ups').eq('id', params.id).eq('company_id', companyId).single()
 
   const updateData: Record<string, any> = { ...body }
-  if (body.size_l !== undefined) updateData.size_l = body.size_l ? parseFloat(body.size_l) : null
-  if (body.size_w !== undefined) updateData.size_w = body.size_w ? parseFloat(body.size_w) : null
-  if (body.size_h !== undefined) updateData.size_h = body.size_h ? parseFloat(body.size_h) : null
-  if (body.quantity !== undefined) updateData.quantity = parseFloat(body.quantity || '0')
-  if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(body.no_of_colors)
-  if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(body.quoted_amount) : null
-  if (body.ups !== undefined) updateData.ups = body.ups ? parseInt(body.ups) : null
+  if (body.size_l !== undefined) updateData.size_l = body.size_l ? parseFloat(String(body.size_l)) : null
+  if (body.size_w !== undefined) updateData.size_w = body.size_w ? parseFloat(String(body.size_w)) : null
+  if (body.size_h !== undefined) updateData.size_h = body.size_h ? parseFloat(String(body.size_h)) : null
+  if (body.quantity !== undefined) updateData.quantity = parseFloat(String(body.quantity ?? '0'))
+  if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(String(body.no_of_colors))
+  if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null
+  if (body.ups !== undefined) updateData.ups = body.ups ? parseInt(String(body.ups)) : null
 
   // Sheet Qty = ceil(Quantity / Ups) — recompute whenever either input changes,
   // using whichever value wasn't part of this particular update.

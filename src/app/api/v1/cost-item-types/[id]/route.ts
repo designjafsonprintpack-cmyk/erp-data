@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { costItemTypeUpdateSchema } from '@/lib/schemas/costItemType'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -15,11 +17,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
 
-  const body = await req.json()
+  const parsed = await parseBody(req, costItemTypeUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
   const patch: Record<string, any> = {}
   if (body.name !== undefined) patch.name = body.name
   if (body.unit_basis !== undefined) patch.unit_basis = body.unit_basis
-  if (body.default_rate !== undefined) patch.default_rate = parseFloat(body.default_rate)
+  if (body.default_rate !== undefined) patch.default_rate = parseFloat(String(body.default_rate))
 
   const { data, error } = await supabase.from('cost_item_types' as any)
     .update(patch).eq('id', params.id).eq('company_id', companyId).select().single()

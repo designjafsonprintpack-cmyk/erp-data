@@ -6,6 +6,8 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { notifyArtworkStatusChange } from '@/lib/utils/notifyArtworkStatusChange'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { artworkUpdateSchema } from '@/lib/schemas/artwork'
 
 const VALID_STATUSES = [
   'draft', 'internal_review', 'waiting_customer_approval',
@@ -19,7 +21,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
 
-  const body = await req.json()
+  const parsed = await parseBody(req, artworkUpdateSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   if (body.status !== undefined && !VALID_STATUSES.includes(body.status)) {
     return NextResponse.json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` }, { status: 400 })
@@ -38,6 +42,12 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const currentRow = current as any
 
+  // approved_at/approved_by/is_production_ready are server-derived from
+  // status, not client-settable — built as a separate update payload
+  // (rather than mutating the validated body) so a client can never spoof
+  // who/when something was approved by sending those fields directly.
+  const updatePayload: Record<string, any> = { ...body }
+
   if (body.status === 'approved') {
     // A new approved version supersedes any previously-approved version of
     // the same job (rather than leaving two versions both marked approved).
@@ -48,8 +58,8 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       .eq('status', 'approved')
       .neq('id', params.id)
 
-    body.approved_at = new Date().toISOString()
-    body.approved_by = userTableId
+    updatePayload.approved_at = new Date().toISOString()
+    updatePayload.approved_by = userTableId
   }
 
   // is_production_ready is kept in sync as a derived/mirrored field —
@@ -57,11 +67,11 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // the production gate itself now reads `status` directly. Only ever true
   // for the single approved version of a job.
   if (body.status !== undefined) {
-    body.is_production_ready = body.status === 'approved'
+    updatePayload.is_production_ready = body.status === 'approved'
   }
 
   const { data, error } = await supabase.from('job_artworks' as any)
-    .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
+    .update(updatePayload).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (body.status !== undefined && body.status !== currentRow.status) {

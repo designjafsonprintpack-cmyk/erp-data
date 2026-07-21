@@ -5,6 +5,8 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { parseBody } from '@/lib/utils/validate'
+import { vendorSchema } from '@/lib/schemas/vendor'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -14,15 +16,18 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
+  const page  = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '100')
+  const offset = (page - 1) * limit
 
   let q = supabase.from('vendors' as any).select('*', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
   if (search) q = q.or(`name.ilike."%${escapeFilterValue(search)}%",vendor_code.ilike."%${escapeFilterValue(search)}%"`)
 
-  const { data, error, count } = await q.order('name')
+  const { data, error, count } = await q.order('name').range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
@@ -34,7 +39,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'purchase', 'create', supabase)
   if (denied) return denied
-  const body = await req.json()
+  const parsed = await parseBody(req, vendorSchema)
+  if ('error' in parsed) return parsed.error
+  const body = parsed.data
 
   const { data: vendorCode } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId, p_document_type: 'VND',
@@ -42,7 +49,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
 
   const { data, error } = await supabase.from('vendors' as any).insert({
     ...body, company_id: companyId, vendor_code: vendorCode,
-    payment_terms: parseInt(body.payment_terms || '30'),
+    payment_terms: parseInt(String(body.payment_terms ?? '30')),
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
