@@ -35,6 +35,14 @@ export default async function PlatesPage() {
     .eq('machine_type', 'printing')
     .order('name')
 
+  const { data: colorSpecs } = await supabase
+    .from('color_specs' as any)
+    .select('id,name')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('name')
+
   return (
     <div className="space-y-5">
       <div>
@@ -45,6 +53,7 @@ export default async function PlatesPage() {
         initialPlates={(data ?? []) as any[]}
         jobs={(jobs ?? []) as any[]}
         machines={(machines ?? []) as any[]}
+        colorSpecs={(colorSpecs ?? []) as any[]}
       />
     </div>
   )

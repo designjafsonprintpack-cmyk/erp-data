@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2 } from 'lucide-react'
+import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -19,6 +19,9 @@ interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
   file_size: number | null; file_type: string | null; designer_notes: string | null
   status: ArtworkStatus; is_production_ready: boolean; approved_at: string | null; created_at: string
+  ai_preflight_status?: 'pass' | 'warning' | 'fail' | null
+  ai_preflight_summary?: string | null
+  ai_preflight_issues?: { severity: string; title: string; detail: string }[] | null
   jobs?: { job_number: string; job_title: string; customers?: { name: string } | null } | null
 }
 interface Job { id: string; job_number: string; job_title: string; customers?: { name: string } | null }
@@ -49,6 +52,8 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
   const [newComment, setNewComment] = useState('')
   const [addingComment, setAddingComment] = useState(false)
   const [fullscreenPins, setFullscreenPins] = useState(false)
+  const [preflightLoading, setPreflightLoading] = useState<string | null>(null)
+  const [preflightModal, setPreflightModal] = useState<Artwork | null>(null)
   const [form, setForm] = useState({
     job_id: '', file_name: '', file_url: '', file_size: '', file_type: '', designer_notes: '',
   })
@@ -226,6 +231,25 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     } catch { toast.error('Failed') }
   }
 
+  const runPreflight = async (art: Artwork) => {
+    setPreflightLoading(art.id)
+    try {
+      const res = await fetch(`/api/v1/artwork/${art.id}/ai-preflight`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || 'Pre-flight check failed'); return }
+      const updated = { ...art, ...json.data }
+      setArtworks(prev => prev.map(a => a.id === art.id ? updated : a))
+      setPreflightModal(updated)
+    } catch { toast.error('Pre-flight check failed') }
+    finally { setPreflightLoading(null) }
+  }
+
+  const PREFLIGHT_CFG: Record<string, { color: string; label: string }> = {
+    pass:    { color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', label: 'AI: Pass' },
+    warning: { color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', label: 'AI: Warnings' },
+    fail:    { color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20', label: 'AI: Issues Found' },
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -310,6 +334,17 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                         className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                         <ExternalLink size={13} />
                       </button>
+                      {art.ai_preflight_status ? (
+                        <button onClick={() => setPreflightModal(art)}
+                          className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors', PREFLIGHT_CFG[art.ai_preflight_status].color)}>
+                          <Sparkles size={12} /> {PREFLIGHT_CFG[art.ai_preflight_status].label}
+                        </button>
+                      ) : (
+                        <button onClick={() => runPreflight(art)} disabled={preflightLoading === art.id}
+                          className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50">
+                          <Sparkles size={12} /> {preflightLoading === art.id ? 'Checking…' : 'AI Pre-flight'}
+                        </button>
+                      )}
                       {!['approved', 'rejected', 'archived'].includes(art.status) && (
                         <button onClick={() => openLinkModal(art)}
                           className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors">
@@ -422,6 +457,41 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
             </>
           )}
         </div>
+      </Modal>
+
+      {/* AI Pre-flight Results Modal */}
+      <Modal open={!!preflightModal} onClose={() => setPreflightModal(null)} title={`AI Pre-flight — v${preflightModal?.version || ''}`} size="md">
+        {preflightModal && (
+          <div className="space-y-3">
+            {preflightModal.ai_preflight_status && (
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-md border text-sm font-medium', PREFLIGHT_CFG[preflightModal.ai_preflight_status].color)}>
+                <Sparkles size={14} /> {PREFLIGHT_CFG[preflightModal.ai_preflight_status].label}
+              </div>
+            )}
+            {preflightModal.ai_preflight_summary && (
+              <p className="text-sm text-[var(--color-text-secondary)]">{preflightModal.ai_preflight_summary}</p>
+            )}
+            {(preflightModal.ai_preflight_issues?.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {preflightModal.ai_preflight_issues!.map((issue, i) => (
+                  <div key={i} className="flex items-start gap-2 p-2.5 rounded-md border border-[var(--color-border)]">
+                    <AlertTriangle size={13} className={cn('flex-shrink-0 mt-0.5',
+                      issue.severity === 'critical' ? 'text-[var(--color-danger)]' : issue.severity === 'warning' ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]')} />
+                    <div>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{issue.title}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">{issue.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-muted)]">No issues flagged.</p>
+            )}
+            <p className="text-xs text-[var(--color-text-muted)] pt-2 border-t border-[var(--color-border-subtle)]">
+              Advisory only — this does not affect approval or production status.
+            </p>
+          </div>
+        )}
       </Modal>
 
       {/* Comments & Markup Modal */}

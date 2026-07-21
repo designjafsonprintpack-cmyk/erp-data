@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
+import { Modal } from '@/components/ui/Modal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface KPI {
@@ -24,6 +25,7 @@ interface FinancialRow { month: string; month_label: string; invoice_count: numb
 interface MachineRow { machine_id: string; machine_name: string; machine_type: string; total_assignments: number; completed: number; currently_running: number; queued: number; total_actual_minutes: number; avg_job_minutes: number }
 interface QCRow { month: string; month_label: string; total_inspections: number; passed: number; failed: number; conditional: number; pass_rate_pct: number; total_defects: number; reprint_requests: number }
 interface OverdueJob { id: string; job_number: string; job_title: string; required_date: string; status: string; priority: string; customers?: { name: string } | null }
+interface CostingVarianceRow { costing_id: string; job_id: string; job_number: string; job_title: string; customer_name: string | null; order_date: string; quantity: number; quoted_amount: number | null; total_cost: number; margin_amount: number | null; margin_pct: number | null; variance_amount: number | null; variance_pct: number | null; budget_status: 'not_quoted' | 'over_budget' | 'under_budget' | 'on_budget'; costed_at: string | null }
 
 const PKR = (n: number) => `PKR ${Math.round(n).toLocaleString('en-PK')}`
 const PCT = (n: number | null) => n != null ? `${n}%` : '—'
@@ -77,14 +79,43 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
   )
 }
 
-type Tab = 'overview' | 'production' | 'customers' | 'financial' | 'quality' | 'custom'
+type Tab = 'overview' | 'production' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
-export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs }: {
+export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance }: {
   kpi: KPI | null; monthly: MonthlyRow[]; customers: CustomerRow[]
   financial: FinancialRow[]; machines: MachineRow[]; qc: QCRow[]; overdueJobs: OverdueJob[]
+  costingVariance: CostingVarianceRow[]
 }) {
   const [tab, setTab] = useState<Tab>('overview')
+  const [drillDown, setDrillDown] = useState<{ title: string; kind: 'invoices' | 'defects'; rows: any[]; loading: boolean } | null>(null)
+
+  // Drill-down: click a chart segment to see the underlying records instead
+  // of just the aggregate number. Reuses the existing list APIs (invoices,
+  // qc/defects) with the extra from/to and defect_type filters added for
+  // this — no new endpoints needed.
+  const drillIntoMonth = async (monthIso: string, monthLabel: string) => {
+    setDrillDown({ title: `Invoices — ${monthLabel}`, kind: 'invoices', rows: [], loading: true })
+    const from = monthIso.slice(0, 10)
+    const toDate = new Date(monthIso); toDate.setMonth(toDate.getMonth() + 1)
+    const to = toDate.toISOString().slice(0, 10)
+    try {
+      const res = await fetch(`/api/v1/finance/invoices?from=${from}&to=${to}`)
+      const json = await res.json()
+      setDrillDown({ title: `Invoices — ${monthLabel}`, kind: 'invoices', rows: json.data ?? [], loading: false })
+    } catch { setDrillDown(prev => prev ? { ...prev, loading: false } : null) }
+  }
+
+  const drillIntoDefectType = async (defectType: string, days: number) => {
+    const label = defectType.replace(/_/g, ' ')
+    setDrillDown({ title: `Defects — ${label}`, kind: 'defects', rows: [], loading: true })
+    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    try {
+      const res = await fetch(`/api/v1/qc/defects?defect_type=${encodeURIComponent(defectType)}&from=${from}`)
+      const json = await res.json()
+      setDrillDown({ title: `Defects — ${label}`, kind: 'defects', rows: json.data ?? [], loading: false })
+    } catch { setDrillDown(prev => prev ? { ...prev, loading: false } : null) }
+  }
 
   const maxMonthlyJobs = Math.max(...monthly.map(m => m.jobs_created), 1)
   const maxCustomerJobs = Math.max(...customers.map(c => c.total_jobs), 1)
@@ -111,6 +142,10 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         return () => exportToExcel(
           qc.map(q => ({ Month: q.month_label, Inspections: q.total_inspections, Passed: q.passed, Failed: q.failed, Conditional: q.conditional, 'Pass Rate %': q.pass_rate_pct, Defects: q.total_defects, Reprints: q.reprint_requests })),
           'qc-report', 'Quality')
+      case 'costing':
+        return () => exportToExcel(
+          costingVariance.map(c => ({ 'Job #': c.job_number, Title: c.job_title, Customer: c.customer_name ?? '—', 'Order Date': c.order_date, Quoted: c.quoted_amount, 'Actual Cost': c.total_cost, Margin: c.margin_amount, 'Margin %': c.margin_pct, 'Variance': c.variance_amount, 'Variance %': c.variance_pct, Status: c.budget_status })),
+          'costing-variance-report', 'Costing Variance')
       default:
         return null
     }
@@ -127,6 +162,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             ['customers',  'Customers',   Users],
             ['financial',  'Financial',   DollarSign],
             ['quality',    'Quality',     Shield],
+            ['costing',    'Costing',     TrendingDown],
             ['custom',     'Custom Report', Sliders],
           ] as const).map(([key, label, Icon]) => (
             <button key={key} onClick={() => setTab(key)}
@@ -376,13 +412,14 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                     const h  = maxFinancial > 0 ? (row.total_invoiced / maxFinancial) * 100 : 0
                     const hc = maxFinancial > 0 ? (row.total_collected / maxFinancial) * 100 : 0
                     return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <button key={i} onClick={() => drillIntoMonth(row.month, row.month_label)}
+                        className="flex-1 flex flex-col items-center gap-1 group cursor-pointer">
                         <div className="w-full flex items-end gap-0.5 h-24">
-                          <div className="flex-1 rounded-t-sm" style={{ height: `${h}%`, background: 'var(--color-accent)', opacity: 0.35 }} />
-                          <div className="flex-1 rounded-t-sm" style={{ height: `${hc}%`, background: 'var(--color-success)' }} />
+                          <div className="flex-1 rounded-t-sm group-hover:opacity-70 transition-opacity" style={{ height: `${h}%`, background: 'var(--color-accent)', opacity: 0.35 }} />
+                          <div className="flex-1 rounded-t-sm group-hover:opacity-80 transition-opacity" style={{ height: `${hc}%`, background: 'var(--color-success)' }} />
                         </div>
-                        <span className="text-xs text-[var(--color-text-muted)]">{row.month_label.split(' ')[0]}</span>
-                      </div>
+                        <span className="text-xs text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors">{row.month_label.split(' ')[0]}</span>
+                      </button>
                     )
                   })}
                 </div>
@@ -510,7 +547,116 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         </div>
       )}
 
+      {/* ── COSTING TAB ──────────────────────────────────────────────────────── */}
+      {tab === 'costing' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            {costingVariance.length > 0 ? (() => {
+              const totalQuoted = costingVariance.reduce((s, r) => s + (r.quoted_amount ?? 0), 0)
+              const totalActual = costingVariance.reduce((s, r) => s + r.total_cost, 0)
+              const overCount = costingVariance.filter(r => r.budget_status === 'over_budget').length
+              const avgMargin = (() => {
+                const withMargin = costingVariance.filter(r => r.margin_pct != null)
+                return withMargin.length > 0 ? withMargin.reduce((s, r) => s + (r.margin_pct ?? 0), 0) / withMargin.length : null
+              })()
+              return (
+                <>
+                  <StatCard label="Avg Margin" value={avgMargin != null ? `${avgMargin.toFixed(1)}%` : '—'} sub={`${costingVariance.length} costed jobs`} icon={TrendingUp}
+                    color={avgMargin != null && avgMargin >= 0 ? 'var(--color-success)' : 'var(--color-danger)'} />
+                  <StatCard label="Over Budget Jobs" value={overCount} sub="cost exceeded quote" icon={AlertTriangle}
+                    color={overCount === 0 ? 'var(--color-success)' : 'var(--color-danger)'} />
+                  <StatCard label="Quoted vs Actual" value={PKR(totalActual)} sub={`quoted ${PKR(totalQuoted)}`} icon={DollarSign} color="var(--color-accent)" />
+                </>
+              )
+            })() : (
+              <div className="col-span-3 text-center py-8 text-sm text-[var(--color-text-muted)]">No costed jobs yet</div>
+            )}
+          </div>
+
+          <Section title="Job Costing Variance" icon={TrendingDown}>
+            {costingVariance.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No costing data yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border)]">
+                      {['Job #','Customer','Quoted','Actual Cost','Margin','Variance','Status'].map(h => (
+                        <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                    {costingVariance.map((row, i) => (
+                      <tr key={row.costing_id} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                        <td className="py-2.5 px-3">
+                          <Link href={`/dashboard/jobs/${row.job_id}`} className="font-medium text-[var(--color-accent)] hover:underline">{row.job_number}</Link>
+                          <div className="text-xs text-[var(--color-text-muted)]">{row.job_title}</div>
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{row.customer_name ?? '—'}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{row.quoted_amount != null ? PKR(row.quoted_amount) : '—'}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-primary)]">{PKR(row.total_cost)}</td>
+                        <td className="py-2.5 px-3">
+                          <span className={cn('font-semibold', (row.margin_amount ?? 0) >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>
+                            {row.margin_amount != null ? PKR(row.margin_amount) : '—'}{row.margin_pct != null && ` (${row.margin_pct.toFixed(1)}%)`}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {row.variance_amount != null ? (
+                            <span className={cn('font-semibold flex items-center gap-1', row.variance_amount >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>
+                              {row.variance_amount >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                              {PKR(Math.abs(row.variance_amount))}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium',
+                            row.budget_status === 'over_budget' ? 'bg-[var(--color-danger)]/12 text-[var(--color-danger)]' :
+                            row.budget_status === 'under_budget' ? 'bg-[var(--color-success)]/12 text-[var(--color-success)]' :
+                            row.budget_status === 'on_budget' ? 'bg-[var(--color-accent)]/12 text-[var(--color-accent)]' :
+                            'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
+                            {row.budget_status.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+        </div>
+      )}
+
       {tab === 'custom' && <CustomReportBuilder />}
+
+      <Modal open={!!drillDown} onClose={() => setDrillDown(null)} title={drillDown?.title || ''} size="lg">
+        {drillDown?.loading ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Loading…</p>
+        ) : !drillDown?.rows.length ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No records found.</p>
+        ) : (
+          <>
+            <div className="max-h-96 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
+              {drillDown.kind === 'invoices' && drillDown.rows.map((inv: any) => (
+                <div key={inv.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-[var(--color-text-primary)] font-mono">{inv.invoice_number}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] truncate">{inv.customers?.name}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0 text-xs">
+                    <p className="text-[var(--color-text-primary)] font-medium">{PKR(inv.total_amount)}</p>
+                    <p className="text-[var(--color-text-muted)] capitalize">{inv.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Link href="/dashboard/finance" className="block text-center text-xs text-[var(--color-accent)] hover:underline pt-3 mt-1 border-t border-[var(--color-border-subtle)]">
+              Open Finance module for full detail
+            </Link>
+          </>
+        )}
+      </Modal>
     </div>
   )
 }

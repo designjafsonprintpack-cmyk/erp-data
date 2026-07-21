@@ -10,7 +10,7 @@ export default async function ReportsPage() {
   const days = 30
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
 
-  const [kpiRes, monthlyRes, customerRes, financialRes, machineRes, qcRes, overdueRes] = await Promise.all([
+  const [kpiRes, monthlyRes, customerRes, financialRes, machineRes, qcRes, overdueRes, costingRes] = await Promise.all([
     (supabase as any).rpc('get_dashboard_kpis', { p_company_id: companyId, p_days: days }),
     supabase.from('report_monthly_production' as any).select('*').eq('company_id', companyId).limit(6),
     supabase.from('report_customer_sales' as any).select('*').eq('company_id', companyId).order('total_jobs', { ascending: false }).limit(10),
@@ -24,6 +24,7 @@ export default async function ReportsPage() {
       .lt('required_date', new Date().toISOString().slice(0, 10))
       .not('status', 'in', '("completed","dispatched","cancelled")')
       .order('required_date').limit(20),
+    supabase.from('report_job_costing_variance' as any).select('*').eq('company_id', companyId).order('costed_at', { ascending: false }).limit(200),
   ])
 
   return (
@@ -40,6 +41,7 @@ export default async function ReportsPage() {
         machines={(machineRes.data ?? []) as any[]}
         qc={(qcRes.data ?? []) as any[]}
         overdueJobs={(overdueRes.data ?? []) as any[]}
+        costingVariance={(costingRes.data ?? []) as any[]}
       />
     </div>
   )

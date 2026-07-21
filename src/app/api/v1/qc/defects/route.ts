@@ -17,6 +17,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const jobId        = searchParams.get('job_id') || ''
   const inspectionId = searchParams.get('inspection_id') || ''
   const severity     = searchParams.get('severity') || ''
+  const defectType   = searchParams.get('defect_type') || ''
+  const from         = searchParams.get('from') || ''
+  const to           = searchParams.get('to') || ''
   const unresolved   = searchParams.get('unresolved') === 'true'
   const page  = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '50')
@@ -29,7 +32,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   if (jobId)        q = q.eq('job_id', jobId)
   if (inspectionId) q = q.eq('inspection_id', inspectionId)
-  if (severity)     q = q.eq('severity', severity)
+  if (severity)      q = q.eq('severity', severity)
+  if (defectType)    q = q.eq('defect_type', defectType)
+  if (from)          q = q.gte('created_at', from)
+  if (to)            q = q.lte('created_at', to)
   if (unresolved)   q = q.eq('resolved', false)
 
   const { data, error, count } = await q

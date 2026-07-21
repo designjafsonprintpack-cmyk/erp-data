@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import {
   FileText, Plus, DollarSign, TrendingUp, AlertTriangle, CheckCircle2,
-  ChevronDown, ChevronRight, Send, Trash2, CreditCard, Calculator
+  ChevronDown, ChevronRight, Send, Trash2, CreditCard, Calculator, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
@@ -79,6 +79,8 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
     labour_cost: '', overhead_pct: '15', quoted_amount: '', costing_notes: '',
   })
   const [costLines, setCostLines] = useState<{ description: string; amount: string }[]>([])
+  const [aiCostSuggestion, setAiCostSuggestion] = useState<{ summary: string; suggested_total_low: number | null; suggested_total_high: number | null; flags: { field: string; message: string }[]; comparable_count: number } | null>(null)
+  const [aiCostLoading, setAiCostLoading] = useState(false)
 
   /* Helpers */
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -161,6 +163,23 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       toast.success('Payment recorded')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
+  }
+
+  /* ─── AI Costing Suggestion ─────────────────────────────────────────────────── */
+  const runAiCostSuggestion = async () => {
+    if (!costJobId) { toast.error('Select a job first'); return }
+    setAiCostLoading(true)
+    setAiCostSuggestion(null)
+    try {
+      const res = await fetch('/api/v1/finance/costing/ai-suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: costJobId, current_costs: costForm }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || 'AI suggestion failed'); return }
+      setAiCostSuggestion({ ...json.data, comparable_count: json.comparable_count })
+    } catch { toast.error('AI suggestion failed') }
+    finally { setAiCostLoading(false) }
   }
 
   /* ─── Save Costing ──────────────────────────────────────────────────────────── */
@@ -545,6 +564,10 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
         footer={
           <>
             <button onClick={() => setCostModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={runAiCostSuggestion} disabled={aiCostLoading || !costJobId}
+              className="flex items-center gap-2 px-4 h-9 rounded-md border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50 transition-colors">
+              <Sparkles size={14} /> {aiCostLoading ? 'Checking…' : 'AI Suggest'}
+            </button>
             <button onClick={saveCosting} disabled={loading || !costJobId}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Calculator size={14} /> {loading ? 'Saving…' : 'Save Costing'}
@@ -634,6 +657,34 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               </div>
             )}
           </div>
+
+          {aiCostSuggestion && (
+            <div className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4 space-y-2.5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
+                <Sparkles size={14} /> AI Costing Suggestion
+              </div>
+              <p className="text-sm text-[var(--color-text-secondary)]">{aiCostSuggestion.summary}</p>
+              {(aiCostSuggestion.suggested_total_low != null || aiCostSuggestion.suggested_total_high != null) && (
+                <p className="text-sm text-[var(--color-text-primary)]">
+                  Suggested range: <strong>{aiCostSuggestion.suggested_total_low != null ? PKR(aiCostSuggestion.suggested_total_low) : '—'} – {aiCostSuggestion.suggested_total_high != null ? PKR(aiCostSuggestion.suggested_total_high) : '—'}</strong>
+                  <span className="text-xs text-[var(--color-text-muted)]"> (based on {aiCostSuggestion.comparable_count} similar past job{aiCostSuggestion.comparable_count !== 1 ? 's' : ''})</span>
+                </p>
+              )}
+              {aiCostSuggestion.flags.length > 0 && (
+                <div className="space-y-1.5">
+                  {aiCostSuggestion.flags.map((f, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <AlertTriangle size={12} className="text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
+                      <span className="text-[var(--color-text-secondary)]"><strong className="text-[var(--color-text-primary)]">{f.field}:</strong> {f.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-[var(--color-text-muted)] pt-1 border-t border-[var(--color-border-subtle)]">
+                Advisory only — figures above are not applied automatically.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Costing Notes</label>

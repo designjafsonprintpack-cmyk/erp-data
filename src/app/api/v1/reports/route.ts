@@ -129,6 +129,20 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
       return NextResponse.json({ data: grouped })
     }
 
+    // ── Job Costing Variance ──────────────────────────────────────────────────
+    case 'costing_variance': {
+      const { data, error } = await supabase
+        .from('report_job_costing_variance' as any)
+        .select('*')
+        .eq('company_id', companyId)
+        .gte('order_date', from)
+        .lte('order_date', to)
+        .order('costed_at', { ascending: false })
+        .limit(200)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ data: data ?? [] })
+    }
+
     // ── Overdue Jobs ───────────────────────────────────────────────────────────
     case 'overdue': {
       const { data, error } = await supabase

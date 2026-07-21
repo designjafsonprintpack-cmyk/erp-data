@@ -17,6 +17,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const status     = searchParams.get('status') || ''
   const customerId = searchParams.get('customer_id') || ''
   const search     = searchParams.get('search') || ''
+  const from       = searchParams.get('from') || ''
+  const to         = searchParams.get('to') || ''
   const page       = parseInt(searchParams.get('page') || '1')
   const limit      = 25; const offset = (page - 1) * limit
 
@@ -28,6 +30,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status)     q = q.eq('status', status)
   if (customerId) q = q.eq('customer_id', customerId)
   if (search)     q = q.ilike('invoice_number', `%${search}%`)
+  if (from)       q = q.gte('invoice_date', from)
+  if (to)         q = q.lte('invoice_date', to)
 
   const { data, error, count } = await q
     .order('invoice_date', { ascending: false })

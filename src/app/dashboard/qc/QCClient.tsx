@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, ClipboardList, RefreshCw,
-  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp
+  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
@@ -814,23 +814,33 @@ const SEVERITY_BAR_COLOR: Record<string, string> = {
   minor: 'bg-[var(--color-text-muted)]',
 }
 
-function BarRow({ label, count, max, color }: { label: string; count: number; max: number; color?: string }) {
+function BarRow({ label, count, max, color, onClick }: { label: string; count: number; max: number; color?: string; onClick?: () => void }) {
   const pct = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 0
+  const Wrapper = onClick ? 'button' : 'div'
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-[var(--color-text-secondary)] w-32 truncate flex-shrink-0 capitalize">{label.replace(/_/g, ' ')}</span>
+    <Wrapper onClick={onClick} className={cn('flex items-center gap-3 w-full', onClick && 'group cursor-pointer')}>
+      <span className={cn('text-xs text-[var(--color-text-secondary)] w-32 truncate flex-shrink-0 capitalize text-left', onClick && 'group-hover:text-[var(--color-accent)] transition-colors')}>{label.replace(/_/g, ' ')}</span>
       <div className="flex-1 h-5 bg-[var(--color-bg-elevated)] rounded overflow-hidden">
-        <div className={cn('h-full rounded transition-all', color || 'bg-[var(--color-accent)]')} style={{ width: `${pct}%` }} />
+        <div className={cn('h-full rounded transition-all', color || 'bg-[var(--color-accent)]', onClick && 'group-hover:opacity-75')} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-medium text-[var(--color-text-primary)] w-8 text-right flex-shrink-0">{count}</span>
-    </div>
+    </Wrapper>
   )
+}
+
+interface DrillDownDefect {
+  id: string; defect_type: string; severity: string; quantity_affected: number
+  description: string | null; created_at: string
+  jobs?: { job_number: string; job_title: string } | null
 }
 
 function QcDefectTrends() {
   const [data, setData] = useState<DefectTrendData | null>(null)
   const [days, setDays] = useState(90)
   const [loading, setLoading] = useState(true)
+  const [drillDown, setDrillDown] = useState<{ label: string; rows: DrillDownDefect[]; loading: boolean } | null>(null)
+  const [aiInsights, setAiInsights] = useState<{ summary: string; patterns: { title: string; detail: string }[]; recommendations: string[] } | null>(null)
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -839,6 +849,20 @@ function QcDefectTrends() {
       .then(json => setData(json.data))
       .finally(() => setLoading(false))
   }, [days])
+
+  // Drill-down: click a "Defects by Type" bar to see the actual defect
+  // records behind that count, over the same period currently selected —
+  // reuses the existing defects list API (now accepting defect_type/from).
+  const drillIntoType = async (defectType: string) => {
+    const label = defectType.replace(/_/g, ' ')
+    setDrillDown({ label, rows: [], loading: true })
+    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    try {
+      const res = await fetch(`/api/v1/qc/defects?defect_type=${encodeURIComponent(defectType)}&from=${from}&limit=100`)
+      const json = await res.json()
+      setDrillDown({ label, rows: json.data ?? [], loading: false })
+    } catch { setDrillDown(prev => prev ? { ...prev, loading: false } : null) }
+  }
 
   if (loading) return <p className="text-sm text-[var(--color-text-muted)] text-center py-12">Loading…</p>
   if (!data || data.total_defects === 0) {
@@ -854,6 +878,18 @@ function QcDefectTrends() {
   const maxWeek = Math.max(...data.by_week.map(w => w.count), 1)
   const maxCustomer = Math.max(...data.by_customer.map(c => c.count), 1)
 
+  const runAiInsights = async () => {
+    setAiInsightsLoading(true)
+    setAiInsights(null)
+    try {
+      const res = await fetch(`/api/v1/qc/defect-trends/ai-insights?days=${days}`)
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || 'AI analysis failed'); return }
+      setAiInsights(json.data)
+    } catch { toast.error('AI analysis failed') }
+    finally { setAiInsightsLoading(false) }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -867,19 +903,49 @@ function QcDefectTrends() {
             <p className="text-lg font-bold text-[var(--color-text-primary)]">{data.total_qty_affected.toLocaleString()}</p>
           </div>
         </div>
-        <select value={days} onChange={e => setDays(parseInt(e.target.value))}
-          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-          <option value={365}>Last 12 months</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <button onClick={runAiInsights} disabled={aiInsightsLoading}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50 transition-colors">
+            <Sparkles size={14} /> {aiInsightsLoading ? 'Analyzing…' : 'AI Insights'}
+          </button>
+          <select value={days} onChange={e => setDays(parseInt(e.target.value))}
+            className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+            <option value={365}>Last 12 months</option>
+          </select>
+        </div>
       </div>
+
+      {aiInsights && (
+        <div className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4 space-y-2.5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
+            <Sparkles size={14} /> AI Defect Pattern Insights
+          </div>
+          <p className="text-sm text-[var(--color-text-secondary)]">{aiInsights.summary}</p>
+          {aiInsights.patterns.length > 0 && (
+            <div className="space-y-1.5">
+              {aiInsights.patterns.map((p, i) => (
+                <div key={i} className="text-xs">
+                  <span className="font-medium text-[var(--color-text-primary)]">{p.title}:</span>{' '}
+                  <span className="text-[var(--color-text-secondary)]">{p.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {aiInsights.recommendations.length > 0 && (
+            <ul className="text-xs text-[var(--color-text-secondary)] list-disc list-inside space-y-1">
+              {aiInsights.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
           <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Defects by Type</h3>
           <div className="space-y-2.5">
-            {data.by_type.map(t => <BarRow key={t.defect_type} label={t.defect_type} count={t.count} max={maxType} />)}
+            {data.by_type.map(t => <BarRow key={t.defect_type} label={t.defect_type} count={t.count} max={maxType} onClick={() => drillIntoType(t.defect_type)} />)}
           </div>
         </div>
 
@@ -918,6 +984,29 @@ function QcDefectTrends() {
           </div>
         </div>
       </div>
+
+      <Modal open={!!drillDown} onClose={() => setDrillDown(null)} title={drillDown ? `Defects — ${drillDown.label}` : ''} size="lg">
+        {drillDown?.loading ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Loading…</p>
+        ) : !drillDown?.rows.length ? (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No defects found for this period.</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
+            {drillDown.rows.map(d => (
+              <div key={d.id} className="py-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--color-text-primary)]">{d.jobs?.job_number} — {d.jobs?.job_title}</p>
+                  {d.description && <p className="text-xs text-[var(--color-text-muted)] truncate">{d.description}</p>}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 text-xs">
+                  <span className={cn('px-2 py-0.5 rounded-full border font-medium', SEVERITY_CFG[d.severity as keyof typeof SEVERITY_CFG]?.color)}>{d.severity}</span>
+                  <span className="text-[var(--color-text-muted)]">{formatDate(d.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

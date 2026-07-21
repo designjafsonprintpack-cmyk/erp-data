@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { invoicePaymentSchema } from '@/lib/schemas/payment'
+import { deliverWebhook } from '@/lib/utils/deliverWebhook'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -75,7 +76,19 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
 
   // Fetch updated invoice balance (trigger auto-updates it)
   const { data: updatedInv } = await supabase.from('invoices' as any)
-    .select('paid_amount,balance_due,status').eq('id', params.id).eq('company_id', companyId).single()
+    .select('paid_amount,balance_due,status, invoice_number').eq('id', params.id).eq('company_id', companyId).single()
+
+  // Non-blocking — a webhook failure must never affect the recorded payment itself
+  deliverWebhook(supabase, companyId, 'invoice.payment_recorded', {
+    invoice_id: params.id,
+    invoice_number: (updatedInv as any)?.invoice_number,
+    customer_id: (invoice as any).customer_id,
+    payment_id: (data as any).id,
+    amount,
+    payment_method: body.payment_method || 'bank_transfer',
+    balance_due: (updatedInv as any)?.balance_due,
+    status: (updatedInv as any)?.status,
+  }).catch(() => {})
 
   return NextResponse.json({ data, invoice: updatedInv })
 })

@@ -7,6 +7,7 @@ import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { customerSchema } from '@/lib/schemas/customer'
+import { runNewCustomerRule } from '@/lib/utils/automationEngine'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -118,5 +119,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Non-blocking — a rule failure must never affect customer creation itself
+  runNewCustomerRule(supabase, companyId, (data as any).id, (data as any).name).catch(() => {})
+
   return NextResponse.json({ data })
 })

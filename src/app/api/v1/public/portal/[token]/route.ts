@@ -29,7 +29,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     return NextResponse.json({ error: 'This portal link has expired. Please ask us to resend it.' }, { status: 410 })
   }
 
-  const [jobsRes, quotationsRes, invoicesRes, ledgerRes] = await Promise.all([
+  const [jobsRes, quotationsRes, invoicesRes, ledgerRes, dispatchesRes] = await Promise.all([
     supabase.from('jobs' as any)
       .select('id, job_number, job_title, status, quantity, required_date, created_at')
       .eq('customer_id', cust.id).is('deleted_at', null)
@@ -47,6 +47,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
       .eq('customer_id', cust.id).is('deleted_at', null)
       .order('entry_date', { ascending: false }).order('created_at', { ascending: false })
       .limit(1),
+    supabase.from('dispatch_orders' as any)
+      .select('id, dispatch_number, status, dispatch_method, tracking_number, courier_name, scheduled_date, dispatched_at, delivered_at, created_at, dispatch_items(job_id, quantity_dispatched, jobs(job_number,job_title))')
+      .eq('customer_id', cust.id).is('deleted_at', null)
+      .order('created_at', { ascending: false }).limit(20),
   ])
 
   const currentBalance = (ledgerRes.data && ledgerRes.data[0]) ? (ledgerRes.data[0] as any).balance_after : 0
@@ -56,6 +60,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     jobs: jobsRes.data ?? [],
     quotations: quotationsRes.data ?? [],
     invoices: invoicesRes.data ?? [],
+    dispatches: dispatchesRes.data ?? [],
     current_balance: currentBalance,
   })
 })

@@ -15,6 +15,7 @@ interface Plate {
 }
 interface Job { id: string; job_number: string; job_title: string; customers?: { name: string } | null }
 interface Machine { id: string; name: string; code: string }
+interface ColorSpecOption { id: string; name: string }
 
 const SIZES = ['1030 x 790', '1030 x 770']
 
@@ -28,7 +29,7 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 type ColorRow = { color: string; mode: 'new' | 'old'; existing_plate_id: string }
 
-export default function PlatesClient({ initialPlates, jobs, machines }: { initialPlates: Plate[]; jobs: Job[]; machines: Machine[] }) {
+export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs = [] }: { initialPlates: Plate[]; jobs: Job[]; machines: Machine[]; colorSpecs?: ColorSpecOption[] }) {
   const [plates, setPlates] = useState(initialPlates)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -254,7 +255,7 @@ export default function PlatesClient({ initialPlates, jobs, machines }: { initia
                 <div key={i} className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <input value={row.color} onChange={e => updateColorRow(i, { color: e.target.value })}
-                      placeholder="e.g. Cyan" className="flex-1 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
+                      list="color-specs-datalist" placeholder="e.g. Cyan" className="flex-1 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => updateColorRow(i, { mode: 'new' })}
                       className={cn('h-8 px-2.5 rounded-md border text-xs font-medium transition-colors',
                         row.mode === 'new' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
@@ -285,6 +286,11 @@ export default function PlatesClient({ initialPlates, jobs, machines }: { initia
               className="w-full h-8 rounded-md border border-dashed border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors flex items-center justify-center gap-1.5">
               <Plus size={12} /> Add another color
             </button>
+            {colorSpecs.length > 0 && (
+              <datalist id="color-specs-datalist">
+                {colorSpecs.map(c => <option key={c.id} value={c.name} />)}
+              </datalist>
+            )}
           </div>
         </div>
       </Modal>

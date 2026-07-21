@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { podSchema } from '@/lib/schemas/dispatch'
+import { deliverWebhook } from '@/lib/utils/deliverWebhook'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -37,10 +38,23 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Auto-mark dispatch as delivered
-  await supabase.from('dispatch_orders' as any).update({
+  const { data: dispatchRow } = await supabase.from('dispatch_orders' as any).update({
     status:       'delivered',
     delivered_at: new Date().toISOString(),
   }).eq('id', params.id).eq('company_id', companyId).eq('status', 'dispatched')
+    .select('id, dispatch_number, customer_id').maybeSingle()
+
+  if (dispatchRow) {
+    // Non-blocking — a webhook failure must never affect the POD confirmation itself
+    deliverWebhook(supabase, companyId, 'dispatch.delivered', {
+      dispatch_id: (dispatchRow as any).id,
+      dispatch_number: (dispatchRow as any).dispatch_number,
+      customer_id: (dispatchRow as any).customer_id,
+      received_by: body.received_by,
+      condition: body.condition || 'good',
+      delivered_at: new Date().toISOString(),
+    }).catch(() => {})
+  }
 
   return NextResponse.json({ data })
 })
