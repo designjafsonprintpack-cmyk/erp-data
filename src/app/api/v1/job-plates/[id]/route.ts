@@ -20,13 +20,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
   const body = await req.json()
   const condition = body.condition_on_return as string
-  if (!['good', 'worn', 'damaged', 'discarded'].includes(condition)) {
-    return NextResponse.json({ error: 'condition_on_return must be good, worn, damaged or discarded' }, { status: 400 })
+  if (!['good', 'worn', 'damaged'].includes(condition)) {
+    return NextResponse.json({ error: 'condition_on_return must be good, worn or damaged' }, { status: 400 })
   }
 
   const { data: assignment, error: findErr } = await supabase
     .from('job_plates' as any)
-    .select('id, job_id, plate_id, plates(plate_code, color)')
+    .select('id, job_id, plate_id, plates(color)')
     .eq('id', params.id)
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -37,7 +37,6 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const { error: updErr } = await supabase.from('job_plates' as any).update({
     returned_at: new Date().toISOString(),
     condition_on_return: condition,
-    remarks: body.remarks ?? undefined,
     updated_by: userTableId,
   }).eq('id', params.id).eq('company_id', companyId)
 
@@ -46,7 +45,6 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const newPlateStatus = condition === 'good' || condition === 'worn' ? 'in_storage' : 'damaged'
   const { error: plateErr } = await supabase.from('plates' as any).update({
     status: newPlateStatus,
-    retired_reason: condition === 'discarded' ? 'Discarded on return from job' : undefined,
     updated_by: userTableId,
   }).eq('id', (assignment as any).plate_id).eq('company_id', companyId)
 
@@ -56,7 +54,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   await recordJobEvent({
     company_id: companyId, job_id: (assignment as any).job_id,
     event_type: 'plate_returned',
-    new_value: `${plateInfo?.plate_code} (${plateInfo?.color}) — returned ${condition}`,
+    new_value: `${plateInfo?.color} — returned ${condition}`,
     actor_id: userTableId,
   }, supabase)
 

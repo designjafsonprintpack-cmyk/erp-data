@@ -13,7 +13,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
 
   const { data: plate, error } = await supabase
     .from('plates' as any)
-    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title), vendors(name)')
+    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title)')
     .eq('id', params.id)
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -33,6 +33,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   return NextResponse.json({ data: { ...(plate as any), history: history ?? [] } })
 })
 
+const VALID_SIZES = ['1030 x 790', '1030 x 770']
+
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -44,12 +46,33 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (denied) return denied
 
   const body = await req.json()
-  const allowed = [
-    'plate_code', 'color', 'die_number', 'plate_size', 'material', 'status',
-    'vendor_id', 'cost', 'made_date', 'storage_location', 'retired_reason', 'remarks',
-  ]
   const update: Record<string, any> = { updated_by: userTableId }
-  for (const key of allowed) if (key in body) update[key] = body[key]
+
+  // Changing the size (the "plate got manually cut down" case) auto-notes
+  // it in remarks instead of a silent overwrite — the physical plate is the
+  // same one, just trimmed, so this stays one row rather than a new plate.
+  if (body.plate_size !== undefined) {
+    if (body.plate_size && !VALID_SIZES.includes(body.plate_size)) {
+      return NextResponse.json({ error: 'Invalid plate size' }, { status: 400 })
+    }
+    const { data: current } = await supabase.from('plates' as any).select('plate_size, remarks').eq('id', params.id).eq('company_id', companyId).single()
+    const oldSize = (current as any)?.plate_size
+    if (oldSize && body.plate_size && oldSize !== body.plate_size) {
+      const note = `Cut from ${oldSize} to ${body.plate_size} on ${new Date().toISOString().slice(0, 10)}`
+      const existingRemarks = (current as any)?.remarks
+      update.remarks = existingRemarks ? `${existingRemarks}\n${note}` : note
+    }
+    update.plate_size = body.plate_size
+  }
+
+  if (body.status !== undefined) {
+    if (!['in_storage', 'in_use', 'damaged'].includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+    update.status = body.status
+  }
+  if (body.color !== undefined) update.color = body.color
+  if (body.made_date !== undefined) update.made_date = body.made_date
 
   const { data, error } = await supabase
     .from('plates' as any)

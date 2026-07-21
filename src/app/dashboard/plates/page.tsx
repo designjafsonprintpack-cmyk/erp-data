@@ -11,7 +11,7 @@ export default async function PlatesPage() {
 
   const { data, count } = await supabase
     .from('plates' as any)
-    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title), vendors(name), plate_sets(set_number,job_id,jobs(job_number,job_title))', { count: 'exact' })
+    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
@@ -20,20 +20,12 @@ export default async function PlatesPage() {
 
   const { data: jobs } = await supabase
     .from('jobs' as any)
-    .select('id,job_number,job_title,no_of_colors,customers(name)')
+    .select('id,job_number,job_title,customers(name)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .in('status', ['new', 'in_progress'])
     .order('created_at', { ascending: false })
     .limit(150)
-
-  const { data: vendors } = await supabase
-    .from('vendors' as any)
-    .select('id,name')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('name')
 
   const { data: machines } = await supabase
     .from('machines' as any)
@@ -42,14 +34,6 @@ export default async function PlatesPage() {
     .is('deleted_at', null)
     .eq('machine_type', 'printing')
     .order('name')
-
-  const { data: operators } = await supabase
-    .from('users' as any)
-    .select('id,full_name')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('full_name')
 
   return (
     <div className="space-y-5">
@@ -60,9 +44,7 @@ export default async function PlatesPage() {
       <PlatesClient
         initialPlates={(data ?? []) as any[]}
         jobs={(jobs ?? []) as any[]}
-        vendors={(vendors ?? []) as any[]}
         machines={(machines ?? []) as any[]}
-        operators={(operators ?? []) as any[]}
       />
     </div>
   )

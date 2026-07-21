@@ -38,13 +38,13 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   let q = supabase
     .from('plates' as any)
-    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title), vendors(name)', { count: 'exact' })
+    .select('*, origin_job:jobs!plates_origin_job_id_fkey(job_number,job_title)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
 
   if (status) q = q.eq('status', status)
-  if (search) q = q.or(`plate_code.ilike."%${escapeFilterValue(search)}%",color.ilike."%${escapeFilterValue(search)}%",die_number.ilike."%${escapeFilterValue(search)}%"`)
+  if (search) q = q.or(`color.ilike."%${escapeFilterValue(search)}%"`)
   if (plateIdsForJob) q = q.in('id', plateIdsForJob)
 
   const { data, error, count } = await q
@@ -55,6 +55,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
+// A single POST call can create/reuse several plates at once — one job, one
+// size, one machine, several colors (this is the "Add plates" flow: each
+// color row is independently either a brand new plate or an existing
+// in-storage plate being reused).
 export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -66,62 +70,64 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if (denied) return denied
 
   const body = await req.json()
-  if (!body.plate_code || !body.color) {
-    return NextResponse.json({ error: 'plate_code and color are required' }, { status: 400 })
+  const jobId: string | null = body.job_id || null
+  const plateSize: string | null = body.plate_size || null
+  const machineId: string | null = body.machine_id || null
+  const rows: Array<{ color: string; mode: 'new' | 'old'; existing_plate_id?: string }> = body.colors || []
+
+  if (rows.length === 0) return NextResponse.json({ error: 'Add at least one color' }, { status: 400 })
+  if (plateSize && !['1030 x 790', '1030 x 770'].includes(plateSize)) {
+    return NextResponse.json({ error: 'Invalid plate size' }, { status: 400 })
   }
 
-  const assignToJob = !!body.job_id
+  const created: any[] = []
 
-  const { data: plate, error } = await supabase.from('plates' as any).insert({
-    company_id:       companyId,
-    plate_code:       body.plate_code,
-    color:            body.color,
-    die_number:       body.die_number || null,
-    plate_size:       body.plate_size || null,
-    material:         body.material || 'aluminum',
-    status:           assignToJob ? 'mounted' : 'in_storage',
-    origin_job_id:    body.job_id || null,
-    vendor_id:        body.vendor_id || null,
-    cost:             body.cost || null,
-    made_date:        body.made_date || null,
-    storage_location: body.storage_location || null,
-    reuse_count:      0,
-    last_used_at:     assignToJob ? new Date().toISOString() : null,
-    remarks:          body.remarks || null,
-  }).select().single()
+  for (const row of rows) {
+    if (row.mode === 'old') {
+      if (!row.existing_plate_id) return NextResponse.json({ error: 'Select an existing plate for each "Old" row' }, { status: 400 })
+      const { data: updated, error: updErr } = await supabase.from('plates' as any)
+        .update({ status: jobId ? 'in_use' : 'in_storage', last_used_at: jobId ? new Date().toISOString() : undefined })
+        .eq('id', row.existing_plate_id).eq('company_id', companyId).select().single()
+      if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+      await (supabase as any).rpc('mark_plate_reused', { p_plate_id: row.existing_plate_id }).catch(() => null)
+      created.push(updated)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (jobId) {
+        await supabase.from('job_plates' as any).insert({
+          company_id: companyId, job_id: jobId, plate_id: row.existing_plate_id,
+          machine_id: machineId, is_reused: true, condition_on_assign: 'good',
+        })
+        await recordJobEvent({
+          company_id: companyId, job_id: jobId, event_type: 'plate_assigned',
+          new_value: `${row.color} — reused plate`, actor_id: userTableId,
+        }, supabase)
+      }
+    } else {
+      // Auto-generated identifier — never shown to the user, just needs to
+      // satisfy the DB's NOT NULL UNIQUE constraint.
+      const plateCode = `PL-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      const madeDate = body.made_date || new Date().toISOString().slice(0, 10)
+      const { data: plate, error } = await supabase.from('plates' as any).insert({
+        company_id: companyId, plate_code: plateCode, color: row.color,
+        plate_size: plateSize, status: jobId ? 'in_use' : 'in_storage',
+        origin_job_id: jobId, made_date: madeDate,
+        last_used_at: jobId ? new Date().toISOString() : null,
+      }).select().single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      created.push(plate)
 
-  // If created directly against a job, also create the assignment row so it
-  // shows up in that job's plate list immediately.
-  if (assignToJob) {
-    const { error: jpError } = await supabase.from('job_plates' as any).insert({
-      company_id:  companyId,
-      job_id:      body.job_id,
-      plate_id:    (plate as any).id,
-      machine_id:  body.machine_id || null,
-      is_reused:   false,
-      condition_on_assign: 'new',
-    })
-    if (jpError) return NextResponse.json({ error: jpError.message }, { status: 500 })
-
-    // Auto-link: a newly-made plate is an actual printing cost for this job.
-    await (supabase as any).rpc('apply_job_actual_cost', {
-      p_company_id:   companyId,
-      p_job_id:       body.job_id,
-      p_bucket:       'plate',
-      p_amount:       body.cost ? parseFloat(body.cost) : 0,
-      p_sheets_delta: null,
-      p_plates_delta: 1,
-    }).catch(() => null)
-
-    await recordJobEvent({
-      company_id: companyId, job_id: body.job_id,
-      event_type: 'plate_assigned',
-      new_value: `${body.plate_code} (${body.color}) — new plate`,
-      actor_id: userTableId,
-    }, supabase)
+      if (jobId) {
+        await supabase.from('job_plates' as any).insert({
+          company_id: companyId, job_id: jobId, plate_id: (plate as any).id,
+          machine_id: machineId, is_reused: false, condition_on_assign: 'new',
+        })
+        await recordJobEvent({
+          company_id: companyId, job_id: jobId, event_type: 'plate_assigned',
+          new_value: `${row.color} — new plate`, actor_id: userTableId,
+        }, supabase)
+      }
+    }
   }
 
-  return NextResponse.json({ data: plate })
+  return NextResponse.json({ data: created })
 })
