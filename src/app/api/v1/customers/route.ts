@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
@@ -10,6 +12,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'customers', 'view', supabase)
+  if (denied) return denied
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -38,6 +44,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const companyId = await getCompanyId(user, supabase)
+  const userTableId = await getUserTableId(user, supabase)
+  const denied = await requirePermission(userTableId, 'customers', 'create', supabase)
+  if (denied) return denied
+
   const parsed = await parseBody(req, customerSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
