@@ -81,7 +81,7 @@ export interface JobWastage {
 
 export interface JobFormData {
   customer_id: string; job_title: string; description: string
-  sales_order_id: string
+  sales_order_id: string; sales_order_item_id: string
   size_l: string; size_w: string; size_h: string; sheet_size: string
   quantity: string; no_of_colors: string; die_number: string; grain_direction: string
   ups: string
@@ -93,7 +93,7 @@ export interface JobFormData {
 }
 
 export const EMPTY_JOB_FORM: JobFormData = {
-  customer_id: '', job_title: '', description: '', sales_order_id: '',
+  customer_id: '', job_title: '', description: '', sales_order_id: '', sales_order_item_id: '',
   size_l: '', size_w: '', size_h: '', sheet_size: '', quantity: '1000',
   no_of_colors: '4', die_number: '', grain_direction: '', ups: '', board_type_id: '', paper_type_id: '',
   lamination_type_id: '', uv_coating: '', foil_type_id: '',

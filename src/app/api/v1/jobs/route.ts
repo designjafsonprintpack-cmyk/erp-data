@@ -83,6 +83,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     job_number:           jobNumber,
     customer_id:          body.customer_id,
     sales_order_id:       body.sales_order_id || null,
+    sales_order_item_id:  body.sales_order_item_id || null,
     job_title:            body.job_title,
     description:          body.description || null,
     size_l:               body.size_l ? parseFloat(String(body.size_l)) : null,

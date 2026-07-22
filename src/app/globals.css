@@ -56,3 +56,12 @@ input::placeholder, textarea::placeholder {
   color: var(--color-text-secondary);
   opacity: 0.3;
 }
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

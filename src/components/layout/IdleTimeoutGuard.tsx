@@ -8,8 +8,8 @@ import { signOut } from '@/modules/auth/services/authService'
 // constants (e.g. the 7-day quotation link expiry). A warning toast at the
 // 1-minute mark gives a last chance to keep the session alive before it
 // actually signs out.
-const TIMEOUT_MS = 30 * 60 * 1000
-const WARNING_MS = 60 * 1000
+const TIMEOUT_MS = 120 * 60 * 1000
+const WARNING_MS = 2 * 60 * 1000
 
 export function IdleTimeoutGuard() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>()

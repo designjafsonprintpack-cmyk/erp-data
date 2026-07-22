@@ -32,6 +32,7 @@ export default function EditJobClient({ job, boardTypes, paperTypes, laminationT
   const [form, setForm] = useState<JobFormData>({
     customer_id: job.customer_id || '', job_title: job.job_title || '', description: job.description || '',
     sales_order_id: job.sales_order_id || '',
+    sales_order_item_id: job.sales_order_item_id || '',
     size_l: String(job.size_l ?? ''), size_w: String(job.size_w ?? ''), size_h: String(job.size_h ?? ''),
     sheet_size: job.sheet_size || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
     die_number: job.die_number || '', grain_direction: job.grain_direction || '', ups: String(job.ups ?? ''),
@@ -67,7 +68,7 @@ export default function EditJobClient({ job, boardTypes, paperTypes, laminationT
   }
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-5xl space-y-5">
       {/* Page header */}
       <div className="flex items-center gap-3">
         <Link href={`/dashboard/jobs/${job.id}`} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">

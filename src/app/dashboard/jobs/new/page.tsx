@@ -14,7 +14,7 @@ export default async function NewJobPage() {
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('workflow_templates' as any).select('id,name,is_default').eq('company_id', companyId).is('deleted_at', null).order('name'),
-    supabase.from('sales_orders' as any).select('id,so_number,customers(name)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
+    supabase.from('sales_orders' as any).select('id,so_number,customer_id,customers(name),sales_order_items(id,product_desc,size_l,size_w,size_h,quantity,no_of_colors,board_type_id)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
   ])
 
   const defaultWorkflow = ((workflows.data ?? []) as unknown as Array<{ id: string; is_default: boolean }>).find(w => w.is_default)?.id || ''

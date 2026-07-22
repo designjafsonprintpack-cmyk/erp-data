@@ -34,6 +34,34 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
 
+  // Fills job fields from a Sales Order line item — used both when a linked
+  // SO has exactly one item (auto-applied) and when the person picks one
+  // from the line-item selector for a multi-item SO. Fields stay editable
+  // afterward; this is just a starting point, not a lock.
+  const applyLineItem = (item: any) => {
+    setForm(p => ({
+      ...p,
+      sales_order_item_id: item.id,
+      job_title: item.product_desc || p.job_title,
+      size_l: item.size_l != null ? String(item.size_l) : p.size_l,
+      size_w: item.size_w != null ? String(item.size_w) : p.size_w,
+      size_h: item.size_h != null ? String(item.size_h) : p.size_h,
+      quantity: item.quantity != null ? String(item.quantity) : p.quantity,
+      no_of_colors: item.no_of_colors != null ? String(item.no_of_colors) : p.no_of_colors,
+      board_type_id: item.board_type_id || p.board_type_id,
+    }))
+  }
+
+  const handleSelectSO = (soId: string) => {
+    const so = salesOrders.find((s: any) => s.id === soId)
+    const items = so?.sales_order_items ?? []
+    setForm(p => ({ ...p, sales_order_id: soId, sales_order_item_id: '', customer_id: so?.customer_id || p.customer_id }))
+    if (items.length === 1) applyLineItem(items[0])
+  }
+
+  const selectedSO = salesOrders.find((s: any) => s.id === form.sales_order_id)
+  const selectedSOItems = selectedSO?.sales_order_items ?? []
+
   const save = async () => {
     if (!form.customer_id) { toast.error('Please select a customer'); return }
     if (!form.job_title) { toast.error('Job title is required'); return }
@@ -78,11 +106,23 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Link to Sales Order (optional)</label>
-            <select className={inputCls} value={form.sales_order_id} onChange={e => set('sales_order_id', e.target.value)}>
+            <select className={inputCls} value={form.sales_order_id} onChange={e => handleSelectSO(e.target.value)}>
               <option value="">None — standalone job</option>
               {salesOrders.map((so: any) => <option key={so.id} value={so.id}>{so.so_number} — {so.customers?.name}</option>)}
             </select>
           </div>
+          {selectedSOItems.length > 1 && (
+            <div className="col-span-2 space-y-1.5">
+              <label className={labelCls}>Select Product <span className="text-[var(--color-danger)]">*</span></label>
+              <select className={inputCls} value={form.sales_order_item_id} onChange={e => {
+                const item = selectedSOItems.find((it: any) => it.id === e.target.value)
+                if (item) applyLineItem(item)
+              }}>
+                <option value="">Which product is this job for?</option>
+                {selectedSOItems.map((it: any) => <option key={it.id} value={it.id}>{it.product_desc} — Qty {it.quantity}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       </Section>
 

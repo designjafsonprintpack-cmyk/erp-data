@@ -1,8 +1,9 @@
-import { Briefcase, Users, Clock, CheckCircle, AlertTriangle, Truck, Package, BarChart3, TrendingUp, Zap, type LucideIcon } from 'lucide-react'
+import { Briefcase, Users, Clock, CheckCircle, AlertTriangle, Truck, Package, BarChart3, Zap, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import DashboardMachinesPanel from './DashboardMachinesPanel'
 
 interface StatCard {
   label: string
@@ -17,14 +18,9 @@ interface StatCard {
 export default async function DashboardPage() {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  let companyName = 'Jafson Print ERP'
   let companyId: string | null = null
   if (user) {
     companyId = await getCompanyId(user, supabase)
-    if (companyId) {
-      const { data } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
-      if ((data as any)?.name) companyName = (data as any).name
-    }
   }
 
   const today = new Date()
@@ -35,6 +31,9 @@ export default async function DashboardPage() {
     printingRunning: 0, dieCuttingRunning: 0, packingRunning: 0,
     readyForDispatch: 0, dispatchedToday: 0, delayedJobs: 0, urgentJobs: 0, totalCustomers: 0,
   }
+
+  let machineRows: any[] = []
+  let recentJobs: any[] = []
 
   if (companyId) {
     // Stage ids for the named stages — a stage name can exist under multiple
@@ -53,6 +52,7 @@ export default async function DashboardPage() {
     const [
       newJobsRes, artworkPendingRes, pendingStagesRes, runningAssignmentsRes,
       readyForDispatchRes, dispatchedTodayRes, delayedJobsRes, urgentJobsRes, customersRes,
+      machinesRes, recentJobsRes,
     ] = await Promise.all([
       supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
         .eq('company_id', companyId).eq('status', 'new').is('deleted_at', null),
@@ -77,6 +77,16 @@ export default async function DashboardPage() {
         .not('status', 'in', '("completed","dispatched","cancelled")').is('deleted_at', null),
       supabase.from('customers' as any).select('*', { count: 'exact', head: true })
         .eq('company_id', companyId).eq('is_active', true).is('deleted_at', null),
+      // Every machine, left-joined to its current queued/running/paused assignment
+      // (see migration 016 — machine_floor_status view). A machine with several
+      // queued jobs produces several rows here; grouped by machine_id client-side.
+      supabase.from('machine_floor_status' as any)
+        .select('*').eq('company_id', companyId).order('machine_name'),
+      // Most recent jobs company-wide, shown by default in the Recent Jobs panel.
+      supabase.from('jobs' as any)
+        .select('id, job_number, job_title, status, priority, created_at, customers(name)')
+        .eq('company_id', companyId).is('deleted_at', null)
+        .order('created_at', { ascending: false }).limit(8),
     ])
 
     const pendingStages = (pendingStagesRes.data as any[]) ?? []
@@ -97,7 +107,33 @@ export default async function DashboardPage() {
       urgentJobs: urgentJobsRes.count ?? 0,
       totalCustomers: customersRes.count ?? 0,
     }
+
+    machineRows = (machinesRes.data as any[]) ?? []
+    recentJobs = (recentJobsRes.data as any[]) ?? []
   }
+
+  const machinesById = new Map<string, any>()
+  for (const row of machineRows) {
+    if (!machinesById.has(row.machine_id)) {
+      machinesById.set(row.machine_id, {
+        machine_id: row.machine_id,
+        machine_name: row.machine_name,
+        machine_type: row.machine_type,
+        jobs: [] as any[],
+      })
+    }
+    if (row.job_id) {
+      machinesById.get(row.machine_id).jobs.push({
+        job_id: row.job_id,
+        job_number: row.job_number,
+        job_title: row.job_title,
+        customer_name: row.customer_name,
+        assignment_status: row.assignment_status,
+        stage_name: row.stage_name,
+      })
+    }
+  }
+  const machines = Array.from(machinesById.values())
 
   const stats: StatCard[] = [
     { label: 'New Jobs', value: counts.newJobs, icon: Briefcase, color: 'text-[var(--color-accent)]', bgColor: 'bg-[var(--color-accent)]/10', href: '/dashboard/jobs?status=new' },
@@ -161,27 +197,7 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <div className="rounded-xl border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/5 p-6">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[var(--color-accent)] flex items-center justify-center flex-shrink-0">
-            <TrendingUp size={22} className="text-white" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">
-              Welcome to {companyName}
-            </h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              Your production management system is ready. Start by configuring your company settings, then add customers and create your first job.
-            </p>
-          </div>
-          <Link
-            href="/dashboard/settings/company"
-            className="flex-shrink-0 px-4 py-2 rounded-md text-sm font-medium bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors"
-          >
-            Setup Company
-          </Link>
-        </div>
-      </div>
+      <DashboardMachinesPanel machines={machines} recentJobs={recentJobs} />
     </div>
   )
 }
