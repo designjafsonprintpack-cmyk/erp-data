@@ -11,9 +11,10 @@ import type { ReactNode } from 'react'
 interface AppShellProps {
   children: ReactNode
   user?: { full_name: string; email: string; role: string } | null
+  company?: { name: string; logo_url: string | null } | null
 }
 
-export function AppShell({ children, user }: AppShellProps) {
+export function AppShell({ children, user, company }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function AppShell({ children, user }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
       <IdleTimeoutGuard />
-      <Header user={user} sidebarCollapsed={collapsed} />
+      <Header user={user} sidebarCollapsed={collapsed} company={company} />
       <Sidebar />
       <main
         style={{ marginLeft: `${sidebarWidth}px`, marginTop: 'var(--header-height)' }}

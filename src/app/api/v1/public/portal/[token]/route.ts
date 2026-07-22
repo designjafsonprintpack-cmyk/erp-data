@@ -55,6 +55,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
 
   const currentBalance = (ledgerRes.data && ledgerRes.data[0]) ? (ledgerRes.data[0] as any).balance_after : 0
 
+  const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', cust.company_id).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+
   return NextResponse.json({
     customer: { name: cust.name, customer_code: cust.customer_code },
     jobs: jobsRes.data ?? [],
@@ -62,5 +65,6 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     invoices: invoicesRes.data ?? [],
     dispatches: dispatchesRes.data ?? [],
     current_balance: currentBalance,
+    company_name: companyName,
   })
 })

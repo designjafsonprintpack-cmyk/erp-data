@@ -135,12 +135,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
       if ((emailSetting as any)?.value === 'true') {
         const customerEmail = curr.customers?.email
+        const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+        const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
         const result = await sendEmail(
           customerEmail,
           `Your order ${curr.dispatch_number} has been dispatched`,
           `<p>Dear ${curr.customers?.name || 'Customer'},</p>
            <p>Your order <b>${curr.dispatch_number}</b> has been dispatched. Thank you for choosing us.</p>
-           <p>Jafson Print Pack</p>`
+           <p>${companyName}</p>`
         )
         if (!result.sent && userTableId) {
           await notify({

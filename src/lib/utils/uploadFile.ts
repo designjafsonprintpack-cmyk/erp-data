@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  */
 export async function uploadFile(
   supabase: SupabaseClient,
-  bucket: 'artwork' | 'qc-photos',
+  bucket: 'artwork' | 'qc-photos' | 'company-logo',
   companyId: string,
   subpath: string, // e.g. `${jobId}/${Date.now()}-${file.name}`
   file: File
@@ -19,10 +19,19 @@ export async function uploadFile(
   const path = `${companyId}/${subpath}`
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     cacheControl: '3600',
-    upsert: false,
+    upsert: false, // every subpath (including company-logo's logo-{timestamp}-{filename}) is already unique, so no path ever collides
   })
   if (error) return { path: null, error: error.message }
   return { path, error: null }
+}
+
+/**
+ * Get the direct public URL for an object in a PUBLIC bucket (currently only
+ * 'company-logo' — 'artwork' and 'qc-photos' stay private, use getSignedUrl
+ * for those). No auth/signing needed since the bucket itself is public.
+ */
+export function getPublicUrl(supabase: SupabaseClient, bucket: 'company-logo', path: string): string {
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
 
 /**

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
@@ -13,6 +14,14 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
   const items = d.dispatch_items || []
   const totalPcs = items.reduce((s: number, i: any) => s + (i.quantity_dispatched || 0), 0)
   const totalCtns = items.reduce((s: number, i: any) => s + (i.carton_count || 0), 0)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const companyId = user ? await getCompanyId(user, supabase) : null
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name, address').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+  const companyAddress = (companyRow as any)?.address || ''
 
   return (
     <html>
@@ -54,8 +63,8 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
           {/* Header */}
           <div className="header">
             <div>
-              <div className="logo">Jafson Print Pack</div>
-              <div style={{ fontSize: 10, color: '#57606a', marginTop: 2 }}>Lahore, Pakistan</div>
+              <div className="logo">{companyName}</div>
+              <div style={{ fontSize: 10, color: '#57606a', marginTop: 2 }}>{companyAddress}</div>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div>
@@ -145,7 +154,7 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
           {/* Signatures */}
           <div className="footer">
             <div className="sig-grid">
-              {[['Prepared By', 'Jafson Print Pack'], ['Received By', `${d.customers?.name}`], ['Authorized By', '']].map(([label, sub]) => (
+              {[['Prepared By', companyName], ['Received By', `${d.customers?.name}`], ['Authorized By', '']].map(([label, sub]) => (
                 <div key={label} className="sig-box">
                   <div className="sig-line" />
                   <div className="sig-label">{label}</div>
@@ -154,7 +163,7 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
               ))}
             </div>
             <div style={{ textAlign: 'center', marginTop: 14, fontSize: 9, color: '#57606a' }}>
-              {d.dispatch_number} · Printed: {new Date().toLocaleString('en-PK')} · Jafson Print ERP
+              {d.dispatch_number} · Printed: {new Date().toLocaleString('en-PK')} · {companyName}
             </div>
           </div>
         </div>

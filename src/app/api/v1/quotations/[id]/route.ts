@@ -174,14 +174,16 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         const wt = withToken as any
         const customerEmail = wt.customers?.email
         const approvalUrl = `${req.nextUrl.origin}/approve/${wt.approval_token}`
+        const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+        const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
         const result = await sendEmail(
           customerEmail || '',
-          `Quotation ${wt.quotation_number} from Jafson Print Pack`,
+          `Quotation ${wt.quotation_number} from ${companyName}`,
           `<p>Dear ${wt.customers?.name || 'Customer'},</p>
            <p>Please review and respond to quotation <b>${wt.quotation_number}</b> (total: PKR ${Number(wt.total_amount).toLocaleString()}) using the link below:</p>
            <p><a href="${approvalUrl}">${approvalUrl}</a></p>
            <p>This link expires in 7 days.</p>
-           <p>Jafson Print Pack</p>`
+           <p>${companyName}</p>`
         )
         if (!result.sent && userTableId) {
           await notify({

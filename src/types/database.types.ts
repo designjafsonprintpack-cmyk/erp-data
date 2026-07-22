@@ -278,6 +278,98 @@ export type Database = {
         }
         Relationships: []
       }
+      artwork_comments: {
+        Row: {
+          artwork_id: string
+          author_id: string | null
+          author_name: string | null
+          author_type: string
+          comment_text: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          position_x: number | null
+          position_y: number | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          artwork_id: string
+          author_id?: string | null
+          author_name?: string | null
+          author_type: string
+          comment_text: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          position_x?: number | null
+          position_y?: number | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          artwork_id?: string
+          author_id?: string | null
+          author_name?: string | null
+          author_type?: string
+          comment_text?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          position_x?: number | null
+          position_y?: number | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artwork_comments_artwork_id_fkey"
+            columns: ["artwork_id"]
+            isOneToOne: false
+            referencedRelation: "job_artworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artwork_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artwork_comments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artwork_comments_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           company_id: string
@@ -890,6 +982,101 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_rule_runs: {
+        Row: {
+          action_taken: string
+          company_id: string
+          created_at: string
+          id: string
+          rule_id: string
+          triggered_for: string | null
+        }
+        Insert: {
+          action_taken: string
+          company_id: string
+          created_at?: string
+          id?: string
+          rule_id: string
+          triggered_for?: string | null
+        }
+        Update: {
+          action_taken?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          rule_id?: string
+          triggered_for?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rule_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_rule_runs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          company_id: string
+          config: Json
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          name: string
+          rule_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name: string
+          rule_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          name?: string
+          rule_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_inventory: {
         Row: {
           board_type_id: string | null
@@ -1166,6 +1353,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          rate_per_kg: number | null
           rate_per_sheet: number | null
           sheet_length_in: number | null
           sheet_width_in: number | null
@@ -1183,6 +1371,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          rate_per_kg?: number | null
           rate_per_sheet?: number | null
           sheet_length_in?: number | null
           sheet_width_in?: number | null
@@ -1200,6 +1389,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          rate_per_kg?: number | null
           rate_per_sheet?: number | null
           sheet_length_in?: number | null
           sheet_width_in?: number | null
@@ -1266,6 +1456,138 @@ export type Database = {
           },
         ]
       }
+      coating_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          rate_per_sheet: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          rate_per_sheet?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          rate_per_sheet?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coating_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      color_specs: {
+        Row: {
+          cmyk_c: number | null
+          cmyk_k: number | null
+          cmyk_m: number | null
+          cmyk_y: number | null
+          color_type: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          deleted_at: string | null
+          hex_preview: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          pantone_code: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cmyk_c?: number | null
+          cmyk_k?: number | null
+          cmyk_m?: number | null
+          cmyk_y?: number | null
+          color_type?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          deleted_at?: string | null
+          hex_preview?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          pantone_code?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cmyk_c?: number | null
+          cmyk_k?: number | null
+          cmyk_m?: number | null
+          cmyk_y?: number | null
+          color_type?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          deleted_at?: string | null
+          hex_preview?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          pantone_code?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "color_specs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "color_specs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "color_specs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "report_customer_sales"
+            referencedColumns: ["customer_id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
@@ -1315,6 +1637,59 @@ export type Database = {
             columns: ["base_currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_item_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          default_rate: number
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          unit_basis: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          default_rate?: number
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          unit_basis: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_rate?: number
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          unit_basis?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_item_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -2577,6 +2952,13 @@ export type Database = {
       }
       job_artworks: {
         Row: {
+          ai_preflight_checked_at: string | null
+          ai_preflight_issues: Json | null
+          ai_preflight_status: string | null
+          ai_preflight_summary: string | null
+          approval_link_created_at: string | null
+          approval_token: string | null
+          approval_token_expires_at: string | null
           approved_at: string | null
           approved_by: string | null
           company_id: string
@@ -2592,11 +2974,19 @@ export type Database = {
           is_active: boolean
           is_production_ready: boolean
           job_id: string
+          status: string
           updated_at: string
           updated_by: string | null
           version: number
         }
         Insert: {
+          ai_preflight_checked_at?: string | null
+          ai_preflight_issues?: Json | null
+          ai_preflight_status?: string | null
+          ai_preflight_summary?: string | null
+          approval_link_created_at?: string | null
+          approval_token?: string | null
+          approval_token_expires_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           company_id: string
@@ -2612,11 +3002,19 @@ export type Database = {
           is_active?: boolean
           is_production_ready?: boolean
           job_id: string
+          status?: string
           updated_at?: string
           updated_by?: string | null
           version?: number
         }
         Update: {
+          ai_preflight_checked_at?: string | null
+          ai_preflight_issues?: Json | null
+          ai_preflight_status?: string | null
+          ai_preflight_summary?: string | null
+          approval_link_created_at?: string | null
+          approval_token?: string | null
+          approval_token_expires_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           company_id?: string
@@ -2632,6 +3030,7 @@ export type Database = {
           is_active?: boolean
           is_production_ready?: boolean
           job_id?: string
+          status?: string
           updated_at?: string
           updated_by?: string | null
           version?: number
@@ -2730,6 +3129,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_costings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_costing_lines_costing_id_fkey"
+            columns: ["costing_id"]
+            isOneToOne: false
+            referencedRelation: "report_job_costing_variance"
+            referencedColumns: ["costing_id"]
           },
         ]
       }
@@ -3079,6 +3485,7 @@ export type Database = {
           is_reused: boolean
           job_id: string
           machine_id: string | null
+          operator_id: string | null
           plate_id: string
           remarks: string | null
           returned_at: string | null
@@ -3098,6 +3505,7 @@ export type Database = {
           is_reused?: boolean
           job_id: string
           machine_id?: string | null
+          operator_id?: string | null
           plate_id: string
           remarks?: string | null
           returned_at?: string | null
@@ -3117,6 +3525,7 @@ export type Database = {
           is_reused?: boolean
           job_id?: string
           machine_id?: string | null
+          operator_id?: string | null
           plate_id?: string
           remarks?: string | null
           returned_at?: string | null
@@ -3165,6 +3574,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "report_machine_utilization"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "job_plates_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "job_plates_plate_id_fkey"
@@ -3633,7 +4049,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           ups: number | null
-          uv_coating: string | null
+          uv_coating: string
           workflow_template_id: string | null
         }
         Insert: {
@@ -3686,7 +4102,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           ups?: number | null
-          uv_coating?: string | null
+          uv_coating: string
           workflow_template_id?: string | null
         }
         Update: {
@@ -3739,7 +4155,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           ups?: number | null
-          uv_coating?: string | null
+          uv_coating?: string
           workflow_template_id?: string | null
         }
         Relationships: [
@@ -4729,6 +5145,7 @@ export type Database = {
       plates: {
         Row: {
           color: string
+          color_spec_id: string | null
           company_id: string
           cost: number | null
           created_at: string
@@ -4754,6 +5171,7 @@ export type Database = {
         }
         Insert: {
           color: string
+          color_spec_id?: string | null
           company_id: string
           cost?: number | null
           created_at?: string
@@ -4779,6 +5197,7 @@ export type Database = {
         }
         Update: {
           color?: string
+          color_spec_id?: string | null
           company_id?: string
           cost?: number | null
           created_at?: string
@@ -4803,6 +5222,13 @@ export type Database = {
           vendor_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "plates_color_spec_id_fkey"
+            columns: ["color_spec_id"]
+            isOneToOne: false
+            referencedRelation: "color_specs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plates_company_id_fkey"
             columns: ["company_id"]
@@ -5708,15 +6134,99 @@ export type Database = {
           },
         ]
       }
+      quotation_item_cost_lines: {
+        Row: {
+          amount: number
+          company_id: string
+          cost_item_type_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          quantity: number
+          quotation_item_id: string
+          rate: number
+          sort_order: number
+          unit_basis: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          company_id: string
+          cost_item_type_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          quantity?: number
+          quotation_item_id: string
+          rate?: number
+          sort_order?: number
+          unit_basis: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          cost_item_type_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          quantity?: number
+          quotation_item_id?: string
+          rate?: number
+          sort_order?: number
+          unit_basis?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_item_cost_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_item_cost_lines_cost_item_type_id_fkey"
+            columns: ["cost_item_type_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_item_cost_lines_quotation_item_id_fkey"
+            columns: ["quotation_item_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotation_items: {
         Row: {
           board_cost: number | null
+          board_costing_method: string
+          board_gsm: number | null
+          board_rate_per_kg: number | null
+          board_rate_per_sheet: number | null
           board_type_id: string | null
+          breaking_cost: number | null
+          cartage_cost: number | null
+          coating_cost: number | null
+          coating_type_id: string | null
           company_id: string
           created_at: string
           created_by: string | null
           deleted_at: string | null
           die_cutting_cost: number | null
+          die_making_cost: number | null
+          embossing_cost: number | null
+          foiling_cost: number | null
           id: string
           is_active: boolean
           lamination_cost: number | null
@@ -5727,13 +6237,19 @@ export type Database = {
           notes: string | null
           other_cost: number | null
           overhead_percent: number | null
+          packet_div: number | null
+          packet_length_in: number | null
+          packet_width_in: number | null
+          packing_cost: number | null
           pasting_cost: number | null
           plate_cost: number | null
           printing_cost: number | null
           product_desc: string
           quantity: number
           quotation_id: string
+          sheet_length_in: number | null
           sheet_qty: number | null
+          sheet_width_in: number | null
           size_h: number | null
           size_l: number | null
           size_w: number | null
@@ -5749,12 +6265,23 @@ export type Database = {
         }
         Insert: {
           board_cost?: number | null
+          board_costing_method?: string
+          board_gsm?: number | null
+          board_rate_per_kg?: number | null
+          board_rate_per_sheet?: number | null
           board_type_id?: string | null
+          breaking_cost?: number | null
+          cartage_cost?: number | null
+          coating_cost?: number | null
+          coating_type_id?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           die_cutting_cost?: number | null
+          die_making_cost?: number | null
+          embossing_cost?: number | null
+          foiling_cost?: number | null
           id?: string
           is_active?: boolean
           lamination_cost?: number | null
@@ -5765,13 +6292,19 @@ export type Database = {
           notes?: string | null
           other_cost?: number | null
           overhead_percent?: number | null
+          packet_div?: number | null
+          packet_length_in?: number | null
+          packet_width_in?: number | null
+          packing_cost?: number | null
           pasting_cost?: number | null
           plate_cost?: number | null
           printing_cost?: number | null
           product_desc: string
           quantity?: number
           quotation_id: string
+          sheet_length_in?: number | null
           sheet_qty?: number | null
+          sheet_width_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null
@@ -5787,12 +6320,23 @@ export type Database = {
         }
         Update: {
           board_cost?: number | null
+          board_costing_method?: string
+          board_gsm?: number | null
+          board_rate_per_kg?: number | null
+          board_rate_per_sheet?: number | null
           board_type_id?: string | null
+          breaking_cost?: number | null
+          cartage_cost?: number | null
+          coating_cost?: number | null
+          coating_type_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           die_cutting_cost?: number | null
+          die_making_cost?: number | null
+          embossing_cost?: number | null
+          foiling_cost?: number | null
           id?: string
           is_active?: boolean
           lamination_cost?: number | null
@@ -5803,13 +6347,19 @@ export type Database = {
           notes?: string | null
           other_cost?: number | null
           overhead_percent?: number | null
+          packet_div?: number | null
+          packet_length_in?: number | null
+          packet_width_in?: number | null
+          packing_cost?: number | null
           pasting_cost?: number | null
           plate_cost?: number | null
           printing_cost?: number | null
           product_desc?: string
           quantity?: number
           quotation_id?: string
+          sheet_length_in?: number | null
           sheet_qty?: number | null
+          sheet_width_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null
@@ -5829,6 +6379,13 @@ export type Database = {
             columns: ["board_type_id"]
             isOneToOne: false
             referencedRelation: "board_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_items_coating_type_id_fkey"
+            columns: ["coating_type_id"]
+            isOneToOne: false
+            referencedRelation: "coating_types"
             referencedColumns: ["id"]
           },
           {
@@ -5857,6 +6414,61 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_versions: {
+        Row: {
+          change_summary: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          quotation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_summary?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          quotation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          change_summary?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          quotation_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_versions_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
             referencedColumns: ["id"]
           },
         ]
@@ -7523,6 +8135,116 @@ export type Database = {
           },
         ]
       }
+      webhook_deliveries: {
+        Row: {
+          attempt_count: number
+          attempted_at: string | null
+          company_id: string
+          created_at: string
+          endpoint_id: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          response_code: number | null
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          attempted_at?: string | null
+          company_id: string
+          created_at?: string
+          endpoint_id: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          response_code?: number | null
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          attempted_at?: string | null
+          company_id?: string
+          created_at?: string
+          endpoint_id?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          response_code?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_endpoints: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          event_types: string[]
+          id: string
+          is_active: boolean
+          name: string
+          secret: string
+          updated_at: string
+          updated_by: string | null
+          url: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          event_types?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          secret: string
+          updated_at?: string
+          updated_by?: string | null
+          url: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          event_types?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          secret?: string
+          updated_at?: string
+          updated_by?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_endpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflow_stages: {
         Row: {
           company_id: string
@@ -7536,6 +8258,7 @@ export type Database = {
           is_optional: boolean
           name: string
           sequence_order: number
+          stage_type: string | null
           updated_at: string
           updated_by: string | null
           workflow_template_id: string
@@ -7552,6 +8275,7 @@ export type Database = {
           is_optional?: boolean
           name: string
           sequence_order?: number
+          stage_type?: string | null
           updated_at?: string
           updated_by?: string | null
           workflow_template_id: string
@@ -7568,6 +8292,7 @@ export type Database = {
           is_optional?: boolean
           name?: string
           sequence_order?: number
+          stage_type?: string | null
           updated_at?: string
           updated_by?: string | null
           workflow_template_id?: string
@@ -7781,6 +8506,72 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_job_costing_variance: {
+        Row: {
+          budget_status: string | null
+          company_id: string | null
+          costed_at: string | null
+          costed_by: string | null
+          costing_id: string | null
+          customer_id: string | null
+          customer_name: string | null
+          job_id: string | null
+          job_number: string | null
+          job_title: string | null
+          margin_amount: number | null
+          margin_pct: number | null
+          order_date: string | null
+          quantity: number | null
+          quoted_amount: number | null
+          total_cost: number | null
+          variance_amount: number | null
+          variance_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_costings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_costings_costed_by_fkey"
+            columns: ["costed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_costings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_costings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "report_job_turnaround"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "report_customer_sales"
+            referencedColumns: ["customer_id"]
           },
         ]
       }
@@ -8006,6 +8797,18 @@ export type Database = {
       get_dashboard_kpis: {
         Args: { p_company_id: string; p_days?: number }
         Returns: Json
+      }
+      get_machine_cycle_times: {
+        Args: { p_company_id: string; p_days?: number }
+        Returns: {
+          avg_minutes: number
+          machine_id: string
+          machine_name: string
+          max_minutes: number
+          min_minutes: number
+          sample_count: number
+          stage_name: string
+        }[]
       }
       get_mrp_summary: {
         Args: { p_company_id: string }

@@ -1,11 +1,13 @@
 'use client'
-import { useState } from 'react'
-import { Building2, GitBranch, Warehouse, Plus, Pencil, Trash2, Check, X, Star } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Building2, GitBranch, Warehouse, Plus, Pencil, Trash2, Check, X, Star, Upload, ImageOff } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/Modal'
+import { createSupabaseClient } from '@/lib/supabase/client'
+import { uploadFile, getPublicUrl } from '@/lib/utils/uploadFile'
 
-interface Company { id: string; name: string; ntn: string | null; address: string | null }
+interface Company { id: string; name: string; ntn: string | null; address: string | null; logo_url: string | null }
 interface Branch { id: string; name: string; address: string | null; is_head_office: boolean }
 interface WH { id: string; name: string; location: string | null; branch_id: string | null }
 
@@ -26,6 +28,9 @@ export default function CompanySettingsClient({ company: initialCompany, branche
   const [companyForm, setCompanyForm] = useState({ name: company?.name ?? '', ntn: company?.ntn ?? '', address: company?.address ?? '' })
   // Branch/Warehouse form
   const [form, setForm] = useState<Record<string, string>>({})
+  // Logo upload
+  const [logoUploading, setLogoUploading] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   const saveCompany = async () => {
     setLoading(true)
@@ -38,6 +43,38 @@ export default function CompanySettingsClient({ company: initialCompany, branche
       toast.success('Company profile updated')
     } catch (e: any) { toast.error(e.message || 'Failed to save company') }
     finally { setLoading(false) }
+  }
+
+  const uploadLogo = async (file: File) => {
+    if (!company?.id) return
+    if (!/\.(png|jpe?g|svg|webp)$/i.test(file.name)) { toast.error('Use PNG, JPG, SVG or WEBP'); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Logo must be under 2MB'); return }
+    setLogoUploading(true)
+    try {
+      const supabase = createSupabaseClient()
+      const { path, error: uploadErr } = await uploadFile(supabase, 'company-logo', company.id, `logo-${Date.now()}-${file.name}`, file)
+      if (uploadErr || !path) throw new Error(uploadErr || 'Upload failed')
+      const publicUrl = getPublicUrl(supabase, 'company-logo', path)
+
+      const res = await fetch('/api/v1/company', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ logo_url: publicUrl }) })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setCompany(data)
+      toast.success('Logo updated')
+    } catch (e: any) { toast.error(e.message || 'Failed to upload logo') }
+    finally { setLogoUploading(false); if (logoInputRef.current) logoInputRef.current.value = '' }
+  }
+
+  const removeLogo = async () => {
+    setLogoUploading(true)
+    try {
+      const res = await fetch('/api/v1/company', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ logo_url: null }) })
+      if (!res.ok) throw new Error()
+      const { data } = await res.json()
+      setCompany(data)
+      toast.success('Logo removed')
+    } catch { toast.error('Failed to remove logo') }
+    finally { setLogoUploading(false) }
   }
 
   const saveBranch = async () => {
@@ -113,6 +150,30 @@ export default function CompanySettingsClient({ company: initialCompany, branche
         <div className="p-5">
           {editingCompany ? (
             <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Logo</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {company?.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local asset
+                      <img src={company.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <ImageOff size={18} className="text-[var(--color-text-muted)]" />
+                    )}
+                  </div>
+                  <input ref={logoInputRef} type="file" accept=".png,.jpg,.jpeg,.svg,.webp" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }} />
+                  <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
+                    className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors">
+                    <Upload size={12} /> {logoUploading ? 'Uploading…' : company?.logo_url ? 'Replace' : 'Upload'}
+                  </button>
+                  {company?.logo_url && (
+                    <button type="button" onClick={removeLogo} disabled={logoUploading}
+                      className="text-xs text-[var(--color-danger)] hover:underline disabled:opacity-50">Remove</button>
+                  )}
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)]">PNG, JPG, SVG or WEBP — up to 2MB. Shown in the top-left header.</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Company Name <span className="text-[var(--color-danger)]">*</span></label>
@@ -139,17 +200,25 @@ export default function CompanySettingsClient({ company: initialCompany, branche
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-6">
-              {[
-                { label: 'Company Name', value: company?.name },
-                { label: 'NTN Number', value: company?.ntn || '—' },
-                { label: 'Address', value: company?.address || '—' },
-              ].map(f => (
-                <div key={f.label}>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-1">{f.label}</p>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{f.value}</p>
+            <div className="flex items-start gap-6">
+              {company?.logo_url && (
+                <div className="w-14 h-14 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local asset */}
+                  <img src={company.logo_url} alt="Logo" className="w-full h-full object-contain" />
                 </div>
-              ))}
+              )}
+              <div className="grid grid-cols-3 gap-6 flex-1">
+                {[
+                  { label: 'Company Name', value: company?.name },
+                  { label: 'NTN Number', value: company?.ntn || '—' },
+                  { label: 'Address', value: company?.address || '—' },
+                ].map(f => (
+                  <div key={f.label}>
+                    <p className="text-xs text-[var(--color-text-muted)] mb-1">{f.label}</p>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">{f.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -16,7 +16,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('quotations' as any)
-    .select('id, quotation_number, status, valid_until, notes, terms_conditions, subtotal, tax_amount, discount_amount, total_amount, approval_token_expires_at, approval_responded_at, customers(name), quotation_items(product_desc, size_l, size_w, size_h, quantity, no_of_colors, unit_price, subtotal, sort_order)')
+    .select('id, company_id, quotation_number, status, valid_until, notes, terms_conditions, subtotal, tax_amount, discount_amount, total_amount, approval_token_expires_at, approval_responded_at, customers(name), quotation_items(product_desc, size_l, size_w, size_h, quantity, no_of_colors, unit_price, subtotal, sort_order)')
     .eq('approval_token', params.token)
     .is('deleted_at', null)
     .maybeSingle()
@@ -28,10 +28,13 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     return NextResponse.json({ error: 'This approval link has expired. Please ask us to resend it.' }, { status: 410 })
   }
 
+  const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', (data as any).company_id).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+
   const items = ((data as any).quotation_items || []).slice()
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
 
-  return NextResponse.json({ data: { ...(data as any), quotation_items: items } })
+  return NextResponse.json({ data: { ...(data as any), quotation_items: items, company_name: companyName } })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { token: string } }) {

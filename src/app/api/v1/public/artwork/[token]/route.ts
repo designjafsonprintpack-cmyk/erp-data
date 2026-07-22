@@ -18,7 +18,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('job_artworks' as any)
-    .select('id, job_id, version, file_url, file_name, status, designer_notes, approval_token_expires_at, jobs(job_number, job_title, customers(name))')
+    .select('id, job_id, version, file_url, file_name, status, designer_notes, approval_token_expires_at, company_id, jobs(job_number, job_title, customers(name))')
     .eq('approval_token', params.token)
     .is('deleted_at', null)
     .maybeSingle()
@@ -30,6 +30,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   if (expiresAt && new Date(expiresAt) < new Date()) {
     return NextResponse.json({ error: 'This approval link has expired. Please ask us to resend it.' }, { status: 410 })
   }
+
+  const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', row.company_id).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
 
   // Signed URL for the private artwork bucket — the customer never gets a
   // raw storage path or a direct/public bucket URL.
@@ -50,7 +53,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
       id: row.id, version: row.version, status: row.status, file_name: row.file_name,
       designer_notes: row.designer_notes, preview_url: signed?.signedUrl || null,
       job_number: row.jobs?.job_number, job_title: row.jobs?.job_title, customer_name: row.jobs?.customers?.name,
-      comments: comments ?? [],
+      comments: comments ?? [], company_name: companyName,
     },
   })
 })

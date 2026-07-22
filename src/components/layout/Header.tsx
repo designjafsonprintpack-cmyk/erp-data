@@ -14,9 +14,10 @@ import { THEMES } from '@/types/shared'
 interface HeaderProps {
   user?: { full_name: string; email: string; role: string } | null
   sidebarCollapsed?: boolean
+  company?: { name: string; logo_url: string | null } | null
 }
 
-export function Header({ user, sidebarCollapsed }: HeaderProps) {
+export function Header({ user, sidebarCollapsed, company }: HeaderProps) {
   const router = useRouter()
   const [profileOpen, setProfileOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
@@ -62,11 +63,16 @@ export function Header({ user, sidebarCollapsed }: HeaderProps) {
     >
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2.5 flex-shrink-0">
-        <div className="w-7 h-7 rounded-md bg-[var(--color-accent)] flex items-center justify-center">
-          <span className="text-white text-xs font-bold">JP</span>
-        </div>
+        {company?.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local asset
+          <img src={company.logo_url} alt={company?.name || 'Company logo'} className="w-7 h-7 rounded-md object-contain bg-[var(--color-bg-elevated)]" />
+        ) : (
+          <div className="w-7 h-7 rounded-md bg-[var(--color-accent)] flex items-center justify-center">
+            <span className="text-white text-xs font-bold">JP</span>
+          </div>
+        )}
         <span className="text-sm font-semibold text-[var(--color-text-primary)] hidden md:block">
-          Jafson Print ERP
+          {company?.name || 'Jafson Print ERP'}
         </span>
       </Link>
 

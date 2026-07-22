@@ -13,6 +13,7 @@ interface Quotation {
   approval_responded_at: string | null
   customers: { name: string } | null
   quotation_items: QItem[]
+  company_name?: string
 }
 
 const fmtMoney = (n: number) => `PKR ${Number(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -58,7 +59,7 @@ export default function ApproveQuotationClient({ token }: { token: string }) {
       <div className="w-full max-w-2xl">
         <div className="flex items-center gap-2 mb-6 justify-center text-[#8a8f9c]">
           <FileText size={18} />
-          <span className="text-sm font-medium tracking-wide uppercase">Jafson Print Pack — Quotation Approval</span>
+          <span className="text-sm font-medium tracking-wide uppercase">{quotation?.company_name || 'Jafson Print Pack'} — Quotation Approval</span>
         </div>
 
         {loading && (

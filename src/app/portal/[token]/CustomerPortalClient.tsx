@@ -16,6 +16,7 @@ interface PortalData {
   customer: { name: string; customer_code: string }
   jobs: Job[]; quotations: Quotation[]; invoices: Invoice[]; dispatches: Dispatch[]
   current_balance: number
+  company_name?: string
 }
 
 const fmtMoney = (n: number) => `PKR ${Number(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -240,7 +241,7 @@ export default function CustomerPortalClient({ token }: { token: string }) {
           </div>
         </section>
 
-        <p className="text-center text-xs text-[#8a8f9c] pt-4">Jafson Print Pack · This is a read-only summary of your account</p>
+        <p className="text-center text-xs text-[#8a8f9c] pt-4">{data.company_name || 'Jafson Print Pack'} · This is a read-only summary of your account</p>
       </div>
     </div>
   )

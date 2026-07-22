@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { AppShell } from '@/components/layout/AppShell'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -27,5 +28,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     role: 'staff',
   }
 
-  return <AppShell user={userInfo}>{children}</AppShell>
+  // Company name/logo for the header branding — best-effort, falls back to
+  // the default "Jafson Print ERP" branding in Header.tsx if this fails.
+  const companyId = await getCompanyId(user, supabase)
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name, logo_url').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyInfo = companyRow ? { name: (companyRow as any).name, logo_url: (companyRow as any).logo_url } : null
+
+  return <AppShell user={userInfo} company={companyInfo}>{children}</AppShell>
 }

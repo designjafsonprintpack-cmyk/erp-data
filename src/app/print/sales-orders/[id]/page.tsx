@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
@@ -14,6 +15,14 @@ export default async function PrintSalesOrder({ params }: { params: { id: string
   const so = data as any
   const items = [...(so.sales_order_items || [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
   const cust = so.customers || {}
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const companyId = user ? await getCompanyId(user, supabase) : null
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name, address').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+  const companyAddress = (companyRow as any)?.address || ''
 
   const subtotal = items.reduce((s: number, i: any) => s + (i.subtotal || 0), 0)
   const discount = so.discount_pct > 0 ? subtotal * so.discount_pct / 100 : 0
@@ -99,8 +108,8 @@ export default async function PrintSalesOrder({ params }: { params: { id: string
           {/* Header */}
           <div className="header">
             <div>
-              <div className="company-name">Jafson Print Pack</div>
-              <div className="company-sub">Quaid-e-Azam Street, Dhama, Lalamusa, Distt. Gujrat — Pakistan</div>
+              <div className="company-name">{companyName}</div>
+              <div className="company-sub">{companyAddress}</div>
               <div className="company-sub">Tel: +92 53 7510029 | NTN: —</div>
             </div>
             <div className="doc-label">
@@ -220,7 +229,7 @@ export default async function PrintSalesOrder({ params }: { params: { id: string
           {/* Signatures */}
           <div className="sig-section">
             {[
-              { label: 'Prepared By', sub: 'Jafson Print Pack' },
+              { label: 'Prepared By', sub: companyName },
               { label: 'Authorized By', sub: 'Management' },
               { label: 'Customer Acceptance', sub: cust.name },
             ].map(s => (
@@ -234,9 +243,9 @@ export default async function PrintSalesOrder({ params }: { params: { id: string
 
           {/* Footer */}
           <div className="footer">
-            <span>Jafson Print Pack · Lalamusa, Gujrat, Pakistan</span>
+            <span>{companyName}{companyAddress ? ` · ${companyAddress}` : ''}</span>
             <span>{so.so_number} · Printed: {new Date().toLocaleString('en-PK')}</span>
-            <span>Jafson Print ERP</span>
+            <span>{companyName}</span>
           </div>
 
         </div>

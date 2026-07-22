@@ -39,12 +39,30 @@ export const jobStatusUpdateSchema = jobStatusSchema.partial().extend({
 // itself treats them generically), this validates the one thing every one
 // of them requires — `name` — and passes the rest through unvalidated,
 // same as the route already treats them.
+// Numeric columns shared by board/paper types (gsm is INTEGER, the rest are
+// NUMERIC — see migrations 007/046/062). The form sends '' for a blank
+// field; that must become null, not reach Postgres as an empty string.
+const materialTypeNumeric = z.preprocess(
+  (v) => (v === '' || v === undefined ? null : v),
+  z.coerce.number().nullable(),
+).optional()
+
+const materialTypeNumericFields = {
+  gsm: materialTypeNumeric,
+  sheet_length_in: materialTypeNumeric,
+  sheet_width_in: materialTypeNumeric,
+  rate_per_sheet: materialTypeNumeric,
+  rate_per_kg: materialTypeNumeric,
+}
+
 export const materialTypeSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
+  ...materialTypeNumericFields,
 }).passthrough()
 export const materialTypeUpdateSchema = z.object({
   id: z.string().uuid('id is required'),
   name: z.string().optional(),
+  ...materialTypeNumericFields,
 }).passthrough()
 
 // ─── Document Sequences — PATCH only, no insert route ───────────────────────
@@ -107,4 +125,5 @@ export const companyUpdateSchema = z.object({
   name: z.string().optional(),
   ntn: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  logo_url: z.string().optional().nullable(),
 })

@@ -72,6 +72,9 @@ async function runInvoiceOverdueRule(supabase: SupabaseClient, companyId: string
 
   if (!invoices?.length) return
 
+  const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+
   for (const inv of (invoices as any[])) {
     const email = inv.customers?.email
     if (!email) continue
@@ -81,7 +84,7 @@ async function runInvoiceOverdueRule(supabase: SupabaseClient, companyId: string
       `<p>Dear ${inv.customers?.name || 'Customer'},</p>
        <p>This is a reminder that invoice <b>${inv.invoice_number}</b> has an outstanding balance of PKR ${Number(inv.balance_due).toLocaleString()}, past its due date of ${inv.due_date}.</p>
        <p>Please arrange payment at your earliest convenience.</p>
-       <p>Jafson Print Pack</p>`
+       <p>${companyName}</p>`
     )
     await supabase.from('automation_rule_runs' as any).insert({
       company_id: companyId, rule_id: rule.id, triggered_for: inv.invoice_number,

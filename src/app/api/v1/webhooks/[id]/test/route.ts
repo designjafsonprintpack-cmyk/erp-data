@@ -26,7 +26,10 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest, { p
   if (!endpoint) return NextResponse.json({ error: 'Endpoint not found' }, { status: 404 })
   const ep = endpoint as any
 
-  const payload = { message: 'This is a test ping from Jafson Print ERP', triggered_at: new Date().toISOString() }
+  const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print ERP'
+
+  const payload = { message: `This is a test ping from ${companyName}`, triggered_at: new Date().toISOString() }
   const body = JSON.stringify({ event: 'ping.test', data: payload, sent_at: new Date().toISOString() })
   const signature = crypto.createHmac('sha256', ep.secret).update(body).digest('hex')
 

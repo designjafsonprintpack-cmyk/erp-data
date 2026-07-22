@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
@@ -12,6 +13,14 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
   const inv = data as any
   const items    = inv.invoice_items || []
   const payments = inv.payments || []
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const companyId = user ? await getCompanyId(user, supabase) : null
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name, address').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+  const companyAddress = (companyRow as any)?.address || ''
 
   const PKR = (n: number) => `PKR ${n.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`
 
@@ -62,8 +71,8 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           {/* Header */}
           <div className="header">
             <div>
-              <div className="logo">Jafson Print Pack</div>
-              <div className="logo-sub">Lahore, Pakistan</div>
+              <div className="logo">{companyName}</div>
+              <div className="logo-sub">{companyAddress}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div className="doc-type">INVOICE</div>
@@ -151,7 +160,7 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           {inv.notes && <div className="terms-box"><strong>Notes:</strong> {inv.notes}</div>}
 
           <div className="footer">
-            <span>Jafson Print Pack · Lahore, Pakistan</span>
+            <span>{companyName}{companyAddress ? ` · ${companyAddress}` : ''}</span>
             <span>{inv.invoice_number}</span>
             <span>Printed: {new Date().toLocaleString('en-PK')}</span>
           </div>

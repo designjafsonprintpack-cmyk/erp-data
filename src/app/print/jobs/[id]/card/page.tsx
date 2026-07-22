@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
@@ -11,6 +12,13 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
 
   if (!job) notFound()
   const j = job as any
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const companyId = user ? await getCompanyId(user, supabase) : null
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
 
   const specs = [
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
@@ -62,7 +70,7 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           {/* Header */}
           <div className="header">
             <div>
-              <div className="logo">Jafson Print Pack</div>
+              <div className="logo">{companyName}</div>
               <div style={{ fontSize: 11, color: '#57606a', marginTop: 2 }}>Digital Job Card</div>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -152,7 +160,7 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           <div className="footer">
             <div>Printed: {new Date().toLocaleString('en-PK')}</div>
             <div>{j.job_number} — {j.job_title}</div>
-            <div>Jafson Print ERP</div>
+            <div>{companyName}</div>
           </div>
         </div>
       </body>

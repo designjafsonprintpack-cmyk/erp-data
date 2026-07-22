@@ -8,6 +8,7 @@ interface Artwork {
   designer_notes: string | null; preview_url: string | null
   job_number: string; job_title: string; customer_name: string | null
   comments: Comment[]
+  company_name?: string
 }
 
 type Action = 'approve' | 'reject' | 'request_changes'
@@ -84,7 +85,7 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
       <div className="w-full max-w-2xl">
         <div className="flex items-center gap-2 mb-6 justify-center text-[#8a8f9c]">
           <ImageIcon size={18} />
-          <span className="text-sm font-medium tracking-wide uppercase">Jafson Print Pack — Artwork Approval</span>
+          <span className="text-sm font-medium tracking-wide uppercase">{artwork?.company_name || 'Jafson Print Pack'} — Artwork Approval</span>
         </div>
 
         {loading && (

@@ -1,6 +1,8 @@
 import { Briefcase, Users, Clock, CheckCircle, AlertTriangle, Truck, Package, BarChart3, TrendingUp, Zap, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 
 interface StatCard {
   label: string
@@ -12,22 +14,106 @@ interface StatCard {
   badge?: string
 }
 
-const stats: StatCard[] = [
-  { label: 'New Jobs', value: 0, icon: Briefcase, color: 'text-[var(--color-accent)]', bgColor: 'bg-[var(--color-accent)]/10', href: '/dashboard/jobs?status=new' },
-  { label: 'Artwork Pending', value: 0, icon: Clock, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/artwork' },
-  { label: 'Planning Pending', value: 0, icon: BarChart3, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/planning' },
-  { label: 'Store Pending', value: 0, icon: Package, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/store' },
-  { label: 'Printing Running', value: 0, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/printing' },
-  { label: 'Die Cutting Running', value: 0, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/die-cutting' },
-  { label: 'Packing Running', value: 0, icon: Package, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/packing' },
-  { label: 'Ready for Dispatch', value: 0, icon: Truck, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/dispatch' },
-  { label: 'Dispatched', value: 0, icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/dispatch?status=dispatched' },
-  { label: 'Delayed Jobs', value: 0, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?status=delayed', badge: 'Alert' },
-  { label: 'Urgent Jobs', value: 0, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?priority=urgent' },
-  { label: 'Total Customers', value: 0, icon: Users, color: 'text-[var(--color-text-secondary)]', bgColor: 'bg-[var(--color-bg-elevated)]', href: '/dashboard/customers' },
-]
+export default async function DashboardPage() {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  let companyName = 'Jafson Print ERP'
+  let companyId: string | null = null
+  if (user) {
+    companyId = await getCompanyId(user, supabase)
+    if (companyId) {
+      const { data } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+      if ((data as any)?.name) companyName = (data as any).name
+    }
+  }
 
-export default function DashboardPage() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  let counts = {
+    newJobs: 0, artworkPending: 0, planningPending: 0, storePending: 0,
+    printingRunning: 0, dieCuttingRunning: 0, packingRunning: 0,
+    readyForDispatch: 0, dispatchedToday: 0, delayedJobs: 0, urgentJobs: 0, totalCustomers: 0,
+  }
+
+  if (companyId) {
+    // Stage ids for the named stages — a stage name can exist under multiple
+    // workflow templates (Standard Carton, Premium Rigid Box, etc.), each with
+    // its own row/id, so this collects every id sharing that name.
+    const { data: stages } = await supabase.from('workflow_stages' as any)
+      .select('id, name').eq('company_id', companyId)
+      .in('name', ['Planning', 'Board Issue', 'Printing', 'Die Cutting', 'Packing'])
+    const idsFor = (name: string) => ((stages as any[]) ?? []).filter(s => s.name === name).map(s => s.id)
+    const planningIds = idsFor('Planning')
+    const boardIssueIds = idsFor('Board Issue')
+    const printingIds = idsFor('Printing')
+    const dieCuttingIds = idsFor('Die Cutting')
+    const packingIds = idsFor('Packing')
+
+    const [
+      newJobsRes, artworkPendingRes, pendingStagesRes, runningAssignmentsRes,
+      readyForDispatchRes, dispatchedTodayRes, delayedJobsRes, urgentJobsRes, customersRes,
+    ] = await Promise.all([
+      supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('status', 'new').is('deleted_at', null),
+      supabase.from('job_artworks' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).is('deleted_at', null)
+        .not('status', 'in', '("approved","rejected","archived")'),
+      supabase.from('job_stage_progress' as any).select('workflow_stage_id')
+        .eq('company_id', companyId).eq('status', 'pending')
+        .in('workflow_stage_id', [...planningIds, ...boardIssueIds]),
+      supabase.from('production_assignments' as any)
+        .select('id, job_stage_progress(workflow_stage_id)')
+        .eq('company_id', companyId).eq('status', 'running').is('deleted_at', null),
+      supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('status', 'completed').is('deleted_at', null),
+      supabase.from('dispatch_orders' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('status', 'dispatched')
+        .gte('dispatched_at', today.toISOString()).is('deleted_at', null),
+      supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('is_on_hold', true).is('deleted_at', null),
+      supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('priority', 'urgent')
+        .not('status', 'in', '("completed","dispatched","cancelled")').is('deleted_at', null),
+      supabase.from('customers' as any).select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId).eq('is_active', true).is('deleted_at', null),
+    ])
+
+    const pendingStages = (pendingStagesRes.data as any[]) ?? []
+    const runningAssignments = (runningAssignmentsRes.data as any[]) ?? []
+    const stageIdOf = (row: any) => row.job_stage_progress?.workflow_stage_id
+
+    counts = {
+      newJobs: newJobsRes.count ?? 0,
+      artworkPending: artworkPendingRes.count ?? 0,
+      planningPending: pendingStages.filter(s => planningIds.includes(s.workflow_stage_id)).length,
+      storePending: pendingStages.filter(s => boardIssueIds.includes(s.workflow_stage_id)).length,
+      printingRunning: runningAssignments.filter(a => printingIds.includes(stageIdOf(a))).length,
+      dieCuttingRunning: runningAssignments.filter(a => dieCuttingIds.includes(stageIdOf(a))).length,
+      packingRunning: runningAssignments.filter(a => packingIds.includes(stageIdOf(a))).length,
+      readyForDispatch: readyForDispatchRes.count ?? 0,
+      dispatchedToday: dispatchedTodayRes.count ?? 0,
+      delayedJobs: delayedJobsRes.count ?? 0,
+      urgentJobs: urgentJobsRes.count ?? 0,
+      totalCustomers: customersRes.count ?? 0,
+    }
+  }
+
+  const stats: StatCard[] = [
+    { label: 'New Jobs', value: counts.newJobs, icon: Briefcase, color: 'text-[var(--color-accent)]', bgColor: 'bg-[var(--color-accent)]/10', href: '/dashboard/jobs?status=new' },
+    { label: 'Artwork Pending', value: counts.artworkPending, icon: Clock, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/artwork' },
+    { label: 'Planning Pending', value: counts.planningPending, icon: BarChart3, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/planning' },
+    { label: 'Store Pending', value: counts.storePending, icon: Package, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/store' },
+    { label: 'Printing Running', value: counts.printingRunning, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/printing' },
+    { label: 'Die Cutting Running', value: counts.dieCuttingRunning, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/die-cutting' },
+    { label: 'Packing Running', value: counts.packingRunning, icon: Package, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/packing' },
+    { label: 'Ready for Dispatch', value: counts.readyForDispatch, icon: Truck, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/dispatch' },
+    { label: 'Dispatched', value: counts.dispatchedToday, icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/dispatch?status=dispatched' },
+    { label: 'Delayed Jobs', value: counts.delayedJobs, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?status=delayed', badge: counts.delayedJobs > 0 ? 'Alert' : undefined },
+    { label: 'Urgent Jobs', value: counts.urgentJobs, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?priority=urgent' },
+    { label: 'Total Customers', value: counts.totalCustomers, icon: Users, color: 'text-[var(--color-text-secondary)]', bgColor: 'bg-[var(--color-bg-elevated)]', href: '/dashboard/customers' },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -82,7 +168,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex-1">
             <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">
-              Welcome to Jafson Print ERP
+              Welcome to {companyName}
             </h3>
             <p className="text-sm text-[var(--color-text-secondary)]">
               Your production management system is ready. Start by configuring your company settings, then add customers and create your first job.

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
@@ -16,6 +17,15 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
   const pmts    = inv.payments || []
   const cust    = inv.customers || {}
   const overdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== 'paid'
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const companyId = user ? await getCompanyId(user, supabase) : null
+  const { data: companyRow } = companyId
+    ? await supabase.from('companies' as any).select('name, address, ntn').eq('id', companyId).maybeSingle()
+    : { data: null }
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+  const companyAddress = (companyRow as any)?.address || ''
+  const companyNtn = (companyRow as any)?.ntn || '—'
 
   return (
     <html>
@@ -73,8 +83,8 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           {/* Header */}
           <div className="header">
             <div>
-              <div className="company-name">Jafson Print Pack</div>
-              <div className="company-sub">Lahore, Pakistan · NTN: 0000000-0</div>
+              <div className="company-name">{companyName}</div>
+              <div className="company-sub">{companyAddress}{companyAddress ? ' · ' : ''}NTN: {companyNtn}</div>
             </div>
             <div>
               <div className="inv-title">INVOICE</div>
@@ -228,9 +238,9 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
               ))}
             </div>
             <div className="footer-bar">
-              <span>Jafson Print Pack · Lahore</span>
+              <span>{companyName}{companyAddress ? ` · ${companyAddress}` : ''}</span>
               <span>{inv.invoice_number} · Generated: {new Date().toLocaleString('en-PK')}</span>
-              <span>Jafson Print ERP</span>
+              <span>{companyName}</span>
             </div>
           </div>
         </div>

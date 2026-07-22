@@ -23,6 +23,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (error) return new NextResponse(`DB Error: ${error.message}`, { status: 500 })
   if (!data) return new NextResponse(`Not found. ID: ${id}`, { status: 404 })
   const so = data as any
+
+  const { data: companyRow } = await supabase.from('companies' as any).select('name, address').eq('id', companyId).maybeSingle()
+  const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
+  const companyAddress = (companyRow as any)?.address || ''
   const items = [...(so.sales_order_items || [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
   const cust = so.customers || {}
   const subtotal = items.reduce((s: number, i: any) => s + (i.subtotal || 0), 0)
@@ -78,8 +82,8 @@ tr:nth-child(even) td { background: #f9fafb; }
 <div class="page">
 <div class="header">
   <div>
-    <div class="company-name">Jafson Print Pack</div>
-    <div class="company-sub">Quaid-e-Azam Street, Dhama, Lalamusa, Distt. Gujrat — Pakistan</div>
+    <div class="company-name">${companyName}</div>
+    <div class="company-sub">${companyAddress}</div>
     <div class="company-sub">Tel: +92 53 7510029</div>
   </div>
   <div>
@@ -151,15 +155,15 @@ ${so.notes || so.terms ? `
 </div>` : ''}
 
 <div class="sig-section">
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Prepared By</div><div style="font-size:8px;color:#9ca3af">Jafson Print Pack</div></div>
+  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Prepared By</div><div style="font-size:8px;color:#9ca3af">${companyName}</div></div>
   <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Authorized By</div><div style="font-size:8px;color:#9ca3af">Management</div></div>
   <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Customer Acceptance</div><div style="font-size:8px;color:#9ca3af">${cust.name || ''}</div></div>
 </div>
 
 <div class="footer">
-  <span>Jafson Print Pack · Lalamusa, Gujrat, Pakistan</span>
+  <span>${companyName}${companyAddress ? ' · ' + companyAddress : ''}</span>
   <span>${so.so_number} · Printed: ${new Date().toLocaleString('en-PK')}</span>
-  <span>Jafson Print ERP</span>
+  <span>${companyName}</span>
 </div>
 </div>
 <script>window.onload = function(){ window.print(); }</script>

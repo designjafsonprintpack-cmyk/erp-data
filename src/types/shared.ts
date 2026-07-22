@@ -33,12 +33,12 @@ export interface SelectOption {
   value: string
 }
 
-export type Theme = 'github-dark' | 'dark-blue' | 'dark-purple' | 'dark-green' | 'light'
+export type Theme = 'github-dark' | 'dark-blue' | 'dark-orange' | 'dark-green' | 'light'
 
 export const THEMES: { value: Theme; label: string }[] = [
   { value: 'github-dark', label: 'GitHub Dark' },
   { value: 'dark-blue', label: 'Dark Blue' },
-  { value: 'dark-purple', label: 'Dark Purple' },
+  { value: 'dark-orange', label: 'Dark Orange' },
   { value: 'dark-green', label: 'Dark Green' },
   { value: 'light', label: 'Light' },
 ]

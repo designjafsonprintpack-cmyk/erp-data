@@ -241,7 +241,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
   return (
-    <div className="max-w-6xl space-y-5">
+    <div className="space-y-5">
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">

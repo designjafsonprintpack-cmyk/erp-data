@@ -59,14 +59,16 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     if ((emailSetting as any)?.value === 'true') {
       const inv = data as any
       const customerEmail = inv.customers?.email
+      const { data: companyRow } = await supabase.from('companies' as any).select('name').eq('id', companyId).maybeSingle()
+      const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
       const result = await sendEmail(
         customerEmail || '',
-        `Invoice ${inv.invoice_number} from Jafson Print Pack`,
+        `Invoice ${inv.invoice_number} from ${companyName}`,
         `<p>Dear ${inv.customers?.name || 'Customer'},</p>
          <p>Please find your invoice <b>${inv.invoice_number}</b> summary below:</p>
          <p>Total: PKR ${Number(inv.total_amount).toLocaleString()}<br/>
          Due Date: ${inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-PK') : 'N/A'}</p>
-         <p>Jafson Print Pack</p>`
+         <p>${companyName}</p>`
       )
       if (!result.sent && userTableId) {
         await notify({

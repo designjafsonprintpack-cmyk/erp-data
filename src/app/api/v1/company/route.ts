@@ -39,11 +39,11 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
 
   const parsed = await parseBody(req, companyUpdateSchema)
   if ('error' in parsed) return parsed.error
-  const { name, ntn, address } = parsed.data
+  const { name, ntn, address, logo_url } = parsed.data
 
   const { data, error } = await supabase
     .from('companies' as any)
-    .update({ name, ntn, address })
+    .update({ name, ntn, address, logo_url })
     .eq('id', companyId)
     .select()
     .single()
