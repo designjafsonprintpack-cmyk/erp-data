@@ -54,7 +54,34 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
+
+  // Same "who's it really with right now" enrichment the page.tsx initial
+  // load does — kept here too so this endpoint is correct on its own if
+  // ever called directly (search/filter/pagination), not just consistent
+  // with the server-rendered first page.
+  const rows = (data ?? []) as any[]
+  const plateIds = rows.map(p => p.id)
+  const currentJobByPlate: Record<string, { assignment_id: string; job_number: string; job_title: string } | null> = {}
+  if (plateIds.length > 0) {
+    const { data: activeAssignments } = await supabase
+      .from('job_plates' as any)
+      .select('id, plate_id, assigned_at, jobs(job_number, job_title)')
+      .eq('company_id', companyId)
+      .in('plate_id', plateIds)
+      .is('deleted_at', null)
+      .is('returned_at', null)
+      .order('assigned_at', { ascending: false })
+    for (const row of ((activeAssignments ?? []) as any[])) {
+      if (!(row.plate_id in currentJobByPlate)) {
+        currentJobByPlate[row.plate_id] = row.jobs
+          ? { assignment_id: row.id, job_number: row.jobs.job_number, job_title: row.jobs.job_title }
+          : null
+      }
+    }
+  }
+  const enriched = rows.map(p => ({ ...p, current_job: currentJobByPlate[p.id] ?? null }))
+
+  return NextResponse.json({ data: enriched, total: count ?? 0, page, limit })
 })
 
 // A single POST call can create/reuse several plates at once — one job, one
@@ -83,28 +110,56 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid plate size' }, { status: 400 })
   }
 
+  // Resolved once and stamped onto every plate this call touches, so the
+  // client can show "Currently at" immediately without a page refresh —
+  // matches the enrichment the list/page.tsx do from job_plates, just
+  // computed directly here since we already know the job for this call.
+  let currentJob: { job_number: string; job_title: string } | null = null
+  if (jobId) {
+    const { data: jobRow } = await supabase.from('jobs' as any)
+      .select('job_number, job_title').eq('id', jobId).eq('company_id', companyId).maybeSingle()
+    currentJob = jobRow ? { job_number: (jobRow as any).job_number, job_title: (jobRow as any).job_title } : null
+  }
+
   const created: any[] = []
 
   for (const row of rows) {
     if (row.mode === 'old') {
       if (!row.existing_plate_id) return NextResponse.json({ error: 'Select an existing plate for each "Old" row' }, { status: 400 })
+
+      // Close out any still-open assignment for this plate before opening a
+      // new one — a plate can only really be "with" one job at a time, and
+      // leaving a stale open row behind would make the current-job lookup
+      // ambiguous the next time this plate is reused again.
+      if (jobId) {
+        await supabase.from('job_plates' as any)
+          .update({ returned_at: new Date().toISOString() })
+          .eq('plate_id', row.existing_plate_id).eq('company_id', companyId)
+          .is('returned_at', null)
+      }
+
       const { data: updated, error: updErr } = await supabase.from('plates' as any)
         .update({ status: jobId ? 'in_use' : 'in_storage', last_used_at: jobId ? new Date().toISOString() : undefined })
         .eq('id', row.existing_plate_id).eq('company_id', companyId).select().single()
       if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
       await (supabase as any).rpc('mark_plate_reused', { p_plate_id: row.existing_plate_id }).catch(() => null)
-      created.push(updated)
 
+      let assignmentId: string | null = null
       if (jobId) {
-        await supabase.from('job_plates' as any).insert({
+        const { data: assignment } = await supabase.from('job_plates' as any).insert({
           company_id: companyId, job_id: jobId, plate_id: row.existing_plate_id,
           machine_id: machineId, is_reused: true, condition_on_assign: 'good',
-        })
+        }).select('id').single()
+        assignmentId = (assignment as any)?.id ?? null
         await recordJobEvent({
           company_id: companyId, job_id: jobId, event_type: 'plate_assigned',
           new_value: `${row.color} — reused plate`, actor_id: userTableId,
         }, supabase)
       }
+      created.push({
+        ...(updated as any),
+        current_job: jobId && currentJob && assignmentId ? { assignment_id: assignmentId, ...currentJob } : null,
+      })
     } else {
       // Auto-generated identifier — never shown to the user, just needs to
       // satisfy the DB's NOT NULL UNIQUE constraint.
@@ -117,18 +172,23 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         last_used_at: jobId ? new Date().toISOString() : null,
       }).select().single()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      created.push(plate)
 
+      let assignmentId: string | null = null
       if (jobId) {
-        await supabase.from('job_plates' as any).insert({
+        const { data: assignment } = await supabase.from('job_plates' as any).insert({
           company_id: companyId, job_id: jobId, plate_id: (plate as any).id,
           machine_id: machineId, is_reused: false, condition_on_assign: 'new',
-        })
+        }).select('id').single()
+        assignmentId = (assignment as any)?.id ?? null
         await recordJobEvent({
           company_id: companyId, job_id: jobId, event_type: 'plate_assigned',
           new_value: `${row.color} — new plate`, actor_id: userTableId,
         }, supabase)
       }
+      created.push({
+        ...(plate as any),
+        current_job: jobId && currentJob && assignmentId ? { assignment_id: assignmentId, ...currentJob } : null,
+      })
     }
   }
 

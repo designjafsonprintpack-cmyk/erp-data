@@ -4,7 +4,7 @@ import { Upload, Plus, Trash2, ExternalLink, Link2, Copy, MessageCircle, X, Maxi
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import { formatTimeAgo } from '@/lib/utils/format'
+import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
@@ -19,6 +19,7 @@ interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
   file_size: number | null; file_type: string | null; designer_notes: string | null
   status: ArtworkStatus; is_production_ready: boolean; approved_at: string | null; created_at: string
+  approver_name?: string | null; approver_email?: string | null; decided_at?: string | null
   ai_preflight_status?: 'pass' | 'warning' | 'fail' | null
   ai_preflight_summary?: string | null
   ai_preflight_issues?: { severity: string; title: string; detail: string }[] | null
@@ -261,6 +262,12 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                   <span className="text-xs text-[var(--color-text-muted)]">Uploaded {formatTimeAgo(art.created_at)}</span>
                 </div>
                 {art.designer_notes && <p className="text-xs text-[var(--color-text-secondary)] mt-1 italic">{art.designer_notes}</p>}
+                {art.approver_name && art.decided_at && (
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    {ARTWORK_STATUS_CONFIG[art.status].label} by {art.approver_name}
+                    {art.approver_email && ` (${art.approver_email})`} — {formatDateTime(art.decided_at)}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 flex-shrink-0">

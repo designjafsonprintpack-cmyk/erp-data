@@ -53,7 +53,7 @@ async function runJobOnHoldRule(supabase: SupabaseClient, companyId: string, rul
         message: `${job.job_number} — ${job.job_title} has been on hold for ${daysOnHold} days.`,
         type: 'warning', link_url: `/dashboard/jobs/${job.id}`,
         group_key: `automation:job_on_hold:${job.id}`,
-      }).catch(() => null)
+      }, supabase).catch(() => null)
     }
     await supabase.from('automation_rule_runs' as any).insert({
       company_id: companyId, rule_id: rule.id, triggered_for: job.job_number,
@@ -116,7 +116,7 @@ export async function runNewCustomerRule(supabase: SupabaseClient, companyId: st
       message: `${customerName} was just added as a new customer.`,
       type: 'info', link_url: `/dashboard/customers/${customerId}`,
       group_key: `automation:new_customer:${customerId}`,
-    }).catch(() => null)
+    }, supabase).catch(() => null)
   }
 
   await supabase.from('automation_rule_runs' as any).insert({

@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { AppError } from '@/types/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface NotificationPayload {
   user_id: string
@@ -21,9 +22,20 @@ export interface NotificationPayload {
 
 /**
  * Send an in-app notification. Called server-side from any module.
+ *
+ * Pass `client` explicitly when calling from a context with no logged-in
+ * user session — a Vercel Cron route, for example. Without it, this
+ * defaults to createSupabaseServerClient(), which reads the request's
+ * cookies for an auth session; a cron request has none, so the resulting
+ * client is unauthenticated and the insert below silently fails the
+ * notifications table's RLS check (company_id/user_id must match
+ * auth.jwt() claims that don't exist for an anon request) — the failure
+ * is real but easy to miss because callers commonly do
+ * `.catch(() => null)` on this function. Pass the route's own
+ * createSupabaseAdminClient() (or any authenticated client) to avoid that.
  */
-export async function notify(payload: NotificationPayload): Promise<void> {
-  const supabase = createSupabaseServerClient()
+export async function notify(payload: NotificationPayload, client?: SupabaseClient): Promise<void> {
+  const supabase = client ?? createSupabaseServerClient()
 
   if (payload.group_key) {
     const { error } = await (supabase as any).rpc('upsert_notification_digest', {

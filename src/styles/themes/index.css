@@ -18,7 +18,7 @@
   --color-danger: #f85149;
   --color-info: #58a6ff;
   --color-muted: #6e7681;
-  --sidebar-width: 240px;
+  --sidebar-width: 170px;
   --header-height: 56px;
 }
 
@@ -38,7 +38,7 @@
   --color-danger: #f44336;
   --color-info: #29b6f6;
   --color-muted: #607d8b;
-  --sidebar-width: 240px;
+  --sidebar-width: 170px;
   --header-height: 56px;
 }
 
@@ -58,7 +58,7 @@
   --color-danger: #e0546f;
   --color-info: #7cb8e0;
   --color-muted: #8a6e4a;
-  --sidebar-width: 240px;
+  --sidebar-width: 170px;
   --header-height: 56px;
 }
 
@@ -78,7 +78,7 @@
   --color-danger: #e05a5a;
   --color-info: #4fa8d8;
   --color-muted: #5e7d68;
-  --sidebar-width: 240px;
+  --sidebar-width: 170px;
   --header-height: 56px;
 }
 
@@ -98,7 +98,7 @@
   --color-danger: #cf222e;
   --color-info: #0969da;
   --color-muted: #6e7781;
-  --sidebar-width: 240px;
+  --sidebar-width: 170px;
   --header-height: 56px;
 }
 

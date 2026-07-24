@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/send-scheduled-reports",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/run-automation-rules",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/production-reminders",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

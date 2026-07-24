@@ -86,7 +86,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   // customer can point something out even before/after their final
   // decision — so this branch returns early, before the
   // already-approved/rejected guard below (which only applies to changing
-  // the approval decision itself).
+  // the approval decision itself). Comments don't carry approver identity —
+  // that's only required for the decision itself (enforced by the schema).
   if (action === 'comment') {
     if (!body.comment_text?.trim()) return NextResponse.json({ error: 'Comment text is required' }, { status: 400 })
     const { data: comment, error: commentErr } = await supabase.from('artwork_comments' as any).insert({
@@ -108,6 +109,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   }
 
   const newStatus = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'changes_requested'
+  const decidedAt = new Date().toISOString()
 
   if (newStatus === 'approved') {
     // Supersede any other approved version of the same job, same rule as
@@ -121,7 +123,13 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const { error: updateErr } = await supabase.from('job_artworks' as any).update({
     status: newStatus,
     is_production_ready: newStatus === 'approved',
-    approved_at: newStatus === 'approved' ? new Date().toISOString() : null,
+    approved_at: newStatus === 'approved' ? decidedAt : null,
+    // decided_at is set for ANY decision (approve/reject/request_changes) —
+    // approved_at (existing column) stays specific to the 'approved' case
+    // only, matching what existing UI/API code already expects from it.
+    decided_at: decidedAt,
+    approver_name: body.approver_name!.trim(),
+    approver_email: body.approver_email!.trim(),
     designer_notes: body.notes ? `${body.notes}` : undefined,
   }).eq('id', art.id)
 
@@ -132,7 +140,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     event_type: 'artwork_status_changed',
     old_value: `v${art.version}: ${art.status}`,
     new_value: `v${art.version}: ${newStatus}`,
-    notes: body.notes ? `Customer, via approval link: ${body.notes}` : 'Customer, via approval link',
+    notes: body.notes
+      ? `${body.approver_name}, via approval link: ${body.notes}`
+      : `${body.approver_name}, via approval link`,
     actor_id: null,
   }, supabase)
 

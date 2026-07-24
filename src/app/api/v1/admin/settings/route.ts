@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { systemSettingsSchema } from '@/lib/schemas/adminUser'
+import { SESSION_TIMEOUT_KEY, isValidSessionTimeout } from '@/config/sessionTimeout'
 
 export const GET = withErrorHandling(async function GET(_req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -35,6 +36,17 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const parsed = await parseBody(req, systemSettingsSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  // Reject an invalid session-timeout value explicitly rather than letting
+  // it silently save as free text — IdleTimeoutGuard falls back to the
+  // default for anything it doesn't recognize, but a bad value stored here
+  // would look "saved" in the UI while quietly not doing what was picked.
+  if (SESSION_TIMEOUT_KEY in body && !isValidSessionTimeout(body[SESSION_TIMEOUT_KEY])) {
+    return NextResponse.json(
+      { error: `Invalid ${SESSION_TIMEOUT_KEY} value. Must be 15, 30, 60, 120, 240, or 'never'.` },
+      { status: 400 }
+    )
+  }
 
   const updates = Object.entries(body).map(([key, value]) => ({
     company_id: companyId,

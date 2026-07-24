@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { AppShell } from '@/components/layout/AppShell'
+import { SESSION_TIMEOUT_KEY } from '@/config/sessionTimeout'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createSupabaseServerClient()
@@ -36,5 +37,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     : { data: null }
   const companyInfo = companyRow ? { name: (companyRow as any).name, logo_url: (companyRow as any).logo_url } : null
 
-  return <AppShell user={userInfo} company={companyInfo}>{children}</AppShell>
+  // Configurable idle-logout timeout — best-effort, falls back to
+  // IdleTimeoutGuard's own default if this fails or hasn't been set yet.
+  const { data: timeoutRow } = companyId
+    ? await supabase.from('system_settings' as any)
+        .select('value').eq('company_id', companyId).eq('key', SESSION_TIMEOUT_KEY).maybeSingle()
+    : { data: null }
+  const sessionTimeoutMinutes = (timeoutRow as any)?.value ?? null
+
+  return <AppShell user={userInfo} company={companyInfo} sessionTimeoutMinutes={sessionTimeoutMinutes}>{children}</AppShell>
 }

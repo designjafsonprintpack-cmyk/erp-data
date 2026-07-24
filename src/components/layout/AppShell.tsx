@@ -12,9 +12,10 @@ interface AppShellProps {
   children: ReactNode
   user?: { full_name: string; email: string; role: string } | null
   company?: { name: string; logo_url: string | null } | null
+  sessionTimeoutMinutes?: string | null
 }
 
-export function AppShell({ children, user, company }: AppShellProps) {
+export function AppShell({ children, user, company, sessionTimeoutMinutes }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -39,11 +40,14 @@ export function AppShell({ children, user, company }: AppShellProps) {
     return () => clearInterval(interval)
   }, [])
 
-  const sidebarWidth = collapsed ? 56 : 240
+  // Must match --sidebar-width in src/styles/themes/index.css — the sidebar
+  // itself reads the CSS variable, but this margin is applied via inline
+  // style (for the collapse transition), so the number lives here too.
+  const sidebarWidth = collapsed ? 56 : 170
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
-      <IdleTimeoutGuard />
+      <IdleTimeoutGuard timeoutMinutes={sessionTimeoutMinutes} />
       <Header user={user} sidebarCollapsed={collapsed} company={company} />
       <Sidebar />
       <main

@@ -1,17 +1,14 @@
-import { Briefcase, Users, Clock, CheckCircle, AlertTriangle, Truck, Package, BarChart3, Zap, type LucideIcon } from 'lucide-react'
-import Link from 'next/link'
-import { cn } from '@/lib/utils/cn'
+import { Briefcase, Users, Clock, CheckCircle, AlertTriangle, Truck, Package, BarChart3, Zap } from 'lucide-react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
-import DashboardMachinesPanel from './DashboardMachinesPanel'
+import DashboardPanel from './DashboardPanel'
 
 interface StatCard {
   label: string
   value: string | number
-  icon: LucideIcon
-  color: string
+  iconEl: React.ReactNode
   bgColor: string
-  href?: string
+  card: string
   badge?: string
 }
 
@@ -34,6 +31,8 @@ export default async function DashboardPage() {
 
   let machineRows: any[] = []
   let recentJobs: any[] = []
+  let departments: any[] = []
+  let userDepartmentId: string | null = null
 
   if (companyId) {
     // Stage ids for the named stages — a stage name can exist under multiple
@@ -52,7 +51,7 @@ export default async function DashboardPage() {
     const [
       newJobsRes, artworkPendingRes, pendingStagesRes, runningAssignmentsRes,
       readyForDispatchRes, dispatchedTodayRes, delayedJobsRes, urgentJobsRes, customersRes,
-      machinesRes, recentJobsRes,
+      machinesRes, recentJobsRes, departmentsRes, profileRes,
     ] = await Promise.all([
       supabase.from('jobs' as any).select('*', { count: 'exact', head: true })
         .eq('company_id', companyId).eq('status', 'new').is('deleted_at', null),
@@ -87,6 +86,10 @@ export default async function DashboardPage() {
         .select('id, job_number, job_title, status, priority, created_at, customers(name)')
         .eq('company_id', companyId).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(8),
+      supabase.from('departments' as any)
+        .select('id, name, code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+      supabase.from('users' as any)
+        .select('department_id').eq('company_id', companyId).eq('auth_user_id', user!.id).maybeSingle(),
     ])
 
     const pendingStages = (pendingStagesRes.data as any[]) ?? []
@@ -110,6 +113,8 @@ export default async function DashboardPage() {
 
     machineRows = (machinesRes.data as any[]) ?? []
     recentJobs = (recentJobsRes.data as any[]) ?? []
+    departments = (departmentsRes.data as any[]) ?? []
+    userDepartmentId = (profileRes.data as any)?.department_id ?? null
   }
 
   const machinesById = new Map<string, any>()
@@ -136,18 +141,18 @@ export default async function DashboardPage() {
   const machines = Array.from(machinesById.values())
 
   const stats: StatCard[] = [
-    { label: 'New Jobs', value: counts.newJobs, icon: Briefcase, color: 'text-[var(--color-accent)]', bgColor: 'bg-[var(--color-accent)]/10', href: '/dashboard/jobs?status=new' },
-    { label: 'Artwork Pending', value: counts.artworkPending, icon: Clock, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/artwork' },
-    { label: 'Planning Pending', value: counts.planningPending, icon: BarChart3, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/planning' },
-    { label: 'Store Pending', value: counts.storePending, icon: Package, color: 'text-[var(--color-warning)]', bgColor: 'bg-[var(--color-warning)]/10', href: '/dashboard/store' },
-    { label: 'Printing Running', value: counts.printingRunning, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/printing' },
-    { label: 'Die Cutting Running', value: counts.dieCuttingRunning, icon: Zap, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/die-cutting' },
-    { label: 'Packing Running', value: counts.packingRunning, icon: Package, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/production/packing' },
-    { label: 'Ready for Dispatch', value: counts.readyForDispatch, icon: Truck, color: 'text-[var(--color-info)]', bgColor: 'bg-[var(--color-info)]/10', href: '/dashboard/dispatch' },
-    { label: 'Dispatched', value: counts.dispatchedToday, icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success)]/10', href: '/dashboard/dispatch?status=dispatched' },
-    { label: 'Delayed Jobs', value: counts.delayedJobs, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?status=delayed', badge: counts.delayedJobs > 0 ? 'Alert' : undefined },
-    { label: 'Urgent Jobs', value: counts.urgentJobs, icon: AlertTriangle, color: 'text-[var(--color-danger)]', bgColor: 'bg-[var(--color-danger)]/10', href: '/dashboard/jobs?priority=urgent' },
-    { label: 'Total Customers', value: counts.totalCustomers, icon: Users, color: 'text-[var(--color-text-secondary)]', bgColor: 'bg-[var(--color-bg-elevated)]', href: '/dashboard/customers' },
+    { label: 'New Jobs', value: counts.newJobs, iconEl: <Briefcase size={12} className="text-[var(--color-accent)]" />, bgColor: 'bg-[var(--color-accent)]/10', card: 'new_jobs' },
+    { label: 'Artwork Pending', value: counts.artworkPending, iconEl: <Clock size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[var(--color-warning)]/10', card: 'artwork_pending' },
+    { label: 'Planning Pending', value: counts.planningPending, iconEl: <BarChart3 size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[var(--color-info)]/10', card: 'planning_pending' },
+    { label: 'Store Pending', value: counts.storePending, iconEl: <Package size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[var(--color-warning)]/10', card: 'store_pending' },
+    { label: 'Printing Running', value: counts.printingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'printing_running' },
+    { label: 'Die Cutting Running', value: counts.dieCuttingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'die_cutting_running' },
+    { label: 'Packing Running', value: counts.packingRunning, iconEl: <Package size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'packing_running' },
+    { label: 'Ready for Dispatch', value: counts.readyForDispatch, iconEl: <Truck size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[var(--color-info)]/10', card: 'ready_for_dispatch' },
+    { label: 'Dispatched', value: counts.dispatchedToday, iconEl: <CheckCircle size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'dispatched_today' },
+    { label: 'Delayed Jobs', value: counts.delayedJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[var(--color-danger)]/10', card: 'delayed_jobs', badge: counts.delayedJobs > 0 ? 'Alert' : undefined },
+    { label: 'Urgent Jobs', value: counts.urgentJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[var(--color-danger)]/10', card: 'urgent_jobs' },
+    { label: 'Total Customers', value: counts.totalCustomers, iconEl: <Users size={12} className="text-[var(--color-text-secondary)]" />, bgColor: 'bg-[var(--color-bg-elevated)]', card: 'total_customers' },
   ]
 
   return (
@@ -165,39 +170,13 @@ export default async function DashboardPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          const content = (
-            <div className={cn(
-              'rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4',
-              'hover:border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-elevated)]',
-              'transition-all duration-150',
-              stat.href && 'cursor-pointer'
-            )}>
-              <div className="flex items-center justify-between mb-3">
-                <div className={cn('w-8 h-8 rounded-md flex items-center justify-center', stat.bgColor)}>
-                  <Icon size={15} className={stat.color} />
-                </div>
-                {stat.badge && (
-                  <span className="text-xs bg-[var(--color-danger)]/15 text-[var(--color-danger)] px-1.5 py-0.5 rounded">
-                    {stat.badge}
-                  </span>
-                )}
-              </div>
-              <div className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">{stat.value}</div>
-              <div className="text-xs text-[var(--color-text-muted)] leading-tight">{stat.label}</div>
-            </div>
-          )
-          return stat.href ? (
-            <Link key={stat.label} href={stat.href}>{content}</Link>
-          ) : (
-            <div key={stat.label}>{content}</div>
-          )
-        })}
-      </div>
-
-      <DashboardMachinesPanel machines={machines} recentJobs={recentJobs} />
+      <DashboardPanel
+        stats={stats}
+        machines={machines}
+        recentJobs={recentJobs}
+        departments={departments}
+        initialDepartmentId={userDepartmentId || ''}
+      />
     </div>
   )
 }

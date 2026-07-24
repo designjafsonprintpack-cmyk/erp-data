@@ -32,10 +32,21 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     .is('deleted_at', null)
     .order('assigned_at', { ascending: false })
 
-  return NextResponse.json({ data: { ...(plate as any), history: history ?? [] } })
+  // "Currently with" — the still-open (returned_at IS NULL) assignment, if
+  // any. Same definition used by the list page/route so the detail view and
+  // list view never disagree about which job a plate is actually with.
+  const activeRow = ((history ?? []) as any[]).find(h => !h.returned_at)
+  const currentJob = activeRow?.jobs
+    ? { assignment_id: activeRow.id, job_number: activeRow.jobs.job_number, job_title: activeRow.jobs.job_title }
+    : null
+
+  return NextResponse.json({ data: { ...(plate as any), current_job: currentJob, history: history ?? [] } })
 })
 
-const VALID_SIZES = ['1030 x 790', '1030 x 770']
+// Largest to smallest — a plate can only move DOWN this list (cut down to a
+// smaller size), never back up. Physically, a plate that's been trimmed to
+// 1030x770 cannot become a 1030x790 again.
+const SIZE_ORDER = ['1030 x 790', '1030 x 770']
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -56,12 +67,23 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // it in remarks instead of a silent overwrite — the physical plate is the
   // same one, just trimmed, so this stays one row rather than a new plate.
   if (body.plate_size !== undefined) {
-    if (body.plate_size && !VALID_SIZES.includes(body.plate_size)) {
+    if (body.plate_size && !SIZE_ORDER.includes(body.plate_size)) {
       return NextResponse.json({ error: 'Invalid plate size' }, { status: 400 })
     }
     const { data: current } = await supabase.from('plates' as any).select('plate_size, remarks').eq('id', params.id).eq('company_id', companyId).single()
     const oldSize = (current as any)?.plate_size
     if (oldSize && body.plate_size && oldSize !== body.plate_size) {
+      const oldIdx = SIZE_ORDER.indexOf(oldSize)
+      const newIdx = SIZE_ORDER.indexOf(body.plate_size)
+      // A size not in SIZE_ORDER (old free-text data from before migration
+      // 073) has no defined direction — allow setting it to a real size
+      // once, same as if oldSize were null, rather than blocking forever.
+      if (oldIdx !== -1 && newIdx !== -1 && newIdx < oldIdx) {
+        return NextResponse.json(
+          { error: `Cannot resize a plate from ${oldSize} back up to ${body.plate_size} — a trimmed plate can't become larger again. Add a new plate at ${body.plate_size} instead.` },
+          { status: 400 }
+        )
+      }
       const note = `Cut from ${oldSize} to ${body.plate_size} on ${new Date().toISOString().slice(0, 10)}`
       const existingRemarks = (current as any)?.remarks
       update.remarks = existingRemarks ? `${existingRemarks}\n${note}` : note

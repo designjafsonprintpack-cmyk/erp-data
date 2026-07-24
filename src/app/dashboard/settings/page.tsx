@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, Settings2, Workflow, Palette, Shield, Bell, FileText, Hash, Circle, ClipboardList, BookOpen, Calculator, Mail, Droplet, Zap } from 'lucide-react'
+import { Building2, Users, Settings2, Workflow, Palette, Shield, Bell, FileText, Hash, Circle, ClipboardList, BookOpen, Calculator, Mail, Droplet, Zap, Clock } from 'lucide-react'
 
 const settingsSections = [
   { title: 'Company', description: 'Company profile, logo, branches, warehouses', href: '/dashboard/settings/company', icon: Building2 },
@@ -13,6 +13,7 @@ const settingsSections = [
   { title: 'Job Status & Delay Reasons', description: 'Job statuses and mandatory delay reason list', href: '/dashboard/settings/job-status', icon: Circle },
   { title: 'Permissions & Roles', description: 'Role-based access control matrix', href: '/dashboard/settings/permissions', icon: Shield },
   { title: 'Notifications', description: 'Alert rules and notification preferences', href: '/dashboard/settings/notifications', icon: Bell },
+  { title: 'Session Timeout', description: 'Auto sign-out after a period of inactivity', href: '/dashboard/settings/session-timeout', icon: Clock },
   { title: 'Report Schedules', description: 'Automatically email reports on a recurring schedule', href: '/dashboard/settings/report-schedules', icon: Mail },
   { title: 'Webhooks', description: 'Send business events to your own systems via HTTPS POST', href: '/dashboard/settings/webhooks', icon: Zap },
   { title: 'Automation Rules', description: 'Automatic notifications for jobs stuck on hold, overdue invoices, new customers', href: '/dashboard/settings/automation-rules', icon: Bell },

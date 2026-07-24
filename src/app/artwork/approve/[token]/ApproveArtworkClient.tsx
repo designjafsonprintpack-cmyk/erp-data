@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, XCircle, MessageSquareWarning, Image as ImageIcon, Loader2, Maximize2, Download, X, MapPin, Send } from 'lucide-react'
+import { CheckCircle2, XCircle, MessageSquareWarning, Image as ImageIcon, Loader2, Maximize2, Download, X, MapPin, Send, User, Mail } from 'lucide-react'
 
 interface Comment { id: string; comment_text: string; position_x: number | null; position_y: number | null; resolved: boolean; created_at: string }
 interface Artwork {
@@ -14,6 +14,7 @@ interface Artwork {
 type Action = 'approve' | 'reject' | 'request_changes'
 
 const ACTION_LABEL: Record<Action, string> = { approve: 'Approved', reject: 'Rejected', request_changes: 'Changes Requested' }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function ApproveArtworkClient({ token }: { token: string }) {
   const [artwork, setArtwork] = useState<Artwork | null>(null)
@@ -28,6 +29,16 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
   const [pinText, setPinText] = useState('')
   const [pinSubmitting, setPinSubmitting] = useState(false)
 
+  // Client Approval Enhancement: name + email are required before any
+  // approve/reject/request-changes decision (comments/markup pins don't
+  // need them — those stay informal). Enforced here for a fast inline
+  // error, and again server-side since this is a public unauthenticated
+  // endpoint and the client-side check alone is not trustworthy.
+  const [approverName, setApproverName] = useState('')
+  const [approverEmail, setApproverEmail] = useState('')
+  const [identityTouched, setIdentityTouched] = useState(false)
+  const isIdentityValid = approverName.trim().length > 0 && EMAIL_RE.test(approverEmail.trim())
+
   useEffect(() => {
     fetch(`/api/v1/public/artwork/${token}`)
       .then(async res => {
@@ -41,11 +52,16 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
   }, [token])
 
   const respond = async (action: Action) => {
+    setIdentityTouched(true)
+    if (!isIdentityValid) return
     setSubmitting(action)
     try {
       const res = await fetch(`/api/v1/public/artwork/${token}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, notes: notes.trim() || undefined }),
+        body: JSON.stringify({
+          action, notes: notes.trim() || undefined,
+          approver_name: approverName.trim(), approver_email: approverEmail.trim(),
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Something went wrong.')
@@ -56,6 +72,13 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
     } finally {
       setSubmitting(null)
     }
+  }
+
+  const startDecision = (action: Action) => {
+    setIdentityTouched(true)
+    if (!isIdentityValid) return
+    if (action === 'approve') { respond('approve'); return }
+    setNotesFor(action)
   }
 
   const submitPin = async () => {
@@ -199,6 +222,28 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
               <div className="px-6 py-4 border-t border-[#22252c] text-sm text-[#8a8f9c]"><span className="text-[#6b7080]">Designer notes: </span>{artwork.designer_notes}</div>
             )}
 
+            {/* Approver identity — required before approve/reject/request-changes */}
+            <div className="px-6 py-4 border-t border-[#22252c] space-y-3 bg-[#0e1015]">
+              <p className="text-xs text-[#6b7080] uppercase tracking-wide">Your Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="relative">
+                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#565b66]" />
+                  <input value={approverName} onChange={e => setApproverName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full h-10 pl-9 pr-3 rounded-lg border border-[#22252c] bg-[#12141a] text-sm text-[#e6e8ec] placeholder:text-[#565b66] focus:outline-none focus:border-[#3a3f4a]" />
+                </div>
+                <div className="relative">
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#565b66]" />
+                  <input value={approverEmail} onChange={e => setApproverEmail(e.target.value)} type="email"
+                    placeholder="you@company.com"
+                    className="w-full h-10 pl-9 pr-3 rounded-lg border border-[#22252c] bg-[#12141a] text-sm text-[#e6e8ec] placeholder:text-[#565b66] focus:outline-none focus:border-[#3a3f4a]" />
+                </div>
+              </div>
+              {identityTouched && !isIdentityValid && (
+                <p className="text-xs text-[#e5484d]">Please enter your name and a valid email before continuing.</p>
+              )}
+            </div>
+
             {notesFor ? (
               <div className="p-6 border-t border-[#22252c] space-y-3">
                 <label className="text-sm text-[#8a8f9c]">{notesFor === 'reject' ? 'Why are you rejecting this artwork?' : 'What changes would you like?'}</label>
@@ -215,15 +260,15 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
               </div>
             ) : (
               <div className="p-6 border-t border-[#22252c] flex gap-3">
-                <button onClick={() => setNotesFor('reject')} disabled={!!submitting}
+                <button onClick={() => startDecision('reject')} disabled={!!submitting}
                   className="flex-1 h-11 rounded-lg border border-[#3a2020] text-[#e5484d] font-medium text-sm hover:bg-[#1a1414] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                   <XCircle size={16} /> Reject
                 </button>
-                <button onClick={() => setNotesFor('request_changes')} disabled={!!submitting}
+                <button onClick={() => startDecision('request_changes')} disabled={!!submitting}
                   className="flex-1 h-11 rounded-lg border border-[#3a3520] text-[#d4a72c] font-medium text-sm hover:bg-[#1a1810] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                   <MessageSquareWarning size={16} /> Request Changes
                 </button>
-                <button onClick={() => respond('approve')} disabled={!!submitting}
+                <button onClick={() => startDecision('approve')} disabled={!!submitting}
                   className="flex-1 h-11 rounded-lg bg-[#2e7d46] text-white font-medium text-sm hover:bg-[#357d4a] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                   {submitting === 'approve' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                   Approve

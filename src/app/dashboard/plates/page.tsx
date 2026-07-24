@@ -43,6 +43,43 @@ export default async function PlatesPage() {
     .is('deleted_at', null)
     .order('name')
 
+  // Which job is each plate CURRENTLY with — the real answer to "kis job ki
+  // hai", distinct from origin_job (which only ever shows the job the plate
+  // was originally made for, and goes stale the moment a plate is reused on
+  // a different job). "Currently with" = the job_plates assignment row for
+  // this plate that hasn't been returned yet (returned_at IS NULL). A plate
+  // can only sensibly be actively assigned to one job at a time, but if data
+  // is ever inconsistent (e.g. an old row never got a returned_at before
+  // this convention existed), the most recently assigned row wins.
+  const plateIds = (data ?? []).map((p: any) => p.id)
+  const currentJobByPlate: Record<string, { assignment_id: string; job_number: string; job_title: string } | null> = {}
+  if (plateIds.length > 0) {
+    const { data: activeAssignments } = await supabase
+      .from('job_plates' as any)
+      .select('id, plate_id, assigned_at, jobs(job_number, job_title)')
+      .eq('company_id', companyId)
+      .in('plate_id', plateIds)
+      .is('deleted_at', null)
+      .is('returned_at', null)
+      .order('assigned_at', { ascending: false })
+
+    for (const row of ((activeAssignments ?? []) as any[])) {
+      // First one wins per plate_id since the query is already ordered
+      // newest-first — later (older) duplicates for the same plate are
+      // ignored rather than overwriting a newer one.
+      if (!(row.plate_id in currentJobByPlate)) {
+        currentJobByPlate[row.plate_id] = row.jobs
+          ? { assignment_id: row.id, job_number: row.jobs.job_number, job_title: row.jobs.job_title }
+          : null
+      }
+    }
+  }
+
+  const platesWithCurrentJob = (data ?? []).map((p: any) => ({
+    ...p,
+    current_job: currentJobByPlate[p.id] ?? null,
+  }))
+
   return (
     <div className="space-y-5">
       <div>
@@ -50,7 +87,7 @@ export default async function PlatesPage() {
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{count ?? 0} plates in registry</p>
       </div>
       <PlatesClient
-        initialPlates={(data ?? []) as any[]}
+        initialPlates={platesWithCurrentJob as any[]}
         jobs={(jobs ?? []) as any[]}
         machines={(machines ?? []) as any[]}
         colorSpecs={(colorSpecs ?? []) as any[]}
