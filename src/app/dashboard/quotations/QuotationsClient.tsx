@@ -57,8 +57,8 @@ export default function QuotationsClient({ initialData, initialTotal }: { initia
         </Link>
       </div>
 
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
           <div className="col-span-2">Number</div>
           <div className="col-span-3">Customer</div>
           <div className="col-span-2">Status</div>

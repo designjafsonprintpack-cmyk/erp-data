@@ -2,10 +2,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2, Save, Calculator, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Save, Calculator, ChevronDown, ChevronUp, History, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { calculateQuotationItemCost, type UnitBasis } from '@/lib/costing/quotationCosting'
+import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
+import { formatTimeAgo } from '@/lib/utils/format'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string; sheet_length_in: number | null; sheet_width_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
@@ -15,7 +17,7 @@ interface CostItemType { id: string; name: string; unit_basis: UnitBasis; defaul
 // total; unchecked ones stay visible (with their rate still editable) but
 // contribute nothing, so switching a line on/off never loses the rate the
 // estimator typed in.
-interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: UnitBasis; rate: string; active: boolean }
+interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: UnitBasis; rate: string; active: boolean; per_unit_qty: string }
 
 interface LineItem {
   product_desc: string; size_l: string; size_w: string; size_h: string; quantity: string
@@ -33,6 +35,10 @@ interface LineItem {
 // the old Settings → Costing Rates page was removed: every cost item now
 // carries its own default_rate on the Cost Items catalog instead.
 const DEFAULT_WASTAGE = '5'
+
+// Bases priced "per N boxes" — the N is editable per line (Packing,
+// Cartage, Cartage Travel). Everything else keeps a fixed basis.
+const PER_N_BOXES_BASES: UnitBasis[] = ['per_1000_boxes', 'per_1000_boxes_carton', 'per_1000_boxes_wastage']
 
 const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
   per_sheet: 'Per Sheet',
@@ -58,7 +64,7 @@ const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
   // by default — nothing is included in the cost until the estimator
   // ticks it (and gets a rate pre-filled from the catalog default, still
   // editable).
-  costLines: costItemTypes.map(c => ({ cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false })),
+  costLines: costItemTypes.map(c => ({ cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false, per_unit_qty: '1000' })),
 })
 
 interface Props {
@@ -91,11 +97,11 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
       const merged: CostLineDraft[] = costItemTypes.map(c => {
         const s = bySavedType.get(c.id)
         return s
-          ? { cost_item_type_id: c.id, name: s.name, unit_basis: s.unit_basis, rate: String(s.rate), active: true }
-          : { cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false }
+          ? { cost_item_type_id: c.id, name: s.name, unit_basis: s.unit_basis, rate: String(s.rate), active: true, per_unit_qty: String(s.per_unit_qty ?? 1000) }
+          : { cost_item_type_id: c.id, name: c.name, unit_basis: c.unit_basis, rate: String(c.default_rate), active: false, per_unit_qty: '1000' }
       })
       const orphaned = saved.filter(l => l.cost_item_type_id && !costItemTypes.some(c => c.id === l.cost_item_type_id))
-      for (const o of orphaned) merged.push({ cost_item_type_id: o.cost_item_type_id || '', name: o.name, unit_basis: o.unit_basis, rate: String(o.rate), active: true })
+      for (const o of orphaned) merged.push({ cost_item_type_id: o.cost_item_type_id || '', name: o.name, unit_basis: o.unit_basis, rate: String(o.rate), active: true, per_unit_qty: String(o.per_unit_qty ?? 1000) })
 
       return {
         product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
@@ -115,6 +121,22 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
   )
   const [loading, setLoading] = useState(false)
   const [openCalc, setOpenCalc] = useState<number | null>(null)
+
+  // Autosave only applies to brand-new quotations — never in edit mode, to
+  // avoid ever restoring a stale local draft over a real saved record.
+  const isNew = mode !== 'edit'
+  const { draftAvailable, draftSavedAt, restoreDraft, discardDraft, clearDraft } = useDraftAutosave({
+    key: 'jafson_draft_new_quotation',
+    value: { form, items },
+    enabled: isNew,
+    isBlank: (v: { form: typeof form; items: LineItem[] }) =>
+      !v.form.customer_id && v.items.every(i => !i.product_desc?.trim()),
+  })
+  const applyRestoredDraft = () => {
+    const draft = restoreDraft()
+    if (draft) { setForm(draft.form); setItems(draft.items) }
+    discardDraft()
+  }
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const setItem = (idx: number, k: keyof LineItem, v: any) => setItems(prev => prev.map((item, i) => i === idx ? { ...item, [k]: v } : item))
@@ -145,6 +167,10 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
       ...item, costLines: item.costLines.map((l, li) => li === lineIdx ? { ...l, active: !l.active } : l),
     } : item))
   }
+  const setCostLinePerUnitQty = (itemIdx: number, lineIdx: number, per_unit_qty: string) =>
+    setItems(prev => prev.map((item, i) => i !== itemIdx ? item : {
+      ...item, costLines: item.costLines.map((l, li) => li === lineIdx ? { ...l, per_unit_qty } : l),
+    }))
   const setCostLineRate = (idx: number, lineIdx: number, rate: string) => {
     setItems(prev => prev.map((item, i) => i === idx ? {
       ...item, costLines: item.costLines.map((l, li) => li === lineIdx ? { ...l, rate } : l),
@@ -174,7 +200,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     sheetLengthIn: parseFloat(item.sheet_length_in || '0'),
     sheetWidthIn: parseFloat(item.sheet_width_in || '0'),
     // Only ticked Finish Goods rows count toward the total.
-    costLines: item.costLines.filter(l => l.active).map(l => ({ name: l.name, unitBasis: l.unit_basis, rate: parseFloat(l.rate || '0') })),
+    costLines: item.costLines.filter(l => l.active).map(l => ({ name: l.name, unitBasis: l.unit_basis, rate: parseFloat(l.rate || '0'), perUnitQty: parseFloat(l.per_unit_qty || '1000') })),
     profitMarginPercent: parseFloat(item.profit_margin_percent || '0'),
     packetLengthIn: parseFloat(item.packet_length_in || '0'),
     packetWidthIn: parseFloat(item.packet_width_in || '0'),
@@ -240,6 +266,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
               return {
                 cost_item_type_id: l.cost_item_type_id || null,
                 name: l.name, unit_basis: l.unit_basis, rate: parseFloat(l.rate || '0'),
+                per_unit_qty: parseFloat(l.per_unit_qty || '1000') || 1000,
                 quantity: result.costLines[idx2]?.quantityUsed || 0,
                 amount: result.costLines[idx2]?.amount || 0,
               }
@@ -251,6 +278,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
       const res = await fetch(url, { method: mode === 'new' ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
+      clearDraft()
       toast.success(mode === 'new' ? 'Quotation created' : 'Quotation updated')
       router.push(`/dashboard/quotations/${data.id}`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
@@ -259,6 +287,18 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
 
   return (
     <div className="space-y-6">
+      {draftAvailable && (
+        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
+          <History size={15} className="text-[var(--color-accent)] flex-shrink-0" />
+          <span className="text-[var(--color-text-primary)]">
+            You have an unsaved quotation draft{draftSavedAt ? ` from ${formatTimeAgo(draftSavedAt)}` : ''}.
+          </span>
+          <button onClick={applyRestoredDraft} className="ml-auto text-[var(--color-accent)] font-medium hover:underline">Restore</button>
+          <button onClick={discardDraft} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" title="Discard draft">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/quotations" className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <ArrowLeft size={15} />
@@ -477,7 +517,17 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
                                     className="w-4 h-4 rounded accent-[var(--color-accent)] cursor-pointer" />
                                 </div>
                                 <div className={cn('col-span-4 text-xs', line.active ? 'text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-muted)]')}>{line.name}</div>
-                                <div className="col-span-3 text-[10px] text-[var(--color-text-muted)]">{UNIT_BASIS_LABELS[line.unit_basis]}</div>
+                                <div className="col-span-3 text-[10px] text-[var(--color-text-muted)]">
+                                  {PER_N_BOXES_BASES.includes(line.unit_basis) ? (
+                                    <span className="flex items-center gap-1">
+                                      Per
+                                      <input type="number" min={1} value={line.per_unit_qty}
+                                        onChange={e => setCostLinePerUnitQty(idx, li, e.target.value)}
+                                        className="w-14 h-6 px-1 rounded border text-[10px] text-center bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]" />
+                                      {line.unit_basis === 'per_1000_boxes_carton' ? 'Boxes in Carton' : line.unit_basis === 'per_1000_boxes_wastage' ? 'Boxes (+ wastage)' : 'Boxes'}
+                                    </span>
+                                  ) : UNIT_BASIS_LABELS[line.unit_basis]}
+                                </div>
                                 <div className="col-span-2">
                                   <input type="number" value={line.rate} onChange={e => setCostLineRate(idx, li, e.target.value)}
                                     className="w-full h-7 px-2 rounded-md border text-xs text-right bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]" placeholder="Rate" />

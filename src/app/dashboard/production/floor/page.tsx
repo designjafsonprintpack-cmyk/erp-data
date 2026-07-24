@@ -1,11 +1,23 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import FloorDashboardClient from './FloorDashboardClient'
+import AutoRefresh from '@/components/shared/AutoRefresh'
 
-export default async function ProductionFloorPage() {
+// Kept in sync with STAGE_FILTERS in FloorDashboardClient.tsx
+const STAGE_LABELS: Record<string, string> = {
+  printing: 'Printing', lamination: 'Lamination', 'die-cutting': 'Die Cutting',
+  'hot-foil': 'Hot Foil', 'folder-gluing': 'Folder Gluing', packing: 'Packing',
+}
+
+export default async function ProductionFloorPage({
+  searchParams,
+}: {
+  searchParams?: { stage?: string }
+}) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
+  const stage = searchParams?.stage
 
   const [machinesRes, activeJobsRes, queuedRes, operatorsRes, stagesRes] = await Promise.all([
     // All machines with current assignment
@@ -14,13 +26,13 @@ export default async function ProductionFloorPage() {
 
     // Currently running assignments
     supabase.from('production_assignments' as any)
-      .select('*, jobs(job_number,job_title,priority,quantity,required_date,customers(name)), machines(name,machine_type), users(full_name)')
+      .select('*, jobs(job_number,job_title,priority,quantity,required_date,customers(name)), machines(name,machine_type), users(full_name), job_stage_progress(workflow_stages(name))')
       .eq('company_id', companyId).eq('status', 'running')
       .is('deleted_at', null).order('actual_start'),
 
     // Queued assignments
     supabase.from('production_assignments' as any)
-      .select('*, jobs(job_number,job_title,priority,required_date,customers(name)), machines(name,machine_type), users(full_name)')
+      .select('*, jobs(job_number,job_title,priority,required_date,customers(name)), machines(name,machine_type), users(full_name), job_stage_progress(workflow_stages(name))')
       .eq('company_id', companyId).eq('status', 'queued')
       .is('deleted_at', null).order('scheduled_start').limit(30),
 
@@ -48,9 +60,12 @@ export default async function ProductionFloorPage() {
 
   return (
     <div className="space-y-5">
+      <AutoRefresh />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Production Floor</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            {stage ? `Production Floor — ${STAGE_LABELS[stage] ?? 'Production'}` : 'Production Floor'}
+          </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Live machine status & job tracking</p>
         </div>
       </div>
@@ -61,6 +76,7 @@ export default async function ProductionFloorPage() {
         operators={(operatorsRes.data ?? []) as any[]}
         pendingJobs={(stagesRes.data ?? []) as any[]}
         completedToday={completedToday ?? 0}
+        stageFilter={stage}
       />
     </div>
   )

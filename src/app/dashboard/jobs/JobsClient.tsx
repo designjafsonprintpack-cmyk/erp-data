@@ -1,12 +1,13 @@
 'use client'
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Briefcase, AlertTriangle, Clock, PauseCircle, RefreshCw, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, Briefcase, AlertTriangle, Clock, PauseCircle, RefreshCw, LayoutGrid, List, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
 import JobsKanban from './JobsKanban'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -50,6 +51,30 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const [activeStatus, setActiveStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<'list' | 'kanban'>('list')
+  // Bulk selection — currently used for exporting a chosen subset. No bulk
+  // status mutation on Jobs on purpose: status moves through the stage
+  // engine, and a blind bulk status write would bypass its gating.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSelected = jobs.length > 0 && jobs.every(j => selected.has(j.id))
+  const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(jobs.map(j => j.id)))
+
+  const exportJobs = (rows: typeof jobs) => {
+    if (!rows.length) { toast.error('Nothing to export'); return }
+    exportToExcel(rows.map(j => ({
+      'Job #': j.job_number,
+      'Title': j.job_title,
+      'Customer': j.customers?.name ?? '',
+      'Status': j.status,
+      'Priority': j.priority,
+      'Quantity': j.quantity,
+      'Workflow': j.workflow_templates?.name ?? '',
+      'Order Date': j.order_date,
+      'Due Date': j.required_date ?? '',
+      'On Hold': j.is_on_hold ? 'Yes' : 'No',
+      'Repeat': j.is_repeat ? 'Yes' : 'No',
+    })), 'jobs-export')
+  }
 
   const handleKanbanStatusChange = async (jobId: string, newStatus: JobStatus) => {
     const prevJobs = jobs
@@ -101,6 +126,11 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
           <input value={search} onChange={handleSearch} placeholder="Search by job number, title…"
             className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors" />
         </div>
+        <button onClick={() => exportJobs(selected.size ? jobs.filter(j => selected.has(j.id)) : jobs)}
+          title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
+          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">
+          <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
+        </button>
         <Link href="/dashboard/jobs/new"
           className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={15} /> New Job
@@ -134,10 +164,14 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       {view === 'kanban' ? (
         <JobsKanban jobs={jobs} onStatusChange={handleKanbanStatusChange} />
       ) : (
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
         {/* Column headers */}
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          <div className="col-span-1">Job #</div>
+        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
+          <div className="col-span-1 flex items-center gap-2">
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
+              className="accent-[var(--color-accent)] cursor-pointer" title="Select all" />
+            Job #
+          </div>
           <div className="col-span-3">Title / Customer</div>
           <div className="col-span-2">Status</div>
           <div className="col-span-1">Priority</div>
@@ -161,6 +195,10 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
                 {/* Job # */}
                 <div className="col-span-1">
                   <div className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={selected.has(job.id)}
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleSelect(job.id) }}
+                      onChange={() => {}}
+                      className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
                     <span className="text-xs font-mono font-semibold text-[var(--color-accent)] group-hover:underline">{job.job_number}</span>
                     {job.is_repeat && <RefreshCw size={10} className="text-[var(--color-text-muted)]" />}
                   </div>

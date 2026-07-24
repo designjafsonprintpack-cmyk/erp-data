@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Truck, Plus, Package, CheckCircle2, MapPin, Phone,
-  ChevronDown, ChevronRight, FileText, Camera, Clock, Send, ExternalLink
+  ChevronDown, ChevronRight, FileText, Camera, Clock, Send, ExternalLink, Download
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import { getCourierTrackingLink } from '@/lib/utils/courierTracking'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 import Link from 'next/link'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
@@ -134,6 +135,51 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
     finally { setLoading(false) }
   }
 
+  /* ─── Bulk selection + export ─────────────────────────────────────────────── */
+  // Bulk Deliver reuses the exact per-row PATCH the Deliver button uses (no
+  // POD — same as clicking Deliver on each row; POD stays a separate,
+  // optional per-challan step). Only 'dispatched' rows in the selection are
+  // touched.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  const bulkDeliver = async () => {
+    const targets = dispatches.filter(d => selected.has(d.id) && d.status === 'dispatched')
+    if (!targets.length) { toast.error('No selected challans are In Transit'); return }
+    let ok = 0
+    for (const d of targets) {
+      try {
+        const res = await fetch(`/api/v1/dispatch/${d.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'deliver', status: 'delivered', notes: null }),
+        })
+        if (res.ok) ok++
+      } catch { /* counted below */ }
+    }
+    setDispatches(prev => prev.map(x => (selected.has(x.id) && x.status === 'dispatched') ? { ...x, status: 'delivered' } : x))
+    setSelected(new Set())
+    ok === targets.length ? toast.success(`${ok} challan${ok > 1 ? 's' : ''} marked Delivered`) : toast.error(`${ok}/${targets.length} updated — refresh to verify`)
+  }
+
+  const exportDispatches = () => {
+    const rows = (selected.size ? filtered.filter(d => selected.has(d.id)) : filtered).map(d => ({
+      'Challan #': d.dispatch_number,
+      'Customer': d.customers?.name ?? '',
+      'Status': d.status,
+      'Method': d.dispatch_method,
+      'Courier': d.courier_name ?? '',
+      'Tracking #': d.tracking_number ?? '',
+      'Vehicle': d.vehicle_number ?? '',
+      'Driver': d.driver_name ?? '',
+      'City': d.delivery_city ?? '',
+      'Scheduled': d.scheduled_date ?? '',
+      'Dispatched At': d.dispatched_at ?? '',
+      'Charges': d.delivery_charges,
+    }))
+    if (!rows.length) { toast.error('Nothing to export'); return }
+    exportToExcel(rows, 'dispatch-export')
+  }
+
   /* ─── Status Action ───────────────────────────────────────────────────────── */
   const applyAction = async () => {
     if (!dispatchActionModal) return
@@ -187,7 +233,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {[
           { label: 'Total Challans',  value: dispatches.length, icon: FileText, color: 'var(--color-accent)' },
           { label: 'Pending',         value: pending,           icon: Package,  color: 'var(--color-text-muted)' },
@@ -218,10 +264,26 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             </button>
           ))}
         </div>
-        <button onClick={() => setNewModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
-          <Plus size={15} /> New Challan
-        </button>
+        <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <>
+              <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
+              <button onClick={bulkDeliver}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-success)]/40 text-sm text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+                <CheckCircle2 size={13} /> Mark Delivered
+              </button>
+            </>
+          )}
+          <button onClick={exportDispatches}
+            title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
+          </button>
+          <button onClick={() => setNewModal(true)}
+            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            <Plus size={15} /> New Challan
+          </button>
+        </div>
       </div>
 
       {/* Dispatch list */}
@@ -243,6 +305,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                 <div key={d.id} id={`dispatch-${d.id}`}>
                   {/* Main row */}
                   <div className={cn('flex items-center gap-4 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleSelect(d.id)}
+                      className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
                     <button onClick={() => toggle(d.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>

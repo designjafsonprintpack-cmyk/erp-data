@@ -5,6 +5,7 @@ const quotationItemCostLineSchema = z.object({
   name: z.string().optional().nullable(),
   unit_basis: z.string().optional().nullable(),
   rate: z.union([z.string(), z.number()]).optional().nullable(),
+  per_unit_qty: z.union([z.string(), z.number()]).optional().nullable(),
   quantity: z.union([z.string(), z.number()]).optional().nullable(),
   amount: z.union([z.string(), z.number()]).optional().nullable(),
 })

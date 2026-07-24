@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bell, LogOut, User, Settings, ChevronDown, Sun, Moon } from 'lucide-react'
+import { Bell, LogOut, User, Settings, ChevronDown, Sun, Moon, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { signOut } from '@/modules/auth/services/authService'
 import { toast } from '@/components/ui/Toast'
@@ -15,9 +15,10 @@ interface HeaderProps {
   user?: { full_name: string; email: string; role: string } | null
   sidebarCollapsed?: boolean
   company?: { name: string; logo_url: string | null } | null
+  onMenuClick?: () => void
 }
 
-export function Header({ user, sidebarCollapsed, company }: HeaderProps) {
+export function Header({ user, sidebarCollapsed, company, onMenuClick }: HeaderProps) {
   const router = useRouter()
   const [profileOpen, setProfileOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
@@ -61,6 +62,15 @@ export function Header({ user, sidebarCollapsed, company }: HeaderProps) {
         'flex items-center px-4 gap-3'
       )}
     >
+      {/* Mobile menu button — opens the sidebar drawer (< md only) */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden w-9 h-9 -ml-1 flex items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0"
+        aria-label="Open menu"
+      >
+        <Menu size={19} />
+      </button>
+
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2.5 flex-shrink-0">
         {company?.logo_url ? (

@@ -7,6 +7,7 @@ import { toast } from '@/components/ui/Toast'
 import DepartmentQueueClient from './production/queue/DepartmentQueueClient'
 
 interface StatCard {
+  sub?: string
   label: string; value: string | number; iconEl: React.ReactNode; bgColor: string; card: string; badge?: string
 }
 interface MachineJob {
@@ -74,6 +75,13 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
     } catch { /* best-effort — dashboard already has plenty else on screen */ }
   }, [])
   useEffect(() => { loadCommandData(period) }, [period, loadCommandData])
+  // Alerts/trend are client-fetched, so router.refresh() alone doesn't touch
+  // them — refetch when the AutoRefresh component signals a refresh.
+  useEffect(() => {
+    const onRefresh = () => loadCommandData(period)
+    window.addEventListener('erp:refresh', onRefresh)
+    return () => window.removeEventListener('erp:refresh', onRefresh)
+  }, [period, loadCommandData])
   const maxSheets = Math.max(1, ...trend.map(t => t.sheets))
 
   const jobRow = (href: string, primary: string, secondary: string, right: string) => (
@@ -112,6 +120,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
                     {stat.badge && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-danger)] flex-shrink-0" />}
                   </div>
                   <div className="text-xl font-semibold text-[var(--color-text-primary)] leading-none tabular-nums">{stat.value}</div>
+                  {stat.sub && <div className="text-[9px] text-[var(--color-warning)] leading-tight mt-0.5 truncate">{stat.sub}</div>}
                 </button>
               )
             })}

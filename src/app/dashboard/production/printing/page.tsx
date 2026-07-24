@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard/production/floor') }
+export default function Page() { redirect('/dashboard/production/floor?stage=printing') }

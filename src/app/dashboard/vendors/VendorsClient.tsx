@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, Receipt, Wallet } from 'lucide-react'
+import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, Receipt, Wallet, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Modal } from '@/components/ui/Modal'
 
 interface Vendor {
@@ -104,15 +105,27 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vendors…"
             className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] transition-colors" />
         </div>
+        <button onClick={() => {
+            if (!filtered.length) { toast.error('Nothing to export'); return }
+            exportToExcel(filtered.map(v => ({
+              'Code': v.vendor_code, 'Name': v.name, 'Contact': v.contact_person ?? '',
+              'Email': v.email ?? '', 'Phone': v.phone ?? '', 'Mobile': v.mobile ?? '',
+              'NTN': v.ntn ?? '', 'Payment Terms (days)': v.payment_terms,
+              'Active': v.is_active ? 'Yes' : 'No',
+            })), 'vendors-export')
+          }}
+          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
+          <Download size={14} /> Export
+        </button>
         <button onClick={openNew}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
+          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> New Vendor
         </button>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
           <div className="col-span-1">Code</div>
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Contact</div>

@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search } from 'lucide-react'
+import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Modal } from '@/components/ui/Modal'
 
 interface BoardItem {
@@ -110,15 +111,28 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
             showLowOnly ? 'bg-[var(--color-warning)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
           <AlertTriangle size={14} /> Low Stock
         </button>
+        <button onClick={() => {
+            if (!filtered.length) { toast.error('Nothing to export'); return }
+            exportToExcel(filtered.map(i => ({
+              'Description': i.description, 'Board Type': i.board_types?.name ?? '',
+              'GSM': i.gsm ?? '', 'Size L': i.size_l ?? '', 'Size W': i.size_w ?? '',
+              'Current Stock': i.current_stock, 'Reserved': i.reserved_stock,
+              'Reorder Level': i.reorder_level, 'Unit Cost': i.unit_cost,
+              'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
+            })), 'board-inventory-export')
+          }}
+          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
+          <Download size={14} /> Export
+        </button>
         <button onClick={() => setAddModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
+          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> Add Item
         </button>
       </div>
 
       {/* Inventory table */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
           <div className="col-span-3">Description</div>
           <div className="col-span-2">Type / GSM</div>
           <div className="col-span-2">Size</div>

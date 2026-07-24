@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Cpu, Play, Pause, CheckCircle2, AlertTriangle, Clock, User,
   Plus, RefreshCw, Activity, MessageSquare, XCircle, Layers, ChevronDown, ChevronRight
@@ -19,6 +19,7 @@ interface Assignment {
   jobs?: { job_number: string; job_title: string; priority: string; quantity: number; required_date: string | null; customers?: { name: string } | null } | null
   machines?: { name: string; machine_type: string } | null
   users?: { full_name: string } | null
+  job_stage_progress?: { workflow_stages?: { name: string } | null } | null
 }
 interface MachineStatus {
   machine_id: string; machine_name: string; machine_type: string; machine_active: boolean
@@ -34,14 +35,28 @@ interface PendingJob {
   job_stage_progress?: { id: string; sequence_order: number; status: string; workflow_stages?: { name: string } | null }[]
 }
 
+// Keys must match machines.machine_type CHECK constraint exactly:
+// 'printing' | 'diecutting' | 'foldergluing' | 'lamination' | 'hotfoil' | 'other'
 const MACHINE_TYPE_COLORS: Record<string, string> = {
-  printing:    'var(--color-accent)',
-  die_cutting: 'var(--color-warning)',
-  lamination:  'var(--color-info)',
-  foiling:     '#a855f7',
-  folder_gluer:'var(--color-success)',
-  uv:          '#f59e0b',
-  packing:     'var(--color-text-muted)',
+  printing:     'var(--color-accent)',
+  diecutting:   'var(--color-warning)',
+  lamination:   'var(--color-info)',
+  hotfoil:      '#a855f7',
+  foldergluing: 'var(--color-success)',
+  other:        'var(--color-text-muted)',
+}
+
+// Maps the URL segment each sidebar "Production" link uses to the machine_type
+// value (for filtering machine cards) and the workflow_stages.name value (for
+// filtering active/queued jobs, since not every stage has a dedicated machine
+// type — e.g. Packing is often manual).
+const STAGE_FILTERS: Record<string, { label: string; machineType: string | null; stageName: string }> = {
+  printing:       { label: 'Printing',      machineType: 'printing',     stageName: 'Printing' },
+  lamination:     { label: 'Lamination',    machineType: 'lamination',   stageName: 'Lamination' },
+  'die-cutting':  { label: 'Die Cutting',   machineType: 'diecutting',   stageName: 'Die Cutting' },
+  'hot-foil':     { label: 'Hot Foil',      machineType: 'hotfoil',      stageName: 'Hot Foil' },
+  'folder-gluing':{ label: 'Folder Gluing', machineType: 'foldergluing', stageName: 'Folder Gluing' },
+  packing:        { label: 'Packing',       machineType: null,          stageName: 'Packing' },
 }
 
 function elapsedMins(start: string | null): number {
@@ -59,15 +74,24 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 type Tab = 'floor' | 'queue' | 'running'
 
 export default function FloorDashboardClient({
-  machines, activeJobs, queued, operators, pendingJobs, completedToday
+  machines, activeJobs, queued, operators, pendingJobs, completedToday, stageFilter
 }: {
   machines: MachineStatus[]; activeJobs: Assignment[]; queued: Assignment[]
   operators: Operator[]; pendingJobs: PendingJob[]; completedToday: number
+  stageFilter?: string
 }) {
   const [active, setActive] = useState(activeJobs)
   const [queue, setQueue]   = useState(queued)
+  // router.refresh() (AutoRefresh, every 2 min) delivers fresh props, but
+  // useState keeps its own copy after mount — sync so the refresh actually
+  // shows. Server data is authoritative at that moment; any optimistic
+  // local update it overwrites was just re-confirmed or corrected.
+  useEffect(() => { setActive(activeJobs) }, [activeJobs])
+  useEffect(() => { setQueue(queued) }, [queued])
   const [tab, setTab] = useState<Tab>('floor')
   const [loading, setLoading] = useState(false)
+
+  const filter = stageFilter ? STAGE_FILTERS[stageFilter] : undefined
 
   // Assign modal
   const [assignModal, setAssignModal] = useState(false)
@@ -85,6 +109,19 @@ export default function FloorDashboardClient({
 
   // Machine cards from floor status — all machines
   const allMachines = machines
+
+  // When a stage filter is active (arrived via a Production sidebar link),
+  // narrow what's shown without restricting what can be assigned — the
+  // Assign modal still offers every machine/job regardless of the filter.
+  const filteredMachines = filter
+    ? (filter.machineType ? allMachines.filter(m => m.machine_type === filter.machineType) : [])
+    : allMachines
+  const filteredActive = filter
+    ? active.filter(a => a.job_stage_progress?.workflow_stages?.name === filter.stageName)
+    : active
+  const filteredQueue = filter
+    ? queue.filter(a => a.job_stage_progress?.workflow_stages?.name === filter.stageName)
+    : queue
 
   const assign = async () => {
     if (!assignForm.job_id || !assignForm.machine_id) { toast.error('Job and machine are required'); return }
@@ -159,13 +196,22 @@ export default function FloorDashboardClient({
 
   return (
     <div className="space-y-4">
+      {filter && (
+        <div className="flex items-center gap-2 px-4 h-10 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm text-[var(--color-accent)]">
+          <Layers size={14} />
+          <span className="font-medium">Showing {filter.label} only</span>
+          <Link href="/dashboard/production/floor" className="ml-auto text-xs underline hover:no-underline">
+            View all stages
+          </Link>
+        </div>
+      )}
       {/* ── Stat Bar ─────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: 'Running Now',      value: active.filter(a => a.status === 'running').length, color: 'var(--color-success)', icon: Activity },
-          { label: 'Queued',           value: queue.length,      color: 'var(--color-accent)',  icon: Layers },
+          { label: 'Running Now',      value: filteredActive.filter(a => a.status === 'running').length, color: 'var(--color-success)', icon: Activity },
+          { label: 'Queued',           value: filteredQueue.length, color: 'var(--color-accent)',  icon: Layers },
           { label: 'Completed Today',  value: completedToday,    color: 'var(--color-info)',    icon: CheckCircle2 },
-          { label: 'Active Machines',  value: allMachines.filter(m => m.assignment_status === 'running').length + '/' + allMachines.length,
+          { label: 'Active Machines',  value: filteredMachines.filter(m => m.assignment_status === 'running').length + '/' + filteredMachines.length,
             color: 'var(--color-warning)', icon: Cpu },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 flex items-center gap-3">
@@ -185,12 +231,12 @@ export default function FloorDashboardClient({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {([
-            ['floor',   `Floor View (${allMachines.length})`],
-            ['running', `Running (${active.filter(a=>a.status==='running').length})`],
-            ['queue',   `Queue (${queue.length})`],
+            ['floor',   `Floor View (${filteredMachines.length})`],
+            ['running', `Running (${filteredActive.filter(a=>a.status==='running').length})`],
+            ['queue',   `Queue (${filteredQueue.length})`],
           ] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)}
-              className={cn('px-4 h-8 rounded-md text-sm font-medium border transition-all',
+              className={cn('px-4 h-9 rounded-md text-sm font-medium border transition-all',
                 tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
             </button>
@@ -198,7 +244,7 @@ export default function FloorDashboardClient({
         </div>
         <div className="flex items-center gap-2">
           <button onClick={refreshFloor} disabled={loading}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={() => setAssignModal(true)}
@@ -210,13 +256,15 @@ export default function FloorDashboardClient({
 
       {/* ── FLOOR VIEW — Machine Cards ────────────────────────────────────────── */}
       {tab === 'floor' && (
-        <div className="grid grid-cols-3 gap-4">
-          {allMachines.length === 0 ? (
-            <div className="col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-12 text-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredMachines.length === 0 ? (
+            <div className="col-span-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-12 text-center">
               <Cpu size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
-              <p className="text-sm text-[var(--color-text-muted)]">No machines configured. Add machines in Settings.</p>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                {filter ? `No ${filter.label} machines configured.` : 'No machines configured. Add machines in Settings.'}
+              </p>
             </div>
-          ) : allMachines.map(m => {
+          ) : filteredMachines.map(m => {
             const isRunning = m.assignment_status === 'running'
             const isPaused  = m.assignment_status === 'paused'
             const isQueued  = m.assignment_status === 'queued'
@@ -295,32 +343,32 @@ export default function FloorDashboardClient({
                           <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[var(--color-border-subtle)]">
                             {asgn.status === 'queued' && (
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'start' })}
-                                className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                                 <Play size={11} /> Start
                               </button>
                             )}
                             {asgn.status === 'running' && <>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'pause' })}
-                                className="flex items-center gap-1 px-2.5 h-7 rounded-md border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
                                 <Pause size={11} /> Pause
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'complete' })}
-                                className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                                 <CheckCircle2 size={11} /> Done
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'issue' })}
-                                className="flex items-center gap-1 px-2 h-7 rounded-md border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+                                className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
                                 <AlertTriangle size={11} />
                               </button>
                             </>}
                             {asgn.status === 'paused' && (
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'resume' })}
-                                className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                                 <Play size={11} /> Resume
                               </button>
                             )}
                             <button onClick={() => setActionModal({ assignment: asgn, action: 'note' })}
-                              className="flex items-center gap-1 px-2 h-7 rounded-md border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
+                              className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
                               <MessageSquare size={11} />
                             </button>
                           </div>
@@ -338,7 +386,7 @@ export default function FloorDashboardClient({
       {/* ── RUNNING TAB ──────────────────────────────────────────────────────── */}
       {tab === 'running' && (
         <AssignmentTable
-          assignments={active}
+          assignments={filteredActive}
           onAction={(a, action) => { setActionModal({ assignment: a, action }); setActionNotes(''); setActionQty('') }}
           emptyText="No jobs currently running"
           emptyIcon={<Activity size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />}
@@ -349,7 +397,7 @@ export default function FloorDashboardClient({
       {/* ── QUEUE TAB ────────────────────────────────────────────────────────── */}
       {tab === 'queue' && (
         <AssignmentTable
-          assignments={queue}
+          assignments={filteredQueue}
           onAction={(a, action) => { setActionModal({ assignment: a, action }); setActionNotes(''); setActionQty('') }}
           emptyText="Queue is empty"
           emptyIcon={<Layers size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />}
@@ -509,7 +557,8 @@ function AssignmentTable({
   }
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
+      <div className="min-w-[760px]">
       <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
         <div className="col-span-1" />
         <div className="col-span-2">Job</div>
@@ -552,28 +601,28 @@ function AssignmentTable({
                 <div className="col-span-2 flex items-center gap-1 justify-end">
                   {a.status === 'queued' && (
                     <button onClick={() => onAction(a, 'start')}
-                      className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                       <Play size={10} /> Start
                     </button>
                   )}
                   {a.status === 'running' && <>
                     <button onClick={() => onAction(a, 'pause')}
-                      className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
+                      className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
                       <Pause size={10} />
                     </button>
                     <button onClick={() => onAction(a, 'complete')}
-                      className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                       <CheckCircle2 size={10} /> Done
                     </button>
                   </>}
                   {a.status === 'paused' && (
                     <button onClick={() => onAction(a, 'resume')}
-                      className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                       <Play size={10} /> Resume
                     </button>
                   )}
                   <button onClick={() => onAction(a, 'note')}
-                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                    className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                     <MessageSquare size={10} />
                   </button>
                 </div>
@@ -588,6 +637,7 @@ function AssignmentTable({
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

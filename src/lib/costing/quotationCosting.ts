@@ -41,6 +41,10 @@ export interface DynamicCostLine {
   name: string
   unitBasis: UnitBasis
   rate: number
+  // For the per-N-boxes bases only: boxes are priced per THIS many
+  // (editable per line — Packing/Cartage/Cartage Travel). Default 1000
+  // preserves the original "per 1000" behavior. Ignored by other bases.
+  perUnitQty?: number
 }
 
 export interface CostingInput {
@@ -105,17 +109,20 @@ function steppedThousandBlocks(sheets: number): number {
 function quantityForBasis(
   basis: UnitBasis,
   grossSheetQty: number, ups: number, noOfColors: number, boxQty: number,
-  sqftPerSheet: number, wastagePercent: number
+  sqftPerSheet: number, wastagePercent: number, perUnitQty: number
 ): number {
+  // perUnitQty only applies to the per-N-boxes bases; guarded to a sane
+  // positive value so a cleared/zero input can never divide by zero.
+  const perN = perUnitQty > 0 ? perUnitQty : 1000
   switch (basis) {
     case 'per_sheet':                  return grossSheetQty
     case 'per_1000_sheets':            return steppedThousandBlocks(grossSheetQty)
     case 'per_1000_sheets_per_color':  return steppedThousandBlocks(grossSheetQty) * Math.max(noOfColors || 0, 0)
     case 'per_plate':                  return Math.max(noOfColors || 0, 0)
     case 'per_ups':                    return ups
-    case 'per_1000_boxes':             return boxQty / 1000
-    case 'per_1000_boxes_carton':      return boxQty / 1000
-    case 'per_1000_boxes_wastage':     return (boxQty + boxQty * (wastagePercent / 100)) / 1000
+    case 'per_1000_boxes':             return boxQty / perN
+    case 'per_1000_boxes_carton':      return boxQty / perN
+    case 'per_1000_boxes_wastage':     return (boxQty + boxQty * (wastagePercent / 100)) / perN
     case 'per_sqft':                   return sqftPerSheet * grossSheetQty
   }
 }
@@ -144,7 +151,7 @@ export function calculateQuotationItemCost(input: CostingInput): CostingResult {
     : grossSheetQty * (input.boardRatePerSheet || 0)
 
   const costLines: DynamicCostLineResult[] = (input.costLines || []).map(line => {
-    const quantityUsed = quantityForBasis(line.unitBasis, grossSheetQty, ups, input.noOfColors, boxQty, sqftPerSheet, wastagePercent)
+    const quantityUsed = quantityForBasis(line.unitBasis, grossSheetQty, ups, input.noOfColors, boxQty, sqftPerSheet, wastagePercent, line.perUnitQty ?? 1000)
     return { ...line, quantityUsed, amount: round2(quantityUsed * (line.rate || 0)) }
   })
   const costLinesTotal = costLines.reduce((s, l) => s + l.amount, 0)

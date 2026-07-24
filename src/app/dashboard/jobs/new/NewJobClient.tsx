@@ -2,10 +2,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Briefcase } from 'lucide-react'
+import { ArrowLeft, Save, Briefcase, History, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
+import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
+import { formatTimeAgo } from '@/lib/utils/format'
 
 interface Props {
   customers: any[]; boardTypes: any[]; paperTypes: any[]
@@ -31,6 +33,17 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
+
+  const { draftAvailable, draftSavedAt, restoreDraft, discardDraft, clearDraft } = useDraftAutosave({
+    key: 'jafson_draft_new_job',
+    value: form,
+    isBlank: (v: JobFormData) => !v.job_title?.trim() && !v.customer_id,
+  })
+  const applyRestoredDraft = () => {
+    const draft = restoreDraft()
+    if (draft) setForm(draft)
+    discardDraft()
+  }
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
 
@@ -75,6 +88,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
+      clearDraft()
       toast.success(`Job ${data.job_number} created!`)
       router.push(`/dashboard/jobs/${data.id}`)
     } catch (e: any) { toast.error(e.message || 'Failed to create job') }
@@ -83,6 +97,18 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
   return (
     <div className="space-y-5">
+      {draftAvailable && (
+        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
+          <History size={15} className="text-[var(--color-accent)] flex-shrink-0" />
+          <span className="text-[var(--color-text-primary)]">
+            You have an unsaved job draft{draftSavedAt ? ` from ${formatTimeAgo(draftSavedAt)}` : ''}.
+          </span>
+          <button onClick={applyRestoredDraft} className="ml-auto text-[var(--color-accent)] font-medium hover:underline">Restore</button>
+          <button onClick={discardDraft} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" title="Discard draft">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {/* Page header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/jobs" className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">

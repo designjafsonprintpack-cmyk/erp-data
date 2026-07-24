@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale } from 'lucide-react'
+import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
+import { exportToExcel } from '@/lib/utils/exportToExcel'
 
 interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number }
 interface PO {
@@ -84,6 +85,45 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
     } catch { toast.error('Failed') }
   }
 
+  // Bulk selection. Bulk status moves reuse the same per-row PATCH the
+  // Send/Confirm buttons already use — only rows in the correct current
+  // status are touched, the rest of the selection is skipped.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  const bulkStatus = async (from: string, to: string, label: string) => {
+    const targets = pos.filter(p => selected.has(p.id) && p.status === from)
+    if (!targets.length) { toast.error(`No selected POs are in "${from}" status`); return }
+    let ok = 0
+    for (const po of targets) {
+      try {
+        const res = await fetch(`/api/v1/purchase-orders/${po.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: to }),
+        })
+        if (res.ok) ok++
+      } catch { /* counted below */ }
+    }
+    setPOs(prev => prev.map(p => (selected.has(p.id) && p.status === from) ? { ...p, status: to } : p))
+    setSelected(new Set())
+    ok === targets.length ? toast.success(`${ok} PO${ok > 1 ? 's' : ''} ${label}`) : toast.error(`${ok}/${targets.length} updated — refresh to verify`)
+  }
+
+  const exportPOs = () => {
+    const rows = (selected.size ? filtered.filter(p => selected.has(p.id)) : filtered).map(po => ({
+      'PO #': po.po_number,
+      'Vendor': po.vendors?.name ?? '',
+      'Status': po.status,
+      'Order Date': po.order_date,
+      'Expected': po.expected_date ?? '',
+      'Items': po.purchase_order_items?.length ?? 0,
+      'Subtotal': po.subtotal,
+      'Tax': po.tax_amount,
+      'Total': po.total_amount,
+    }))
+    if (!rows.length) { toast.error('Nothing to export'); return }
+    exportToExcel(rows, 'purchase-orders-export')
+  }
+
   const receiveGoods = async () => {
     if (!receiveModal) return
     setLoading(true)
@@ -133,6 +173,24 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {selected.size > 0 && (
+            <>
+              <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
+              <button onClick={() => bulkStatus('draft', 'sent', 'marked Sent')}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-info)]/40 text-sm text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
+                <Send size={13} /> Mark Sent
+              </button>
+              <button onClick={() => bulkStatus('sent', 'confirmed', 'confirmed')}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-accent)]/40 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                <Check size={13} /> Confirm
+              </button>
+            </>
+          )}
+          <button onClick={exportPOs}
+            title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
+          </button>
           <button onClick={() => setNewVendorModal(true)}
             className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Plus size={14} /> New Vendor
@@ -160,6 +218,8 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
               return (
                 <div key={po.id}>
                   <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                    <input type="checkbox" checked={selected.has(po.id)} onChange={() => toggleSelect(po.id)}
+                      className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
                     <button onClick={() => toggle(po.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>

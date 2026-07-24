@@ -140,6 +140,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           name: line.name,
           unit_basis: line.unit_basis,
           rate: line.rate,
+          // Divisor for per-N-boxes bases (Packing/Cartage/Cartage Travel);
+          // 1000 = original behavior. Guarded so 0/blank can't be stored.
+          per_unit_qty: Number(line.per_unit_qty ?? 1000) > 0 ? Number(line.per_unit_qty ?? 1000) : 1000,
           quantity: line.quantity,
           amount: line.amount,
           sort_order: li + 1,
