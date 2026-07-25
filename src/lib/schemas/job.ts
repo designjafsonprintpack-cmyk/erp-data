@@ -26,6 +26,7 @@ export const jobSchema = z.object({
   no_of_colors: z.union([z.string(), z.number()]).optional().nullable(),
   die_number: z.string().optional().nullable(),
   grain_direction: z.string().optional().nullable(),
+  gsm: z.union([z.string(), z.number()]).optional().nullable(),
   ups: z.union([z.string(), z.number()]).optional().nullable(),
   board_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
   paper_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),

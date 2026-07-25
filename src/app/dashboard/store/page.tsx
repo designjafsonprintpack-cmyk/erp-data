@@ -11,7 +11,7 @@ export default async function StorePage() {
 
   const [mrnsRes, jobsRes, unitsRes, boardInventoryRes] = await Promise.all([
     supabase.from('material_requisitions' as any)
-      .select('*, jobs(job_number,job_title), material_requisition_items(*)', { count: 'exact' })
+      .select('*, jobs(job_number,job_title,gsm), material_requisition_items(*)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
       .order('created_at', { ascending: false }).limit(50),
     supabase.from('jobs' as any)
@@ -19,7 +19,7 @@ export default async function StorePage() {
       .is('deleted_at', null).in('status', ['new','in_progress']).order('job_number').limit(100),
     supabase.from('units' as any).select('id,name,symbol').eq('company_id', companyId).order('name'),
     supabase.from('board_inventory' as any)
-      .select('id,description,current_stock,unit_id').eq('company_id', companyId)
+      .select('id,description,current_stock,unit_id,gsm,board_type_id').eq('company_id', companyId)
       .is('deleted_at', null).eq('is_active', true).order('description'),
   ])
 

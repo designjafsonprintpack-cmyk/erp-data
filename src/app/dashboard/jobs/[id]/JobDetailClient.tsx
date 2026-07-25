@@ -9,6 +9,7 @@ import {
   MessageSquare, Layers, Activity, FileText, Pencil, Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { formatIssuedGsm, hasGsmVariance, type IssuedGsmEntry } from '@/lib/utils/jobIssuedGsm'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
@@ -32,6 +33,7 @@ interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
   wastageReasons: WastageReason[]; machines: Machine[]; wastageEntries: JobWastage[]
   companyId: string; artworks: ArtworkVersion[]
+  issuedGsm: IssuedGsmEntry[]
 }
 
 type Tab = 'overview' | 'workflow' | 'artwork' | 'timeline' | 'remarks' | 'wastage'
@@ -64,7 +66,8 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, issuedGsm }: Props) {
+  const gsmVariance = hasGsmVariance((initialJob as any).gsm, issuedGsm)
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
   const [stages, setStages] = useState(initialStages)
@@ -411,7 +414,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 { label: 'Size (L×W×H)', value: [job.size_l, job.size_w, job.size_h].filter(Boolean).join(' × ') + (job.size_l ? ' mm' : '') || '—' },
                 { label: 'Sheet Size', value: job.sheet_width_in && job.sheet_height_in ? `${job.sheet_width_in} × ${job.sheet_height_in} in` : '—' },
                 { label: 'Box Type', value: (job as any).box_types?.name || '—' },
-                { label: 'Grain Direction', value: job.grain_direction === 'long_grain' ? 'Long Grain' : job.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
+                { label: 'GSM (planned)', value: (job as any).gsm ? String((job as any).gsm) : '—' },
+                {
+                  label: 'GSM (issued)',
+                  value: issuedGsm.length === 0
+                    ? <span className="text-[var(--color-text-muted)]">Not issued yet</span>
+                    : gsmVariance
+                      ? <span className="font-semibold text-[var(--color-warning)]">{formatIssuedGsm(issuedGsm)}</span>
+                      : formatIssuedGsm(issuedGsm),
+                },
                 { label: 'Ups', value: job.ups || '—' },
                 { label: 'Sheet Qty', value: job.sheet_qty?.toLocaleString() || '—' },
                 { label: 'Quantity', value: job.quantity.toLocaleString() },

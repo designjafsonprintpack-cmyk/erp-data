@@ -8,11 +8,11 @@ import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import Link from 'next/link'
 
-interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null; board_item_id: string | null }
-interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string } | null; material_requisition_items?: MRNItem[] }
+interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null; board_item_id: string | null; notes?: string | null }
+interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string; gsm?: number | null } | null; material_requisition_items?: MRNItem[] }
 interface Job { id: string; job_number: string; job_title: string }
 interface Unit { id: string; name: string; symbol: string }
-interface BoardInventoryItem { id: string; description: string; current_stock: number; unit_id: string | null }
+interface BoardInventoryItem { id: string; description: string; current_stock: number; unit_id: string | null; gsm?: number | null; board_type_id?: string | null }
 
 const STATUS_CFG = {
   pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
@@ -37,6 +37,9 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
   const [lineItems, setLineItems] = useState([{ ...EMPTY_ITEM }])
   const [issueBoardLinks, setIssueBoardLinks] = useState<Record<string, string>>({})
   const [issueQtys, setIssueQtys] = useState<Record<string, string>>({})
+  // Reason captured per line when the stock being issued is a different GSM
+  // than the job planned. Never blocks the issue — it only records the why.
+  const [issueNotes, setIssueNotes] = useState<Record<string, string>>({})
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev)
@@ -97,6 +100,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
         id: item.id,
         quantity_issued: parseFloat(issueQtys[item.id] ?? String(item.quantity_required)),
         board_item_id: issueBoardLinks[item.id] ?? item.board_item_id ?? null,
+        notes: issueNotes[item.id] || null,
       }))
       const res = await fetch(`/api/v1/store/${issueModal.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -108,6 +112,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
       setIssueModal(null)
       setIssueQtys({})
       setIssueBoardLinks({})
+      setIssueNotes({})
       toast.success('Materials issued')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -305,19 +310,30 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
             </>
           }>
           <div className="space-y-3">
-            {(issueModal.material_requisition_items || []).map(item => (
-              <div key={item.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
+            {(issueModal.material_requisition_items || []).map(item => {
+              const selectedBoardId = issueBoardLinks[item.id] ?? item.board_item_id ?? ''
+              const selectedBoard = boardInventory.find(b => b.id === selectedBoardId)
+              const plannedGsm = issueModal.jobs?.gsm != null ? Number(issueModal.jobs.gsm) : null
+              const issuedGsm = selectedBoard?.gsm != null ? Number(selectedBoard.gsm) : null
+              // Soft only — the shop substitutes weights on purpose (cost, or
+              // whatever is on the floor). We record it, we don't prevent it.
+              const gsmMismatch = plannedGsm != null && issuedGsm != null && plannedGsm !== issuedGsm
+              return (
+              <div key={item.id} className="space-y-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
                 <div className="flex-1 min-w-0 md:min-w-[140px]">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.material_name}</p>
                   <p className="text-xs text-[var(--color-text-muted)]">Required: {item.quantity_required} | Issued so far: {item.quantity_issued}</p>
                 </div>
                 <select
                   className="h-11 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full md:w-auto md:max-w-[180px]"
-                  value={issueBoardLinks[item.id] ?? item.board_item_id ?? ''}
+                  value={selectedBoardId}
                   onChange={e => setIssueBoardLinks(prev => ({ ...prev, [item.id]: e.target.value }))}>
                   <option value="">Not tracked in inventory</option>
                   {boardInventory.map(b => (
-                    <option key={b.id} value={b.id}>{b.description} ({b.current_stock} in stock)</option>
+                    <option key={b.id} value={b.id}>
+                      {b.description}{b.gsm ? ` — ${b.gsm} gsm` : ''} ({b.current_stock} in stock)
+                    </option>
                   ))}
                 </select>
                 <input type="number"
@@ -326,7 +342,20 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                   onChange={e => setIssueQtys(prev => ({ ...prev, [item.id]: e.target.value }))}
                   placeholder="Qty" />
               </div>
-            ))}
+              {gsmMismatch && (
+                <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 space-y-2">
+                  <p className="text-xs text-[var(--color-text-primary)]">
+                    Job planned <span className="font-semibold">{plannedGsm} gsm</span>, this stock is{' '}
+                    <span className="font-semibold">{issuedGsm} gsm</span>. You can still issue it — please note why.
+                  </p>
+                  <input className={inputCls} value={issueNotes[item.id] ?? ''}
+                    onChange={e => setIssueNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    placeholder="Reason (e.g. cost saving approved by…)" />
+                </div>
+              )}
+              </div>
+              )
+            })}
             <p className="text-xs text-[var(--color-text-muted)]">
               Link an item to inventory to auto-deduct stock when issued. Leave unlinked for materials you don&apos;t track (ink, glue, etc.).
             </p>

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
+import { getIssuedGsm, formatIssuedGsm, hasGsmVariance } from '@/lib/utils/jobIssuedGsm'
 
 /** Same extension set as isPreviewable() in ArtworkThumb.tsx, duplicated
  *  because this page renders plain HTML/CSS (no Tailwind, no client
@@ -26,6 +27,12 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     : { data: null }
   const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
 
+  // Planned vs actually-issued GSM. The shop floor needs the planned figure;
+  // whoever reconciles cost afterwards needs to see when they diverged.
+  const issuedGsm = companyId ? await getIssuedGsm(supabase, companyId, params.id) : []
+  const issuedGsmText = formatIssuedGsm(issuedGsm)
+  const gsmVariance = hasGsmVariance(j.gsm, issuedGsm)
+
   // Latest artwork version's thumbnail, if there is one and it's an image.
   // Print cards are single-job pages, so this is one query and (at most) one
   // signed URL — no batching needed the way a list of jobs would.
@@ -47,7 +54,8 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
     { label: 'Sheet Size', value: j.sheet_width_in && j.sheet_height_in ? `${j.sheet_width_in} × ${j.sheet_height_in} in` : '—' },
     { label: 'Box Type', value: j.box_types?.name || '—' },
-    { label: 'Grain Direction', value: j.grain_direction === 'long_grain' ? 'Long Grain' : j.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
+    { label: 'GSM (planned)', value: j.gsm ? String(j.gsm) : '—' },
+    { label: 'GSM (issued)', value: issuedGsmText || 'Not issued yet', flag: gsmVariance },
     { label: 'Ups', value: j.ups || '—' },
     { label: 'Sheet Qty', value: j.sheet_qty?.toLocaleString() || '—' },
     { label: 'Quantity', value: j.quantity?.toLocaleString() || '—' },
@@ -158,7 +166,10 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               {specs.map(s => (
                 <div key={s.label} className="field">
                   <div className="field-label">{s.label}</div>
-                  <div className="field-value">{s.value}</div>
+                  <div className="field-value">
+                    {s.value}
+                    {(s as any).flag ? ' \u26a0 differs from planned' : ''}
+                  </div>
                 </div>
               ))}
             </div>

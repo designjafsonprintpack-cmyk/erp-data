@@ -66,6 +66,10 @@ const issueItemSchema = z.object({
   quantity_issued: z.union([z.string(), z.number()]).optional(),
   board_item_id: z.string().uuid().optional().nullable(),
   material_type: z.string().optional().nullable(),
+  // Free-text reason, written when the stock issued is a different GSM than
+  // the job planned. Substituting 290 for a planned 300 is a legitimate cost
+  // decision, not an error — but it has to leave a trace.
+  notes: z.string().optional().nullable(),
 })
 
 // PATCH branches on 'approve'/'issue' actions or falls through to

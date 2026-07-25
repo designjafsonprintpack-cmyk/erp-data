@@ -10,7 +10,7 @@ interface Props {
   job: any
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
-  salesOrders: any[]
+  salesOrders: any[]; stockGsm: any[]
 }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
@@ -27,7 +27,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows }: Props) {
+export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, stockGsm }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({
     customer_id: job.customer_id || '', job_title: job.job_title || '', description: job.description || '',
@@ -38,6 +38,7 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
     sheet_height_in: job.sheet_height_in != null ? String(job.sheet_height_in) : '',
     box_type_id: job.box_type_id || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
     die_number: job.die_number || '', grain_direction: job.grain_direction || '', ups: String(job.ups ?? ''),
+    gsm: job.gsm != null ? String(job.gsm) : '',
     board_type_id: job.board_type_id || '', paper_type_id: job.paper_type_id || '',
     lamination_type_id: job.lamination_type_id || '', uv_coating: job.uv_coating || '',
     foil_type_id: job.foil_type_id || '', special_finishing: job.special_finishing || '', pasting: job.pasting || '',
@@ -48,6 +49,31 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
   const [loading, setLoading] = useState(false)
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
+
+  // Mirrors New Job. GSM is deliberately not set from the material — it is
+  // a property of the stock item, offered from inventory via gsmOptions.
+  const selectMaterial = (v: string) => {
+    const isBoard = v.startsWith('board:')
+    const isPaper = v.startsWith('paper:')
+    const id = isBoard || isPaper ? v.slice(v.indexOf(':') + 1) : ''
+    setForm(p => ({
+      ...p,
+      board_type_id: isBoard ? id : '',
+      paper_type_id: isPaper ? id : '',
+    }))
+  }
+
+  // GSM options come from real board_inventory rows for the selected board
+  // type — one board type is stocked in many weights, so board_types.gsm
+  // can't be the source. Free entry stays allowed via <datalist>: the shop
+  // may deliberately run a weight that isn't in stock yet.
+  const gsmOptions = Array.from(new Set(
+    (stockGsm as any[])
+      .filter(r => !form.board_type_id || r.board_type_id === form.board_type_id)
+      .map(r => Number(r.gsm))
+      .filter(g => g > 0)
+  )).sort((a, b) => a - b)
+
 
   const save = async () => {
     if (!form.job_title) { toast.error('Job title is required'); return }
@@ -144,33 +170,6 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
             <input type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Width (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Height (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Box Type</label>
-            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
-              <option value="">Not specified</option>
-              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Grain Direction</label>
-            <select className={inputCls} value={form.grain_direction} onChange={e => set('grain_direction', e.target.value)}>
-              <option value="">Not specified</option>
-              <option value="long_grain">Long Grain</option>
-              <option value="short_grain">Short Grain</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
-          </div>
-          <div className="space-y-1.5">
             <label className={labelCls}>Ups <span className="text-xs text-[var(--color-text-muted)]">(impressions/sheet)</span></label>
             <input type="number" className={inputCls} value={form.ups} onChange={e => set('ups', e.target.value)} placeholder="e.g. 8" min="1" />
             {form.ups && parseInt(form.ups) > 0 && form.quantity && (
@@ -180,23 +179,18 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
             )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>No. of Colors</label>
-            <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
+            <label className={labelCls}>Sheet Width (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Die Number</label>
-            <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
+            <label className={labelCls}>Sheet Height (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Board / Paper Type</label>
             <select className={inputCls}
               value={form.board_type_id ? `board:${form.board_type_id}` : form.paper_type_id ? `paper:${form.paper_type_id}` : ''}
-              onChange={e => {
-                const v = e.target.value
-                if (v.startsWith('board:')) { set('board_type_id', v.slice(6)); set('paper_type_id', '') }
-                else if (v.startsWith('paper:')) { set('paper_type_id', v.slice(6)); set('board_type_id', '') }
-                else { set('board_type_id', ''); set('paper_type_id', '') }
-              }}>
+              onChange={e => selectMaterial(e.target.value)}>
               <option value="">Select…</option>
               <optgroup label="Board Types">
                 {boardTypes.map(b => <option key={b.id} value={`board:${b.id}`}>{b.name}</option>)}
@@ -204,6 +198,36 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
               <optgroup label="Paper Types">
                 {paperTypes.map(p => <option key={p.id} value={`paper:${p.id}`}>{p.name}</option>)}
               </optgroup>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>GSM</label>
+            <input type="number" className={inputCls} list="edit-gsm-options" value={form.gsm}
+              onChange={e => set('gsm', e.target.value)} placeholder="e.g. 300" min="1" />
+            <datalist id="edit-gsm-options">
+              {gsmOptions.map(g => <option key={g} value={g} />)}
+            </datalist>
+            {gsmOptions.length > 0 && (
+              <p className="text-xs text-[var(--color-text-muted)]">In stock: {gsmOptions.join(', ')}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>No. of Colors</label>
+            <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
+            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Die Number</label>
+            <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Box Type</label>
+            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+              <option value="">Not specified</option>
+              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         </div>

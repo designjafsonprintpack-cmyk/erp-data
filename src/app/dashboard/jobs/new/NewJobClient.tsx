@@ -12,7 +12,7 @@ import { formatTimeAgo } from '@/lib/utils/format'
 interface Props {
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
-  salesOrders: any[]; repeatableJobs: any[]; defaultWorkflowId: string
+  salesOrders: any[]; repeatableJobs: any[]; stockGsm: any[]; defaultWorkflowId: string
 }
 
 type JobMode = 'new' | 'repeat'
@@ -33,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, repeatableJobs, defaultWorkflowId }: Props) {
+export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, repeatableJobs, stockGsm, defaultWorkflowId }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
@@ -68,6 +68,32 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
 
+  // Board / Paper is one combined select ("board:<id>" | "paper:<id>").
+  // Choosing one does NOT set GSM: GSM belongs to the stock item, not the
+  // board type, so it is offered from real inventory instead (see gsmOptions).
+  const selectMaterial = (v: string) => {
+    const isBoard = v.startsWith('board:')
+    const isPaper = v.startsWith('paper:')
+    const id = isBoard || isPaper ? v.slice(v.indexOf(':') + 1) : ''
+    setForm(p => ({
+      ...p,
+      board_type_id: isBoard ? id : '',
+      paper_type_id: isPaper ? id : '',
+    }))
+  }
+
+  // GSM options come from real board_inventory rows for the selected board
+  // type — one board type is stocked in many weights, so board_types.gsm
+  // can't be the source. Free entry stays allowed via <datalist>: the shop
+  // may deliberately run a weight that isn't in stock yet.
+  const gsmOptions = Array.from(new Set(
+    (stockGsm as any[])
+      .filter(r => !form.board_type_id || r.board_type_id === form.board_type_id)
+      .map(r => Number(r.gsm))
+      .filter(g => g > 0)
+  )).sort((a, b) => a - b)
+
+
   // Fills job fields from a Sales Order line item — used both when a linked
   // SO has exactly one item (auto-applied) and when the person picks one
   // from the line-item selector for a multi-item SO. Fields stay editable
@@ -83,6 +109,8 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       quantity: item.quantity != null ? String(item.quantity) : p.quantity,
       no_of_colors: item.no_of_colors != null ? String(item.no_of_colors) : p.no_of_colors,
       board_type_id: item.board_type_id || p.board_type_id,
+      // The GSM the quotation was priced on, carried through the sales order.
+      gsm: item.gsm != null ? String(item.gsm) : p.gsm,
     }))
   }
 
@@ -350,12 +378,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <label className={labelCls}>Board / Paper Type</label>
             <select className={inputCls}
               value={form.board_type_id ? `board:${form.board_type_id}` : form.paper_type_id ? `paper:${form.paper_type_id}` : ''}
-              onChange={e => {
-                const v = e.target.value
-                if (v.startsWith('board:')) { set('board_type_id', v.slice(6)); set('paper_type_id', '') }
-                else if (v.startsWith('paper:')) { set('paper_type_id', v.slice(6)); set('board_type_id', '') }
-                else { set('board_type_id', ''); set('paper_type_id', '') }
-              }}>
+              onChange={e => selectMaterial(e.target.value)}>
               <option value="">Select…</option>
               <optgroup label="Board Types">
                 {boardTypes.map(b => <option key={b.id} value={`board:${b.id}`}>{b.name}</option>)}
@@ -366,30 +389,33 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Box Type</label>
-            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
-              <option value="">Not specified</option>
-              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+            <label className={labelCls}>GSM</label>
+            <input type="number" className={inputCls} list="job-gsm-options" value={form.gsm}
+              onChange={e => set('gsm', e.target.value)} placeholder="e.g. 300" min="1" />
+            <datalist id="job-gsm-options">
+              {gsmOptions.map(g => <option key={g} value={g} />)}
+            </datalist>
+            {gsmOptions.length > 0 && (
+              <p className="text-xs text-[var(--color-text-muted)]">In stock: {gsmOptions.join(', ')}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>No. of Colors</label>
             <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
           </div>
           <div className="space-y-1.5">
+            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
+            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+          </div>
+          <div className="space-y-1.5">
             <label className={labelCls}>Die Number</label>
             <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Grain Direction</label>
-            <select className={inputCls} value={form.grain_direction} onChange={e => set('grain_direction', e.target.value)}>
+            <label className={labelCls}>Box Type</label>
+            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
               <option value="">Not specified</option>
-              <option value="long_grain">Long Grain</option>
-              <option value="short_grain">Short Grain</option>
+              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         </div>

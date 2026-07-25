@@ -63,6 +63,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(String(body.no_of_colors))
   if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null
   if (body.ups !== undefined) updateData.ups = body.ups ? parseInt(String(body.ups)) : null
+  if (body.gsm !== undefined) updateData.gsm = body.gsm ? parseFloat(String(body.gsm)) : null
 
   // Sheet Qty = ceil(Quantity / Ups) — recompute whenever either input changes,
   // using whichever value wasn't part of this particular update.

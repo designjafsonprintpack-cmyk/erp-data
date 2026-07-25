@@ -102,8 +102,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         }
       }
 
+      const itemUpdate: Record<string, any> = { quantity_issued: newQtyIssued, board_item_id: boardItemId }
+      // Only overwrite the note when one was actually supplied, so re-issuing
+      // a partial batch doesn't wipe the reason recorded on the first pass.
+      if (item.notes != null && String(item.notes).trim() !== '') itemUpdate.notes = String(item.notes).trim()
+
       await supabase.from('material_requisition_items' as any)
-        .update({ quantity_issued: newQtyIssued, board_item_id: boardItemId })
+        .update(itemUpdate)
         .eq('id', item.id).eq('company_id', companyId)
     }
 

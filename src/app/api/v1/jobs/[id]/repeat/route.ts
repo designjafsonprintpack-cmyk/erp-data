@@ -65,6 +65,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     sheet_height_in:      orig.sheet_height_in,
     box_type_id:          orig.box_type_id,
     grain_direction:      orig.grain_direction,
+    gsm:                  orig.gsm,
     quantity:             newQty,
     ups:                  orig.ups,
     sheet_qty:            orig.ups && orig.ups > 0 ? Math.ceil(newQty / orig.ups) : null,

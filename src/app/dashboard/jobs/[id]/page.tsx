@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import JobDetailClient from './JobDetailClient'
+import { getIssuedGsm } from '@/lib/utils/jobIssuedGsm'
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -38,6 +39,9 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (!jobRes.data) notFound()
 
+  // What the store actually issued, as opposed to what the job planned.
+  const issuedGsm = await getIssuedGsm(supabase, companyId, params.id)
+
   return (
     <JobDetailClient
       job={jobRes.data as any}
@@ -49,6 +53,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       wastageEntries={(wastageRes.data ?? []) as any[]}
       companyId={companyId}
       artworks={(artworksRes.data ?? []) as any[]}
+      issuedGsm={issuedGsm}
     />
   )
 }

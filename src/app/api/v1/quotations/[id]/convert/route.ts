@@ -71,6 +71,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         board_type_id: item.board_type_id,
         box_type_id: item.box_type_id,
         no_of_colors: item.no_of_colors,
+        gsm: item.board_gsm,
         lamination_type_id: item.lamination_type_id,
         unit_price: item.unit_price, subtotal: item.subtotal,
         notes: item.notes, sort_order: item.sort_order,

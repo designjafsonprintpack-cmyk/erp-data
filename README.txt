@@ -1,57 +1,112 @@
-JAFSON PRINT ERP — UI ORDER BATCH (Jul 26, 2026)
-Built against GitHub commit 5c4844f "changes" — includes Stage 1 + Stage 2.
+JAFSON PRINT ERP — GSM DONE PROPERLY (v3)            Jul 26, 2026
+Built against GitHub commit 5c4844f.
 
-NO SQL MIGRATION REQUIRED. Every column used already exists (migration 086).
+*** THIS ZIP REPLACES BOTH EARLIER ZIPS ***
+  jafson-erp-ui-order-batch.zip      (v1)
+  jafson-erp-ui-order-batch-v2.zip   (v2)
+Everything they contained is in here. Extract THIS one only.
 
-FILES (5) — extract from repo root, overwrite:
-  src/app/dashboard/DashboardPanel.tsx
-  src/app/dashboard/quotations/QuotationFormClient.tsx
-  src/app/dashboard/jobs/new/NewJobClient.tsx
-  src/app/dashboard/jobs/new/page.tsx
-  src/app/api/v1/jobs/[id]/repeat/route.ts
+>>> RUN BOTH MIGRATIONS FIRST, IN ORDER <<<
+    1. supabase/migrations/087_jobs_gsm.sql
+    2. supabase/migrations/088_sales_order_items_gsm.sql
+    Both are additive (ADD COLUMN IF NOT EXISTS) — safe to re-run.
+    If 087 was already run, running it again does nothing.
 
-SUPERSEDES: jafson-erp-dashboard-panel-order.zip (Jul 25). That zip was never
-applied — its change is included here. Do not extract the old one afterwards.
+===========================================================================
+WHY THIS VERSION EXISTS
+===========================================================================
+v2 pulled the job's GSM from board_types.gsm. That was wrong, and you were
+right to catch it: one board type is stocked in many weights, so a single
+GSM on the board type row can never be correct. That autofill has been
+removed entirely.
 
----------------------------------------------------------------------------
-1. DASHBOARD PANEL ORDER
-   Row 2 is now  Recent Jobs | Machines | Alerts  (was Machines first).
-   File: DashboardPanel.tsx. Panels moved as whole blocks — no logic touched.
+GSM is a property of the STOCK ITEM. Your board_inventory table already
+models this correctly — every row has its own gsm, sheet size, stock and
+rate. So that is where GSM now comes from.
 
-2. QUOTATION — BOX TYPE MOVED OUT OF COSTING
-   Box Type is now a line-item column, after Colors and before Board Type.
-   Removed from the Cost calculator panel.
-   The line-item table changed from a 12-unit grid to 9 explicit fractional
-   tracks, because a 9th column could not fit in 12 integer units without
-   squeezing Description. Header and rows share one constant (lineGridCls) —
-   if you ever add a column, edit that one line and both stay aligned.
-   Existing quotations are unaffected: same box_type_id field, same save path.
+===========================================================================
+THE THREE GSM VALUES
+===========================================================================
+QUOTED   quotation_items.board_gsm — what the price was built on.
+         Frozen. Nothing downstream ever writes back to it.
 
-3. NEW JOB — PRODUCT SPECIFICATIONS ORDER
-   Row 1:  Length (mm)      Width (mm)        Height (mm)         Ups
-   Row 2:  Sheet Width (in) Sheet Height (in) Board / Paper Type  Box Type
-   Row 3:  Quantity         No. of Colors     Die Number          Grain Direction
-   Fields moved only — every input, handler and validation is unchanged.
+PLANNED  jobs.gsm — what the job says to run.
+         Filled from the quoted GSM when the job comes from a sales order,
+         otherwise chosen from the weights actually in stock.
 
-4. NEW / REPEAT JOB TOGGLE  (answers "new ya repeat kaise karein")
-   New Job page now opens with a segmented toggle: [New Job] [Repeat Job].
-   Repeat mode gives you: a searchable picker of the last 200 jobs (search by
-   job number, title, customer or die number), a summary card showing what
-   will be copied, plus Quantity / Required Date / Notes / reuse-artwork.
-   It POSTs to the EXISTING /api/v1/jobs/[id]/repeat endpoint — no duplicated
-   logic. The old "Repeat Job" button on the Job Detail page still works and
-   is unchanged; this is simply a second, more discoverable way in.
+ACTUAL   Not stored, and not typed by anyone. Derived from the MRN: the
+         requisition line points at a board_inventory row, and that row
+         already carries the real GSM. Issue 290 gsm board and the system
+         knows 290 ran, without anybody re-entering it.
 
-5. BUG FIX — REPEAT JOB WAS LOSING UPS
-   /api/v1/jobs/[id]/repeat did not copy ups, grain_direction or sheet_qty.
-   Since Sheet Qty = ceil(Box Qty / Ups) and Ups is manual-entry only, every
-   repeat job arrived at Planning with a blank Ups and had to be re-entered.
-   Now all three carry over, and sheet_qty is recomputed from the repeat's own
-   quantity (not copied blindly, since the repeat may be a different qty).
-   This matches what QC Reprint already did correctly.
+Your 300 / 300 / 290 case is now three separate readable records instead of
+one number that quietly loses the argument.
 
-VERIFIED: npx tsc --noEmit = 0 errors. npm run build = compiled successfully.
-Plus scripted assertions on panel order, column order and field order.
+===========================================================================
+WHAT CHANGED
+===========================================================================
+1. JOB GSM FIELD — no longer guessed from the board type. It now offers the
+   real weights that exist in board_inventory for the selected board type
+   ("In stock: 250, 280, 300"). You can still type any value — the shop may
+   run a weight that isn't stocked yet. Nothing to maintain on the board
+   type master; the list builds itself from stock.
 
-DEPLOY: extract → npm run dev (check the 4 screens) → npm run build →
-GitHub Desktop commit + push → Vercel.
+2. QUOTED GSM NOW REACHES THE JOB — migration 088 adds
+   sales_order_items.gsm. Converting a quotation copies board_gsm onto the
+   sales order line, and a job created from that line starts on the GSM
+   that was actually priced. Previously this was dropped silently.
+   Historical rows stay blank on purpose — backfilling would have invented
+   a "quoted GSM" for old orders that may have run on something else.
+
+3. PLANNED vs ISSUED, VISIBLE — Job Detail and the printed Job Card both
+   now show:
+       GSM (planned)   300
+       GSM (issued)    290     <- highlighted when it differs
+   Issued shows "Not issued yet" until the store issues board.
+
+4. GSM SUBSTITUTION IS RECORDED, NOT BLOCKED — in Store > Issue Materials,
+   the stock picker now shows each item's GSM, and if you pick a weight
+   that differs from the job's plan you get a warning and a reason box:
+       "Job planned 300 gsm, this stock is 290 gsm. You can still issue it
+        — please note why."
+   The issue is never prevented. The reason is saved on the requisition
+   line, so months later you can still see who decided and why.
+   This matches how the board stock check already behaves — soft warning,
+   because the shop legitimately substitutes.
+
+5. THE PLANNED VALUE IS NEVER OVERWRITTEN. Issuing 290 does not rewrite the
+   job's 300. What was promised and what was done stay separate records —
+   that is the whole point, and it is what makes the costing variance and
+   any future customer question answerable.
+
+===========================================================================
+ALSO IN THIS ZIP (from v1 / v2, unchanged)
+===========================================================================
+- Dashboard row 2: Recent Jobs | Machines | Alerts
+- Quotation: Box Type on the line item, after Colors, before Board Type
+- New Job spec order: L / W / H / Ups · Sheet W / Sheet H / Board / GSM ·
+  Colors / Quantity / Die Number / Box Type  (Edit Job matches)
+- Grain Direction removed from the forms; DB column kept, not dropped
+- New / Repeat toggle on New Job, with searchable parent-job picker
+- Repeat bug fix: ups, grain_direction and sheet_qty now carried over
+
+===========================================================================
+FILES (24) — extract from repo root
+===========================================================================
+NEW:
+  supabase/migrations/087_jobs_gsm.sql
+  supabase/migrations/088_sales_order_items_gsm.sql
+  src/lib/utils/jobIssuedGsm.ts
+CHANGED: 21 files across api/, dashboard/, print/, schemas/, types/
+
+VERIFIED: npx tsc --noEmit = 0 errors. npm run build = compiled
+successfully. 22 scripted assertions covering the GSM source, the quoted
+chain, the planned/issued display, and that the store warning does not
+block issuing.
+
+DEPLOY ORDER:
+  1. Run 087 then 088 in Supabase
+  2. Extract this zip over the repo root
+  3. npm run dev — check: New Job GSM list, a Job Card, Store > Issue
+  4. npm run build
+  5. GitHub Desktop commit + push

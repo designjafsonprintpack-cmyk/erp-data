@@ -53,6 +53,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       sheet_height_in:      origJob.sheet_height_in,
       box_type_id:          origJob.box_type_id,
       grain_direction:      origJob.grain_direction,
+      gsm:                  origJob.gsm,
       quantity:             req_.quantity,
       ups:                  origJob.ups,
       sheet_qty:            origJob.ups && origJob.ups > 0 ? Math.ceil(req_.quantity / origJob.ups) : null,

@@ -4066,6 +4066,7 @@ export type Database = {
           die_number: string | null
           foil_type_id: string | null
           grain_direction: string | null
+          gsm: number | null
           hold_notes: string | null
           hold_reason_id: string | null
           hold_started_at: string | null
@@ -4121,6 +4122,7 @@ export type Database = {
           die_number?: string | null
           foil_type_id?: string | null
           grain_direction?: string | null
+          gsm?: number | null
           hold_notes?: string | null
           hold_reason_id?: string | null
           hold_started_at?: string | null
@@ -4176,6 +4178,7 @@ export type Database = {
           die_number?: string | null
           foil_type_id?: string | null
           grain_direction?: string | null
+          gsm?: number | null
           hold_notes?: string | null
           hold_reason_id?: string | null
           hold_started_at?: string | null
@@ -6977,6 +6980,7 @@ export type Database = {
           lamination_type_id: string | null
           line_no: number
           no_of_colors: number | null
+          gsm: number | null
           notes: string | null
           product_desc: string
           quantity: number
@@ -7003,6 +7007,7 @@ export type Database = {
           lamination_type_id?: string | null
           line_no?: number
           no_of_colors?: number | null
+          gsm?: number | null
           notes?: string | null
           product_desc: string
           quantity?: number
@@ -7029,6 +7034,7 @@ export type Database = {
           lamination_type_id?: string | null
           line_no?: number
           no_of_colors?: number | null
+          gsm?: number | null
           notes?: string | null
           product_desc?: string
           quantity?: number

@@ -16,16 +16,21 @@ export default async function EditJobPage({ params }: { params: { id: string } }
   const role = await getAppRole(user, supabase)
   if (role !== 'superadmin') redirect(`/dashboard/jobs/${params.id}`)
 
-  const [jobRes, customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders] = await Promise.all([
+  const [jobRes, customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, stockGsm] = await Promise.all([
     supabase.from('jobs' as any).select('*, customers(name,customer_code), sales_orders(so_number)').eq('id', params.id).eq('company_id', companyId).single(),
     supabase.from('customers' as any).select('id,name,customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
-    supabase.from('board_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('board_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('box_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
-    supabase.from('paper_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('paper_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('workflow_templates' as any).select('id,name,is_default').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('sales_orders' as any).select('id,so_number,customers(name)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
+    // GSM options come from real stock rows, not from board_types.gsm — one
+    // board type is stocked in many weights, so the type can't carry one.
+    supabase.from('board_inventory' as any)
+      .select('board_type_id,gsm').eq('company_id', companyId)
+      .is('deleted_at', null).eq('is_active', true).not('gsm', 'is', null),
   ])
 
   if (jobRes.error || !jobRes.data) notFound()
@@ -41,6 +46,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
       foilTypes={(foilTypes.data ?? []) as any[]}
       workflows={(workflows.data ?? []) as any[]}
       salesOrders={(salesOrders.data ?? []) as any[]}
+      stockGsm={(stockGsm.data ?? []) as any[]}
     />
   )
 }
