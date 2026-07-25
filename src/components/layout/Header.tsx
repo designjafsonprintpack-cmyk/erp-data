@@ -104,28 +104,31 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
       </div>
 
       {/* Logo */}
-      <Link href="/dashboard" className="flex items-center gap-2.5 flex-shrink-0" aria-label="Go to dashboard">
+      <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0" aria-label="Go to dashboard">
         {company?.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local asset
-          <img src={company.logo_url} alt={company?.name || 'Company logo'} className="w-7 h-7 rounded-md object-contain bg-[var(--color-bg-elevated)]" />
+          <img src={company.logo_url} alt={company?.name || 'Company logo'} className="w-7 h-7 rounded-md object-contain bg-[var(--color-bg-elevated)] flex-shrink-0" />
         ) : (
-          <div className="w-7 h-7 rounded-md bg-[var(--color-accent)] flex items-center justify-center">
+          <div className="w-7 h-7 rounded-md bg-[var(--color-accent)] flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">JP</span>
           </div>
         )}
-        <span className="text-sm font-semibold text-[var(--color-text-primary)] hidden md:block truncate max-w-[180px]">
+        <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate max-w-[120px] md:max-w-[180px]">
           {company?.name || 'Jafson Print ERP'}
         </span>
       </Link>
 
       {/* Search — inline field at md+, icon-only trigger below (a 150px search
           box on a phone is a worse affordance than an icon) */}
-      <div className="flex-1 min-w-0 flex justify-end md:justify-start md:max-w-md md:mx-4">
+      <div className="flex-1 min-w-0 flex justify-end md:justify-start md:max-w-md xl:max-w-lg md:mx-4">
         <GlobalSearch />
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+      {/* Right side — ml-auto pins this group to the right edge. Without it
+          the capped search box is the only flex-grow item, so every pixel of
+          leftover width collected to the RIGHT of these controls and they sat
+          stranded mid-header on a wide screen. */}
+      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0 ml-auto">
         {/* Date/Time */}
         <div className="hidden xl:flex flex-col items-end">
           <span className="text-xs text-[var(--color-text-primary)] font-medium">{timeStr}</span>

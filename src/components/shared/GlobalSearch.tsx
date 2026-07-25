@@ -106,7 +106,7 @@ export function GlobalSearch() {
       </button>
       <button onClick={() => setOpen(true)}
         className={cn(
-          'hidden md:flex items-center gap-2 px-3 h-8 rounded-md border w-full max-w-md',
+          'hidden md:flex items-center gap-2 px-3 h-8 rounded-md border w-full',
           'border-[var(--color-border)] bg-[var(--color-bg-elevated)]',
           'text-sm text-[var(--color-text-muted)] hover:border-[var(--color-accent)]',
           'transition-colors duration-150'
