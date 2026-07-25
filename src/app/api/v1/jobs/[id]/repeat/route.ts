@@ -42,6 +42,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     p_document_type: 'JOB',
   })
 
+  // Resolved up front because sheet_qty is derived from it (Sheet Qty =
+  // ceil(Box Qty / Ups)) — the repeat may carry a different quantity than
+  // the parent, so the parent's stored sheet_qty can't just be copied.
+  const newQty = quantity ? parseFloat(String(quantity)) : orig.quantity
+
   // Create repeat job — copy all specs from original
   const { data: newJob, error: createErr } = await supabase.from('jobs' as any).insert({
     company_id:           companyId,
@@ -59,7 +64,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     sheet_width_in:       orig.sheet_width_in,
     sheet_height_in:      orig.sheet_height_in,
     box_type_id:          orig.box_type_id,
-    quantity:             quantity ? parseFloat(String(quantity)) : orig.quantity,
+    grain_direction:      orig.grain_direction,
+    quantity:             newQty,
+    ups:                  orig.ups,
+    sheet_qty:            orig.ups && orig.ups > 0 ? Math.ceil(newQty / orig.ups) : null,
     no_of_colors:         orig.no_of_colors,
     die_number:           orig.die_number,
     board_type_id:        orig.board_type_id,

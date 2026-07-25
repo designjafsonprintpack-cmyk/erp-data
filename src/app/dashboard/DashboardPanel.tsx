@@ -160,40 +160,8 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
         </div>
       </div>
 
-      {/* ─── Row 2: Machines | Recent Jobs | Alerts — equal-height panels ──────── */}
+      {/* ─── Row 2: Recent Jobs | Machines | Alerts — equal-height panels ─────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] flex flex-col overflow-hidden h-[264px]">
-          <PanelHeader><Cog size={11} /> Machines</PanelHeader>
-          <div className="p-2 grid grid-cols-2 gap-1.5 content-start overflow-y-auto">
-            {machines.length === 0 && (
-              <div className="col-span-full text-center text-[11px] text-[var(--color-text-muted)] py-4">No machines configured yet.</div>
-            )}
-            {machines.map(m => {
-              const jobCount = m.jobs.length
-              const isSelected = selection?.type === 'machine' && selection.id === m.machine_id
-              return (
-                <button
-                  key={m.machine_id}
-                  onClick={() => setSelection(isSelected ? null : { type: 'machine', id: m.machine_id, label: m.machine_name })}
-                  className={cn(
-                    'text-left rounded-md border px-2 py-1.5 transition-colors flex items-center justify-between gap-1.5',
-                    isSelected
-                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                      : 'border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]'
-                  )}
-                >
-                  <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">{m.machine_name}</span>
-                  {jobCount > 0 ? (
-                    <span className="text-[10px] font-semibold text-[var(--color-success)] tabular-nums flex-shrink-0">{jobCount}</span>
-                  ) : (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-border)] flex-shrink-0" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] flex flex-col overflow-hidden h-[264px]">
           <PanelHeader right={selection && (
             <button onClick={() => setSelection(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
@@ -226,6 +194,38 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
                 recentJobs.map(j => jobRow(`/dashboard/jobs/${j.id}`, j.job_number, `${j.job_title} — ${j.customers?.name || '—'}`, STATUS_LABEL[j.status] || j.status))
               )
             )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] flex flex-col overflow-hidden h-[264px]">
+          <PanelHeader><Cog size={11} /> Machines</PanelHeader>
+          <div className="p-2 grid grid-cols-2 gap-1.5 content-start overflow-y-auto">
+            {machines.length === 0 && (
+              <div className="col-span-full text-center text-[11px] text-[var(--color-text-muted)] py-4">No machines configured yet.</div>
+            )}
+            {machines.map(m => {
+              const jobCount = m.jobs.length
+              const isSelected = selection?.type === 'machine' && selection.id === m.machine_id
+              return (
+                <button
+                  key={m.machine_id}
+                  onClick={() => setSelection(isSelected ? null : { type: 'machine', id: m.machine_id, label: m.machine_name })}
+                  className={cn(
+                    'text-left rounded-md border px-2 py-1.5 transition-colors flex items-center justify-between gap-1.5',
+                    isSelected
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                      : 'border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]'
+                  )}
+                >
+                  <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">{m.machine_name}</span>
+                  {jobCount > 0 ? (
+                    <span className="text-[10px] font-semibold text-[var(--color-success)] tabular-nums flex-shrink-0">{jobCount}</span>
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-border)] flex-shrink-0" />
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 

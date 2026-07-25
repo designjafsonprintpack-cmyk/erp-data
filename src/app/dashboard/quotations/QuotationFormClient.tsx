@@ -180,6 +180,11 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
 
   const inputCls = 'w-full h-9 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
   const smallInputCls = 'w-full h-8 px-2 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+  // Line-item grid. Explicit fractional tracks instead of grid-cols-12 because
+  // Box Type is a 9th column and the old 12 integer units couldn't absorb it
+  // without squeezing Description. minmax(0,…) stops number inputs from
+  // forcing a track wider than its share. Header and rows MUST share this.
+  const lineGridCls = 'grid gap-2 grid-cols-[minmax(0,2.3fr)_minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.5fr)]'
 
   // Computed totals
   const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')), 0)
@@ -365,15 +370,16 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-[var(--color-bg-elevated)]/50 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          <div className="col-span-3">Description</div>
-          <div className="col-span-2">L × W × H (mm)</div>
-          <div className="col-span-1">Qty</div>
-          <div className="col-span-1">Colors</div>
-          <div className="col-span-1">Board Type</div>
-          <div className="col-span-1">Unit Price</div>
-          <div className="col-span-1 text-right">Subtotal</div>
-          <div className="col-span-2"></div>
+        <div className={cn(lineGridCls, 'px-4 py-2 bg-[var(--color-bg-elevated)]/50 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider')}>
+          <div>Description</div>
+          <div>L × W × H (mm)</div>
+          <div>Qty</div>
+          <div>Colors</div>
+          <div>Box Type</div>
+          <div>Board Type</div>
+          <div>Unit Price</div>
+          <div className="text-right">Subtotal</div>
+          <div></div>
         </div>
 
         <div className="divide-y divide-[var(--color-border-subtle)]">
@@ -383,38 +389,44 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
             const result = isOpen ? computeFor(item) : null
             return (
               <div key={idx}>
-                <div className="grid grid-cols-12 gap-2 px-4 py-3 items-center">
-                  <div className="col-span-3">
+                <div className={cn(lineGridCls, 'px-4 py-3 items-center')}>
+                  <div>
                     <input className={inputCls} value={item.product_desc} onChange={e => setItem(idx, 'product_desc', e.target.value)} placeholder="Product description *" />
                   </div>
-                  <div className="col-span-2 flex items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <input className={cn(inputCls, 'text-center')} type="number" value={item.size_l} onChange={e => setItem(idx, 'size_l', e.target.value)} placeholder="L" />
                     <span className="text-[var(--color-text-muted)] flex-shrink-0 text-xs">×</span>
                     <input className={cn(inputCls, 'text-center')} type="number" value={item.size_w} onChange={e => setItem(idx, 'size_w', e.target.value)} placeholder="W" />
                     <span className="text-[var(--color-text-muted)] flex-shrink-0 text-xs">×</span>
                     <input className={cn(inputCls, 'text-center')} type="number" value={item.size_h} onChange={e => setItem(idx, 'size_h', e.target.value)} placeholder="H" />
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <input className={inputCls} type="number" value={item.quantity} onChange={e => setItem(idx, 'quantity', e.target.value)} placeholder="Qty" />
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <input className={inputCls} type="number" value={item.no_of_colors} onChange={e => setItem(idx, 'no_of_colors', e.target.value)} min="1" max="8" />
                   </div>
-                  <div className="col-span-1">
+                  <div>
+                    <select className={inputCls} value={item.box_type_id} onChange={e => setItem(idx, 'box_type_id', e.target.value)}>
+                      <option value="">Box type…</option>
+                      {boxTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
                     <select className={inputCls} value={item.board_type_id} onChange={e => selectBoard(idx, e.target.value)}>
                       <option value="">Select board…</option>
                       {boardTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <input className={inputCls} type="number" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
                   </div>
-                  <div className="col-span-1 text-right">
+                  <div className="text-right">
                     <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                       {lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                     </span>
                   </div>
-                  <div className="col-span-2 flex justify-end gap-1">
+                  <div className="flex justify-end gap-1">
                     <button onClick={() => setOpenCalc(isOpen ? null : idx)}
                       className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
                         isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent)]/10' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
@@ -440,13 +452,6 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                         <div className="space-y-1">
                           <label className="text-xs text-[var(--color-text-muted)]">Wastage %</label>
                           <input type="number" className={smallInputCls} value={item.wastage_percent} onChange={e => setItem(idx, 'wastage_percent', e.target.value)} />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Box Type</label>
-                          <select className={smallInputCls} value={item.box_type_id} onChange={e => setItem(idx, 'box_type_id', e.target.value)}>
-                            <option value="">Not specified</option>
-                            {boxTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                          </select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-[var(--color-text-muted)]">Sheet Width (in)</label>

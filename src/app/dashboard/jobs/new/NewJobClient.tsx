@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Briefcase, History, X } from 'lucide-react'
+import { ArrowLeft, Save, Briefcase, History, X, RefreshCw, Search, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
@@ -12,8 +12,12 @@ import { formatTimeAgo } from '@/lib/utils/format'
 interface Props {
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
-  salesOrders: any[]; defaultWorkflowId: string
+  salesOrders: any[]; repeatableJobs: any[]; defaultWorkflowId: string
 }
+
+type JobMode = 'new' | 'repeat'
+
+const EMPTY_REPEAT = { parent_job_id: '', quantity: '', required_date: '', notes: '', same_artwork: true }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const labelCls = 'text-sm font-medium text-[var(--color-text-primary)]'
@@ -29,10 +33,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, defaultWorkflowId }: Props) {
+export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, repeatableJobs, defaultWorkflowId }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
+
+  // Repeat mode reuses the existing POST /api/v1/jobs/[id]/repeat endpoint
+  // rather than duplicating the spec-copying logic here — that route already
+  // sets parent_job_id / is_repeat / repeat_sequence, re-initializes the
+  // workflow and links artwork. This is purely the missing entry point.
+  const [mode, setMode] = useState<JobMode>('new')
+  const [repeat, setRepeat] = useState({ ...EMPTY_REPEAT })
+  const [repeatSearch, setRepeatSearch] = useState('')
+  const setRep = (k: keyof typeof EMPTY_REPEAT, v: any) => setRepeat(p => ({ ...p, [k]: v }))
+
+  const q = repeatSearch.trim().toLowerCase()
+  const filteredJobs = q
+    ? repeatableJobs.filter((j: any) =>
+        [j.job_number, j.job_title, j.customers?.name, j.die_number]
+          .some((f: any) => String(f ?? '').toLowerCase().includes(q)))
+    : repeatableJobs
+  const parentJob = repeatableJobs.find((j: any) => j.id === repeat.parent_job_id)
 
   const { draftAvailable, draftSavedAt, restoreDraft, discardDraft, clearDraft } = useDraftAutosave({
     key: 'jafson_draft_new_job',
@@ -95,9 +116,32 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
     finally { setLoading(false) }
   }
 
+  const saveRepeat = async () => {
+    if (!repeat.parent_job_id) { toast.error('Select the job you want to repeat'); return }
+    if (repeat.quantity && parseFloat(repeat.quantity) <= 0) { toast.error('Quantity must be greater than 0'); return }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/jobs/${repeat.parent_job_id}/repeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quantity: repeat.quantity || undefined,
+          required_date: repeat.required_date || null,
+          notes: repeat.notes || null,
+          same_artwork: repeat.same_artwork,
+        }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      toast.success(`Repeat job ${data.job_number} created!`)
+      router.push(`/dashboard/jobs/${data.id}`)
+    } catch (e: any) { toast.error(e.message || 'Failed to create repeat job') }
+    finally { setLoading(false) }
+  }
+
   return (
     <div className="space-y-5">
-      {draftAvailable && (
+      {mode === 'new' && draftAvailable && (
         <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
           <History size={15} className="text-[var(--color-accent)] flex-shrink-0" />
           <span className="text-[var(--color-text-primary)]">
@@ -115,11 +159,102 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           <ArrowLeft size={15} />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">New Job</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Job number will be auto-generated</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            {mode === 'repeat' ? 'Repeat Job' : 'New Job'}
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
+            {mode === 'repeat'
+              ? 'Copies every spec from the original job — only change what differs'
+              : 'Job number will be auto-generated'}
+          </p>
         </div>
       </div>
 
+      {/* New vs Repeat */}
+      <div className="inline-flex p-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] w-full sm:w-auto">
+        {([
+          { id: 'new' as JobMode, label: 'New Job', icon: Sparkles },
+          { id: 'repeat' as JobMode, label: 'Repeat Job', icon: RefreshCw },
+        ]).map(t => (
+          <button key={t.id} onClick={() => setMode(t.id)}
+            className={cn(
+              'flex items-center justify-center gap-2 px-4 h-9 rounded-md text-sm font-medium transition-colors flex-1 sm:flex-none',
+              mode === t.id
+                ? 'bg-[var(--color-accent)] text-white'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+            )}>
+            <t.icon size={14} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'repeat' ? (
+        <Section title="Repeat an Existing Job">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className={labelCls}>Find the original job <span className="text-[var(--color-danger)]">*</span></label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                <input className={cn(inputCls, 'pl-9')} value={repeatSearch} onChange={e => setRepeatSearch(e.target.value)}
+                  placeholder="Search by job number, title, customer or die number…" />
+              </div>
+              <select className={inputCls} value={repeat.parent_job_id} onChange={e => setRep('parent_job_id', e.target.value)} size={1}>
+                <option value="">Select job to repeat…</option>
+                {filteredJobs.map((j: any) => (
+                  <option key={j.id} value={j.id}>
+                    {j.job_number} — {j.job_title} ({j.customers?.name || 'No customer'})
+                  </option>
+                ))}
+              </select>
+              {filteredJobs.length === 0 && (
+                <p className="text-xs text-[var(--color-text-muted)]">No jobs match that search.</p>
+              )}
+            </div>
+
+            {parentJob && (
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
+                  Will be copied from {parentJob.job_number}
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div><span className="text-[var(--color-text-muted)] text-xs block">Size (mm)</span>
+                    {[parentJob.size_l, parentJob.size_w, parentJob.size_h].filter(Boolean).join(' × ') || '—'}</div>
+                  <div><span className="text-[var(--color-text-muted)] text-xs block">Original Qty</span>
+                    {parentJob.quantity != null ? Number(parentJob.quantity).toLocaleString() : '—'}</div>
+                  <div><span className="text-[var(--color-text-muted)] text-xs block">Ups</span>{parentJob.ups ?? '—'}</div>
+                  <div><span className="text-[var(--color-text-muted)] text-xs block">Colors</span>{parentJob.no_of_colors ?? '—'}</div>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
+                  Board, box type, sheet size, die number, finishing and the production workflow are all carried over too.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className={labelCls}>Quantity</label>
+                <input type="number" className={inputCls} value={repeat.quantity} onChange={e => setRep('quantity', e.target.value)}
+                  placeholder={parentJob?.quantity != null ? `Same as original (${Number(parentJob.quantity).toLocaleString()})` : 'Same as original'} />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelCls}>Required Date</label>
+                <input type="date" className={inputCls} value={repeat.required_date} onChange={e => setRep('required_date', e.target.value)} />
+              </div>
+              <div className="md:col-span-2 space-y-1.5">
+                <label className={labelCls}>Notes</label>
+                <input className={inputCls} value={repeat.notes} onChange={e => setRep('notes', e.target.value)} placeholder="Optional — recorded against both jobs" />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2.5 text-sm text-[var(--color-text-primary)] cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 accent-[var(--color-accent)]" checked={repeat.same_artwork}
+                onChange={e => setRep('same_artwork', e.target.checked)} />
+              Reuse the original artwork (no fresh artwork round needed)
+            </label>
+          </div>
+        </Section>
+      ) : (
+      <>
       {/* Customer & SO */}
       <Section title="Customer & Sales Order">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -195,33 +330,6 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <input type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Width (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Height (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Box Type</label>
-            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
-              <option value="">Not specified</option>
-              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Grain Direction</label>
-            <select className={inputCls} value={form.grain_direction} onChange={e => set('grain_direction', e.target.value)}>
-              <option value="">Not specified</option>
-              <option value="long_grain">Long Grain</option>
-              <option value="short_grain">Short Grain</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
-          </div>
-          <div className="space-y-1.5">
             <label className={labelCls}>Ups <span className="text-xs text-[var(--color-text-muted)]">(impressions/sheet)</span></label>
             <input type="number" className={inputCls} value={form.ups} onChange={e => set('ups', e.target.value)} placeholder="e.g. 8" min="1" />
             {form.ups && parseInt(form.ups) > 0 && form.quantity && (
@@ -231,12 +339,12 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>No. of Colors</label>
-            <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
+            <label className={labelCls}>Sheet Width (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Die Number</label>
-            <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
+            <label className={labelCls}>Sheet Height (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Board / Paper Type</label>
@@ -255,6 +363,33 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
               <optgroup label="Paper Types">
                 {paperTypes.map(p => <option key={p.id} value={`paper:${p.id}`}>{p.name}</option>)}
               </optgroup>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Box Type</label>
+            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+              <option value="">Not specified</option>
+              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
+            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>No. of Colors</label>
+            <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Die Number</label>
+            <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Grain Direction</label>
+            <select className={inputCls} value={form.grain_direction} onChange={e => set('grain_direction', e.target.value)}>
+              <option value="">Not specified</option>
+              <option value="long_grain">Long Grain</option>
+              <option value="short_grain">Short Grain</option>
             </select>
           </div>
         </div>
@@ -322,16 +457,25 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           </div>
         </div>
       </Section>
+      </>
+      )}
 
       {/* Actions */}
       <div className="form-actions flex items-center gap-3 justify-end [&>*]:flex-1 lg:[&>*]:flex-none [&>*]:justify-center [&>a]:flex [&>a]:items-center">
         <Link href="/dashboard/jobs" className="px-4 h-11 lg:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           Cancel
         </Link>
-        <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
-          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-          <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
-        </button>
+        {mode === 'repeat' ? (
+          <button onClick={saveRepeat} disabled={loading || !repeat.parent_job_id}
+            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            <RefreshCw size={15} /> {loading ? 'Creating…' : 'Create Repeat Job'}
+          </button>
+        ) : (
+          <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
+            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
+          </button>
+        )}
       </div>
     </div>
   )
