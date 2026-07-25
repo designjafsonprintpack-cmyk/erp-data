@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Calendar, Plus, AlertTriangle, CheckCircle2, Clock, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils/format'
@@ -89,9 +90,9 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
     <div className="space-y-4">
       {/* Tabs + Add button */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
+        <ScrollRow className="md:flex-1" wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={activeTab} contentClassName="gap-1 -mx-1 px-1">
           {([['schedule', 'Schedule'], ['unplanned', `Unplanned Jobs (${unplannedJobs.length})`]] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)}
+            <button key={key} onClick={() => setActiveTab(key)} role="tab" aria-selected={activeTab === key} data-tab-active={activeTab === key}
               className={cn('px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 activeTab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
@@ -107,7 +108,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
               ))}
             </div>
           )}
-        </div>
+        </ScrollRow>
         <button onClick={() => setPlanModal(true)}
           className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={15} /> Plan Job

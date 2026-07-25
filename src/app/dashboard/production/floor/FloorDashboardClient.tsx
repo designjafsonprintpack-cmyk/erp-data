@@ -5,6 +5,7 @@ import {
   Plus, RefreshCw, Activity, MessageSquare, XCircle, Layers, ChevronDown, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
@@ -228,27 +229,30 @@ export default function FloorDashboardClient({
       </div>
 
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      {/* Tabs and actions shared one non-wrapping row, so on a phone the tab
+          labels wrapped onto two lines and "Assign Job" was pushed off the
+          right edge. They now stack below md; the md+ row is unchanged. */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <ScrollRow wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={tab} contentClassName="gap-1 -mx-1 px-1">
           {([
             ['floor',   `Floor View (${filteredMachines.length})`],
             ['running', `Running (${filteredActive.filter(a=>a.status==='running').length})`],
             ['queue',   `Queue (${filteredQueue.length})`],
           ] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={cn('px-4 h-9 rounded-md text-sm font-medium border transition-all',
+            <button key={key} onClick={() => setTab(key)} role="tab" aria-selected={tab === key} data-tab-active={tab === key}
+              className={cn('px-3 md:px-4 h-11 md:h-9 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
             </button>
           ))}
-        </div>
-        <div className="flex items-center gap-2">
+        </ScrollRow>
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={refreshFloor} disabled={loading}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={() => setAssignModal(true)}
-            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> Assign Job
           </button>
         </div>

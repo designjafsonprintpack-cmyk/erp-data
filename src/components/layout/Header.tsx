@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Bell, LogOut, User, Settings, ChevronDown, Sun, Moon, ArrowLeft } from 'lucide-react'
+import { Bell, LogOut, User, Settings, ChevronDown, Sun, Moon, ArrowLeft, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { signOut } from '@/modules/auth/services/authService'
 import { toast } from '@/components/ui/Toast'
@@ -16,9 +16,12 @@ interface HeaderProps {
   user?: { full_name: string; email: string; role: string } | null
   sidebarCollapsed?: boolean
   company?: { name: string; logo_url: string | null } | null
-  /** @deprecated Retained for call-site compatibility. The navigation drawer
-   *  now opens from the bottom bar's "More" tab, not from the header. */
+  /** Opens the navigation drawer. Below `lg` the header shows a hamburger
+   *  in the top-left corner that calls this — it is the ONLY way into the
+   *  full navigation on a phone, so it is shown on every screen. */
   onMenuClick?: () => void
+  /** True while the drawer is open (drives aria-expanded on the hamburger). */
+  menuOpen?: boolean
 }
 
 /** Every route that is a nav destination in its own right. */
@@ -26,7 +29,7 @@ const TOP_LEVEL_HREFS = new Set(
   NAV_ITEMS.filter(isNavLink).map(i => i.href)
 )
 
-export function Header({ user, company }: HeaderProps) {
+export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [profileOpen, setProfileOpen] = useState(false)
@@ -63,10 +66,10 @@ export function Header({ user, company }: HeaderProps) {
   const dateStr = now.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   const timeStr = now.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })
 
-  // Detail, create and edit pages had no way back on mobile other than opening
-  // the drawer and re-navigating from the top. The header now shows a back
-  // control on any route that isn't itself a nav destination. The drawer moved
-  // to the "More" tab in the bottom bar, so this slot was free.
+  // Detail, create and edit pages have no way back on mobile other than the
+  // browser gesture, so the header shows a back control on any route that
+  // isn't itself a nav destination. It sits AFTER the hamburger, which is
+  // always present — the menu anchor never moves, the back arrow is additive.
   const showBack = !TOP_LEVEL_HREFS.has(pathname)
 
   return (
@@ -77,16 +80,28 @@ export function Header({ user, company }: HeaderProps) {
         'flex items-center px-4 pl-safe pr-safe gap-2 lg:gap-3'
       )}
     >
-      {/* Back — below lg, on non-top-level routes only */}
-      {showBack && (
+      {/* Menu + Back — below lg only. The hamburger is the fixed top-left
+          anchor on every screen; the back arrow appears beside it on
+          non-top-level routes. */}
+      <div className="lg:hidden flex items-center flex-shrink-0 -ml-2">
         <button
-          onClick={() => router.back()}
-          className="lg:hidden w-11 h-11 -ml-2 flex items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0"
-          aria-label="Go back"
+          onClick={onMenuClick}
+          aria-label="Open navigation menu"
+          aria-expanded={!!menuOpen}
+          className="w-11 h-11 flex items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors"
         >
-          <ArrowLeft size={20} />
+          <Menu size={20} />
         </button>
-      )}
+        {showBack && (
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-11 flex items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        )}
+      </div>
 
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2.5 flex-shrink-0" aria-label="Go to dashboard">

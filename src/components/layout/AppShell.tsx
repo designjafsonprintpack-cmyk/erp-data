@@ -61,6 +61,7 @@ export function AppShell({ children, user, company, sessionTimeoutMinutes }: App
         sidebarCollapsed={collapsed}
         company={company}
         onMenuClick={() => setMobileOpen(true)}
+        menuOpen={mobileOpen}
       />
       <Sidebar
         collapsed={collapsed}
@@ -88,7 +89,7 @@ export function AppShell({ children, user, company, sessionTimeoutMinutes }: App
       >
         {children}
       </main>
-      <BottomNav onMoreClick={() => setMobileOpen(true)} drawerOpen={mobileOpen} />
+      <BottomNav />
       <ToastContainer />
     </div>
   )

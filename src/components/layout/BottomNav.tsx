@@ -1,40 +1,33 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MoreHorizontal, ScanLine } from 'lucide-react'
+import { ScanLine } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { buildMobileTabs } from './navConfig'
 import { useNavPermissions } from '@/modules/settings/permissions/hooks/usePermission'
 
-interface BottomNavProps {
-  /** Opens the full navigation drawer — the "More" tab. */
-  onMoreClick: () => void
-  /** True while the drawer is open, so "More" reads as the active tab. */
-  drawerOpen: boolean
-}
-
 /**
  * Mobile bottom tab bar (below `lg`).
  *
- * Four role-appropriate destinations plus "More", with a raised Scan button
- * in the centre. Scanning is THE floor action in a printing factory — every
- * role that can see jobs scans job cards all day — so it gets the one slot
- * that is always under the thumb, on every screen, without costing any role
- * one of its four tabs. Hidden only for users without jobs access.
+ * Four role-appropriate destinations with a raised Scan button dead centre.
+ * Scanning is THE floor action in a printing factory — every role that can see
+ * jobs scans job cards all day — so it gets the one slot that is always under
+ * the thumb, on every screen, without costing any role one of its four tabs.
+ * Hidden only for users without jobs access, in which case the bar is a plain
+ * four-tab row.
  *
- * The four tabs are derived from
- * the user's actual permissions (see buildMobileTabs in navConfig.ts), not
- * from a hardcoded per-role list, so a role Mehboob creates later works with
- * no code change.
+ * The four tabs are derived from the user's actual permissions (see
+ * buildMobileTabs in navConfig.ts), not from a hardcoded per-role list, so a
+ * role Mehboob creates later works with no code change.
  *
- * Why a bottom bar and not just the drawer: on a phone the drawer costs two
- * taps and a scroll through 28 items to reach the one screen an operator uses
- * all day. The bar makes that one tap, and it sits in the thumb zone. It is
- * the standard pattern on both platforms.
+ * NO "More" tab: it made the bar a six-slot row, which pushed the raised Scan
+ * button off the true centre and left the layout visibly lopsided. Full
+ * navigation now opens from the hamburger in the header's top-left corner,
+ * which is present on every screen. Five slots keep Scan exactly centred.
  *
  * Hidden at `lg` and above, where the persistent sidebar does this job.
  */
-export function BottomNav({ onMoreClick, drawerOpen }: BottomNavProps) {
+export function BottomNav() {
   const pathname = usePathname()
   const { ready, role, canView } = useNavPermissions()
 
@@ -50,9 +43,8 @@ export function BottomNav({ onMoreClick, drawerOpen }: BottomNavProps) {
   const rightTabs = showScan ? tabs.slice(2) : []
 
   const renderTab = (tab: (typeof tabs)[number]) => {
-    const isActive = !drawerOpen && (
+    const isActive =
       pathname === tab.href || (tab.href !== '/dashboard' && pathname.startsWith(tab.href))
-    )
     const Icon = tab.icon
     return (
       <Link
@@ -98,9 +90,7 @@ export function BottomNav({ onMoreClick, drawerOpen }: BottomNavProps) {
             className={cn(
               'w-11 h-11 -mt-4 rounded-full flex items-center justify-center shadow-lg transition-colors',
               'border-4 border-[var(--color-bg-secondary)]',
-              scanActive && !drawerOpen
-                ? 'bg-[var(--color-accent-hover)]'
-                : 'bg-[var(--color-accent)]'
+              scanActive ? 'bg-[var(--color-accent-hover)]' : 'bg-[var(--color-accent)]'
             )}
           >
             <ScanLine size={20} className="text-white" />
@@ -108,7 +98,7 @@ export function BottomNav({ onMoreClick, drawerOpen }: BottomNavProps) {
           <span
             className={cn(
               'text-[11px] leading-none font-medium',
-              scanActive && !drawerOpen ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'
+              scanActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'
             )}
           >
             Scan
@@ -117,19 +107,6 @@ export function BottomNav({ onMoreClick, drawerOpen }: BottomNavProps) {
       )}
 
       {rightTabs.map(renderTab)}
-
-      <button
-        onClick={onMoreClick}
-        aria-label="More navigation"
-        aria-expanded={drawerOpen}
-        className={cn(
-          'flex-1 min-w-0 h-14 flex flex-col items-center justify-center gap-0.5 transition-colors',
-          drawerOpen ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'
-        )}
-      >
-        <MoreHorizontal size={20} className="flex-shrink-0" />
-        <span className="text-[11px] leading-none font-medium">More</span>
-      </button>
     </nav>
   )
 }

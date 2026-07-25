@@ -7,6 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 import { formatDate } from '@/lib/utils/format'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Modal } from '@/components/ui/Modal'
@@ -155,7 +156,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
     <div className="space-y-4">
       {/* Tabs */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
+        <ScrollRow className="md:flex-1" wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={tab} contentClassName="gap-1 -mx-1 px-1">
           {([
             ['overview',   'Overview',    BarChart3],
             ['production', 'Production',  Cpu],
@@ -165,14 +166,14 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             ['costing',    'Costing',     TrendingDown],
             ['custom',     'Custom Report', Sliders],
           ] as const).map(([key, label, Icon]) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={cn('flex items-center gap-1.5 px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
+            <button key={key} onClick={() => setTab(key)} role="tab" aria-selected={tab === key} data-tab-active={tab === key}
+              className={cn('flex items-center gap-1.5 px-3 md:px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               <Icon size={13} />{label}
             </button>
           ))}
           <span className="hidden md:inline text-xs text-[var(--color-text-muted)] ml-2 flex-shrink-0">Last 30 days</span>
-        </div>
+        </ScrollRow>
         {exportForTab(tab) && (
           <button onClick={() => exportForTab(tab)!()}
             className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">

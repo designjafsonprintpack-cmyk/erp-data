@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Upload, Plus, Trash2, ExternalLink, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
@@ -25,7 +26,7 @@ interface Artwork {
   ai_preflight_issues?: { severity: string; title: string; detail: string }[] | null
 }
 
-const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+const inputCls = 'w-full h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 function formatBytes(bytes: number | null): string {
   if (!bytes) return '—'
@@ -36,6 +37,8 @@ function formatBytes(bytes: number | null): string {
 
 export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { jobId: string; companyId: string; initialArtworks: Artwork[] }) {
   const [artworks, setArtworks] = useState(initialArtworks)
+  // One batched signing request for every previewable file in this job.
+  const thumbs = useArtworkThumbnails(artworks)
   const [uploadModal, setUploadModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -225,7 +228,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <button onClick={() => setUploadModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> Add Artwork
         </button>
       </div>
@@ -238,16 +241,22 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       ) : (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] divide-y divide-[var(--color-border-subtle)]">
           {artworks.map(art => (
-            <div key={art.id} className={cn('flex items-center gap-4 px-5 py-3.5', art.status === 'approved' && 'bg-[var(--color-success)]/3')}>
-              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 border',
-                art.status === 'approved'
-                  ? 'bg-[var(--color-success)]/10 border-[var(--color-success)]/30 text-[var(--color-success)]'
-                  : 'bg-[var(--color-bg-elevated)] border-[var(--color-border)] text-[var(--color-text-muted)]')}>
-                v{art.version}
-              </div>
+            // Same stacking as the standalone Artwork page: below md the
+            // actions get their own wrapped row, at md+ the exact desktop row.
+            <div key={art.id} className={cn('flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-3.5', art.status === 'approved' && 'bg-[var(--color-success)]/3')}>
+             <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
+              {/* 125 × 160 preview, same component as the Artwork page */}
+              <ArtworkThumb
+                url={thumbs[art.id]}
+                fileName={art.file_name}
+                fileType={art.file_type}
+                version={art.version}
+                approved={art.status === 'approved'}
+                onClick={() => viewFile(art.file_url)}
+              />
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{art.file_name}</span>
                   <button onClick={() => openCommentsModal(art)}
                     className={cn('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer', ARTWORK_STATUS_CONFIG[art.status].color)}
@@ -256,7 +265,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                     {ARTWORK_STATUS_CONFIG[art.status].label}
                   </button>
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                   {art.file_type && <span className="text-xs text-[var(--color-text-muted)] uppercase">{art.file_type}</span>}
                   <span className="text-xs text-[var(--color-text-muted)]">{formatBytes(art.file_size)}</span>
                   <span className="text-xs text-[var(--color-text-muted)]">Uploaded {formatTimeAgo(art.created_at)}</span>
@@ -269,31 +278,32 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                   </p>
                 )}
               </div>
+             </div>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 md:flex-nowrap md:flex-shrink-0">
                 <button onClick={() => viewFile(art.file_url)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                   <ExternalLink size={13} />
                 </button>
                 {art.ai_preflight_status ? (
                   <button onClick={() => setPreflightModal(art)}
-                    className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors', PREFLIGHT_CFG[art.ai_preflight_status].color)}>
+                    className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap', PREFLIGHT_CFG[art.ai_preflight_status].color)}>
                     <Sparkles size={12} /> {PREFLIGHT_CFG[art.ai_preflight_status].label}
                   </button>
                 ) : (
                   <button onClick={() => runPreflight(art)} disabled={preflightLoading === art.id}
-                    className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50">
+                    className="flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50 whitespace-nowrap">
                     <Sparkles size={12} /> {preflightLoading === art.id ? 'Checking…' : 'AI Pre-flight'}
                   </button>
                 )}
                 {!['approved', 'rejected', 'archived'].includes(art.status) && (
                   <button onClick={() => openLinkModal(art)}
-                    className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors">
+                    className="flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap">
                     <Link2 size={12} /> Get Approval Link
                   </button>
                 )}
                 <button onClick={() => openCommentsModal(art)}
-                  className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
+                  className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap',
                     hasUnresolvedCustomerComment(art.id)
                       ? 'border-[var(--color-danger)]/50 text-[var(--color-danger)] bg-[var(--color-danger)]/10'
                       : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]')}>
@@ -303,13 +313,13 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                 </button>
                 {ARTWORK_STATUS_TRANSITIONS[art.status].length > 0 && (
                   <select value="" onChange={e => e.target.value && changeStatus(art.id, e.target.value as ArtworkStatus)}
-                    className="h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+                    className="h-10 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]">
                     <option value="">Move to…</option>
                     {ARTWORK_STATUS_TRANSITIONS[art.status].map(s => <option key={s} value={s}>{ARTWORK_STATUS_CONFIG[s].label}</option>)}
                   </select>
                 )}
                 <button onClick={() => deleteArtwork(art.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -321,9 +331,9 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       {/* Upload Modal */}
       <Modal open={uploadModal} onClose={() => setUploadModal(false)} title="Add Artwork Version" size="md"
         footer={<>
-          <button onClick={() => setUploadModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={upload} disabled={loading || !selectedFile}
-            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <Upload size={14} /> {loading ? 'Uploading…' : 'Add Artwork'}
           </button>
         </>}>
@@ -358,7 +368,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
               </div>
               <p className="text-xs text-[var(--color-text-muted)]">The customer will be able to view this artwork and Approve, Reject, or Request Changes — no login needed. This also moves the status to &quot;Waiting Customer Approval&quot;.</p>
               <button onClick={generateLink} disabled={linkLoading}
-                className="w-full flex items-center justify-center gap-2 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                className="w-full flex items-center justify-center gap-2 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                 <Link2 size={14} /> {linkLoading ? 'Generating…' : 'Generate Link'}
               </button>
             </>
@@ -368,13 +378,13 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                 <label className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
                 <div className="flex items-center gap-2">
                   <input readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button onClick={copyLink} className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                  <button onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                     <Copy size={14} />
                   </button>
                 </div>
               </div>
               <button onClick={() => setLinkModal(null)}
-                className="w-full h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                className="w-full h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                 Done
               </button>
             </>
@@ -491,9 +501,9 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                     <input value={newComment} onChange={e => setNewComment(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && addComment(commentsModal.id)}
                       placeholder="Add an internal note…"
-                      className="flex-1 h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
+                      className="flex-1 min-w-0 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => addComment(commentsModal.id)} disabled={addingComment || !newComment.trim()}
-                      className="h-9 px-3 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                      className="h-11 md:h-9 px-3 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                       Add
                     </button>
                   </div>

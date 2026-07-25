@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatTimeAgo } from '@/lib/utils/format'
+import { DataList, type DataListColumn } from '@/components/ui/DataList'
+import { Toolbar } from '@/components/ui/Toolbar'
 
 interface User {
   id: string; full_name: string; email: string; employee_code: string | null
@@ -27,7 +29,76 @@ const ROLE_CFG: Record<string, { label: string; color: string }> = {
 }
 
 const APP_ROLES = ['admin','manager','production','sales','accounts','staff','readonly']
-const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+const inputCls = 'w-full h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+
+/**
+ * Factory rather than a constant: the action buttons need the modal setters,
+ * which only exist inside the component. Same shape as INV_COLUMNS/MRP_COLUMNS.
+ *
+ * Spans total 12, so the desktop table is byte-for-byte the old layout. The
+ * `role` on each column is what drives the mobile card: name on top, email
+ * under it, role badge top-right, code/dept/status as a labelled meta grid,
+ * buttons on their own bottom row.
+ */
+const USER_COLUMNS = (
+  onEdit: (u: User) => void,
+  onToggleActive: (u: User) => void,
+): DataListColumn<User>[] => [
+  {
+    key: 'name', header: 'Name', span: 3, role: 'identity',
+    render: u => (
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{u.full_name}</p>
+        {u.mobile && <p className="text-xs text-[var(--color-text-muted)] truncate">{u.mobile}</p>}
+      </div>
+    ),
+  },
+  {
+    key: 'email', header: 'Email', span: 3, role: 'title',
+    render: u => <span className="text-sm text-[var(--color-text-secondary)] truncate block">{u.email}</span>,
+  },
+  {
+    key: 'role', header: 'Role', span: 2, role: 'status',
+    render: u => {
+      const cfg = ROLE_CFG[u.app_role] || ROLE_CFG.staff
+      return <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap', cfg.color)}>{cfg.label}</span>
+    },
+  },
+  {
+    key: 'code', header: 'Code', span: 1, role: 'meta', label: 'Code',
+    render: u => <span className="text-xs font-mono text-[var(--color-text-muted)]">{u.employee_code || '—'}</span>,
+  },
+  {
+    key: 'dept', header: 'Dept', span: 1, role: 'meta', label: 'Dept',
+    render: u => <span className="text-xs text-[var(--color-text-muted)] truncate block">{u.departments?.name || '—'}</span>,
+  },
+  {
+    key: 'status', header: 'Status', span: 1, role: 'meta', label: 'Status',
+    render: u => (
+      <span className={cn('text-xs font-medium', u.is_active ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]')}>
+        {u.is_active ? 'Active' : 'Inactive'}
+      </span>
+    ),
+  },
+  {
+    key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
+    render: u => (
+      <div className="flex items-center gap-1.5 justify-end">
+        <button onClick={() => onEdit(u)} aria-label={`Edit ${u.full_name}`}
+          className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+          <Edit2 size={13} />
+        </button>
+        <button onClick={() => onToggleActive(u)} aria-label={u.is_active ? `Deactivate ${u.full_name}` : `Activate ${u.full_name}`}
+          className={cn('w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border transition-colors',
+            u.is_active
+              ? 'border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10'
+              : 'border-[var(--color-success)]/30 text-[var(--color-success)] hover:bg-[var(--color-success)]/10')}>
+          {u.is_active ? <UserX size={13} /> : <UserCheck size={13} />}
+        </button>
+      </div>
+    ),
+  },
+]
 
 export default function UsersClient({ initialUsers, departments, roles }: {
   initialUsers: User[]; departments: Department[]; roles: Role[]
@@ -111,114 +182,73 @@ export default function UsersClient({ initialUsers, departments, roles }: {
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2.5 md:gap-4">
         {[
           { label: 'Total Users',    value: users.length,   icon: Users,     color: 'var(--color-accent)' },
           { label: 'Active',         value: activeCount,    icon: UserCheck, color: 'var(--color-success)' },
           { label: 'Inactive',       value: inactiveCount,  icon: UserX,     color: 'var(--color-text-muted)' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          // Three cards on a 360px screen leave ~105px each — the icon and the
+          // label cannot sit side by side there, so they stack below md.
+          <div key={s.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3 md:p-4 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ background: `color-mix(in srgb, ${s.color} 12%, transparent)` }}>
               <s.icon size={18} style={{ color: s.color }} />
             </div>
-            <div>
-              <p className="text-xs text-[var(--color-text-muted)]">{s.label}</p>
-              <p className="text-xl font-bold text-[var(--color-text-primary)]">{s.value}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--color-text-muted)] truncate">{s.label}</p>
+              <p className="text-lg md:text-xl font-bold text-[var(--color-text-primary)]">{s.value}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, employee code…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors" />
-        </div>
-        <button onClick={() => setNewModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
-          <Plus size={15} /> New User
-        </button>
-      </div>
+      <Toolbar
+        search={{ value: search, onChange: setSearch, placeholder: 'Search by name, email, employee code…' }}
+        actions={
+          <button onClick={() => setNewModal(true)}
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            <Plus size={15} /> New User
+          </button>
+        }
+      />
 
-      {/* Users Table */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          <div className="col-span-3">Name</div>
-          <div className="col-span-3">Email</div>
-          <div className="col-span-1">Code</div>
-          <div className="col-span-2">Role</div>
-          <div className="col-span-1">Dept</div>
-          <div className="col-span-1">Status</div>
-          <div className="col-span-1 text-right">Actions</div>
-        </div>
-
-        {filtered.length === 0 ? (
+      {/* Users list — 12-col table at xl, condensed at md, cards below */}
+      <DataList
+        rows={filtered}
+        columns={USER_COLUMNS(
+          u => {
+            setEditModal(u)
+            setEditForm({ full_name: u.full_name, employee_code: u.employee_code || '', app_role: u.app_role, department_id: '', mobile: u.mobile || '' })
+          },
+          toggleActive,
+        )}
+        getRowId={u => u.id}
+        rowClassName={u => (!u.is_active ? 'opacity-50' : undefined)}
+        striped
+        empty={
           <div className="p-12 text-center">
             <Users size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">{search ? 'No users found' : 'No users yet'}</p>
           </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-border-subtle)]">
-            {filtered.map((u, idx) => {
-              const roleCfg = ROLE_CFG[u.app_role] || ROLE_CFG.staff
-              return (
-                <div key={u.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center',
-                  idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15',
-                  !u.is_active && 'opacity-50')}>
-                  <div className="col-span-3">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)]">{u.full_name}</p>
-                    {u.mobile && <p className="text-xs text-[var(--color-text-muted)]">{u.mobile}</p>}
-                  </div>
-                  <div className="col-span-3 text-sm text-[var(--color-text-secondary)] truncate">{u.email}</div>
-                  <div className="col-span-1 text-xs font-mono text-[var(--color-text-muted)]">{u.employee_code || '—'}</div>
-                  <div className="col-span-2">
-                    <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium', roleCfg.color)}>{roleCfg.label}</span>
-                  </div>
-                  <div className="col-span-1 text-xs text-[var(--color-text-muted)] truncate">{u.departments?.name || '—'}</div>
-                  <div className="col-span-1">
-                    <span className={cn('text-xs font-medium', u.is_active ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]')}>
-                      {u.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <div className="col-span-1 flex items-center gap-1 justify-end">
-                    <button onClick={() => {
-                      setEditModal(u)
-                      setEditForm({ full_name: u.full_name, employee_code: u.employee_code || '', app_role: u.app_role, department_id: '', mobile: u.mobile || '' })
-                    }} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
-                      <Edit2 size={12} />
-                    </button>
-                    <button onClick={() => toggleActive(u)}
-                      className={cn('w-7 h-7 flex items-center justify-center rounded border transition-colors',
-                        u.is_active
-                          ? 'border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10'
-                          : 'border-[var(--color-success)]/30 text-[var(--color-success)] hover:bg-[var(--color-success)]/10')}>
-                      {u.is_active ? <UserX size={12} /> : <UserCheck size={12} />}
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        }
+      />
 
       {/* New User Modal */}
       <Modal open={newModal} onClose={() => setNewModal(false)} title="Create New User" size="md"
         footer={
           <>
-            <button onClick={() => setNewModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setNewModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createUser} disabled={loading || !newForm.full_name || !newForm.email}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Users size={14} /> {loading ? 'Creating…' : 'Create User'}
             </button>
           </>
         }>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2 space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Full Name <span className="text-[var(--color-danger)]">*</span></label>
               <input className={inputCls} value={newForm.full_name} onChange={e => setNewForm(p => ({ ...p, full_name: e.target.value }))} placeholder="Muhammad Ahmed" />
             </div>
@@ -263,15 +293,15 @@ export default function UsersClient({ initialUsers, departments, roles }: {
         <Modal open={true} onClose={() => setEditModal(null)} title={`Edit — ${editModal.full_name}`} size="md"
           footer={
             <>
-              <button onClick={() => setEditModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setEditModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={updateUser} disabled={loading}
-                className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                 {loading ? 'Saving…' : 'Save Changes'}
               </button>
             </>
           }>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2 space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Full Name</label>
               <input className={inputCls} value={editForm.full_name} onChange={e => setEditForm(p => ({ ...p, full_name: e.target.value }))} />
             </div>

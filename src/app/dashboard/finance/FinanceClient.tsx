@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronRight, Send, Trash2, CreditCard, Calculator, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatTimeAgo } from '@/lib/utils/format'
@@ -229,15 +230,15 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
+        <ScrollRow className="md:flex-1" wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={filterStatus} contentClassName="gap-1 -mx-1 px-1">
           {(['','draft','sent','partial','paid','overdue'] as const).map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={cn('px-3 h-7 rounded-md text-xs font-medium border transition-all',
+            <button key={s} onClick={() => setFilterStatus(s)} role="tab" aria-selected={filterStatus === s} data-tab-active={filterStatus === s}
+              className={cn('px-3 h-11 md:h-7 rounded-md text-xs font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 filterStatus === s ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label}
             </button>
           ))}
-        </div>
+        </ScrollRow>
         <div className="flex items-center gap-2">
           <button onClick={() => setAgingModal(true)}
             className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">

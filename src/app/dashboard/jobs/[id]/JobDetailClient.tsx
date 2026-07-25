@@ -9,6 +9,7 @@ import {
   MessageSquare, Layers, Activity, FileText, Pencil, Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
@@ -347,7 +348,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       )}
 
       {/* ─── Tabs ────────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-[var(--color-border)] overflow-x-auto scrollbar-none -mx-1 px-1">
+      {/* Underline tabs share a single baseline with the border, so this row
+          scrolls rather than wraps. */}
+      <ScrollRow className="border-b border-[var(--color-border)]" role="tablist" activeSelector="[data-tab-active='true']" activeKey={activeTab} contentClassName="gap-1 -mx-1 px-1">
         {([
           { key: 'overview', label: 'Overview', icon: FileText },
           { key: 'workflow', label: 'Workflow', icon: Layers },
@@ -358,7 +361,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         ] as const).map(tab => {
           const Icon = tab.icon
           return (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key} data-tab-active={activeTab === tab.key}
               className={cn('flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex-shrink-0 whitespace-nowrap',
                 activeTab === tab.key
                   ? 'border-b-[var(--color-accent)] text-[var(--color-accent)]'
@@ -376,7 +379,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             </button>
           )
         })}
-      </div>
+      </ScrollRow>
 
       {/* ─── Tab: Overview ───────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (

@@ -1,12 +1,13 @@
 'use client'
-import { useState } from 'react'
-import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
+import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
 
 interface ArtworkComment {
@@ -27,7 +28,10 @@ interface Artwork {
 }
 interface Job { id: string; job_number: string; job_title: string; customers?: { name: string } | null }
 
-const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+/** Remembers the list/thumbnail choice between visits. */
+const ARTWORK_VIEW_KEY = 'jafson.artwork.view'
+
+const inputCls = 'w-full h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 function formatBytes(bytes: number | null): string {
   if (!bytes) return '—'
@@ -59,7 +63,22 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     job_id: '', file_name: '', file_url: '', file_size: '', file_type: '', designer_notes: '',
   })
 
+  // List vs thumbnail grid. Persisted because it is a working preference, not
+  // a per-visit choice — a designer scanning artwork wants the grid every time.
+  const [view, setView] = useState<'list' | 'grid'>('list')
+  useEffect(() => {
+    const saved = localStorage.getItem(ARTWORK_VIEW_KEY)
+    if (saved === 'grid' || saved === 'list') setView(saved)
+  }, [])
+  const changeView = (v: 'list' | 'grid') => {
+    setView(v)
+    localStorage.setItem(ARTWORK_VIEW_KEY, v)
+  }
+
   const filtered = filterJob ? artworks.filter(a => a.job_id === filterJob) : artworks
+
+  // One batched signing request for every previewable file on screen.
+  const thumbs = useArtworkThumbnails(filtered)
 
   const grouped = filtered.reduce((acc, art) => {
     const key = art.job_id
@@ -254,16 +273,31 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center gap-2.5 md:gap-3">
         <select value={filterJob} onChange={e => setFilterJob(e.target.value)}
-          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors">
+          className="w-full md:w-auto h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors">
           <option value="">All Jobs</option>
           {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
         </select>
-        <button onClick={() => setUploadModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
-          <Plus size={15} /> Add Artwork
-        </button>
+        <div className="flex items-center gap-2.5 md:ml-auto">
+          {/* List / thumbnail grid toggle */}
+          <div className="flex items-center gap-1 flex-shrink-0 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
+            <button onClick={() => changeView('list')} title="List view" aria-label="List view" aria-pressed={view === 'list'}
+              className={cn('w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md transition-colors',
+                view === 'list' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+              <List size={15} />
+            </button>
+            <button onClick={() => changeView('grid')} title="Thumbnail view" aria-label="Thumbnail view" aria-pressed={view === 'grid'}
+              className={cn('w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md transition-colors',
+                view === 'grid' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+              <LayoutGrid size={15} />
+            </button>
+          </div>
+          <button onClick={() => setUploadModal(true)}
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            <Plus size={15} /> Add Artwork
+          </button>
+        </div>
       </div>
 
       {/* Grouped by job */}
@@ -280,13 +314,13 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
           return (
             <div key={jobId} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
               {/* Job header */}
-              <div className="flex items-center justify-between px-5 py-3.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
-                <div>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 px-4 md:px-5 py-3 md:py-3.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
+                <div className="min-w-0">
                   <span className="text-sm font-semibold text-[var(--color-accent)] font-mono">{job?.job_number}</span>
                   <span className="text-sm text-[var(--color-text-primary)] ml-2">{job?.job_title}</span>
                   <span className="text-xs text-[var(--color-text-muted)] ml-2">{job?.customers?.name}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                   {readyVersion && (
                     <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20 flex items-center gap-1.5">
                       <CheckCircle2 size={11} /> v{readyVersion.version} Production Ready
@@ -296,23 +330,77 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                 </div>
               </div>
 
-              {/* Artwork versions */}
+              {/* Thumbnail grid — 125 × 160 tiles, exact size at every
+                  breakpoint; the row wraps rather than the tile resizing. */}
+              {view === 'grid' ? (
+                <div className="flex flex-wrap gap-3 md:gap-4 p-4 md:p-5">
+                  {arts.map(art => (
+                    <div key={art.id} className="w-[125px] flex-shrink-0">
+                      <ArtworkThumb
+                        url={thumbs[art.id]}
+                        fileName={art.file_name}
+                        fileType={art.file_type}
+                        version={art.version}
+                        approved={art.status === 'approved'}
+                        onClick={() => viewFile(art.file_url)}
+                      />
+                      <p className="mt-1.5 text-xs text-[var(--color-text-primary)] truncate" title={art.file_name}>
+                        {art.file_name}
+                      </p>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', ARTWORK_STATUS_CONFIG[art.status].dot)} />
+                        <span className="text-[11px] text-[var(--color-text-muted)] truncate">
+                          {ARTWORK_STATUS_CONFIG[art.status].label}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <button onClick={() => openCommentsModal(art)} title="Comments & markup" aria-label="Comments and markup"
+                          className={cn('w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border transition-colors',
+                            hasUnresolvedCustomerComment(art.id)
+                              ? 'border-[var(--color-danger)]/50 text-[var(--color-danger)] bg-[var(--color-danger)]/10'
+                              : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
+                          <MessageCircle size={13} />
+                        </button>
+                        {!['approved', 'rejected', 'archived'].includes(art.status) && (
+                          <button onClick={() => openLinkModal(art)} title="Get approval link" aria-label="Get approval link"
+                            className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                            <Link2 size={13} />
+                          </button>
+                        )}
+                        <button onClick={() => deleteArtwork(art.id)} title="Delete" aria-label="Delete artwork"
+                          className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              /* Artwork versions */
               <div className="divide-y divide-[var(--color-border-subtle)]">
                 {arts.map(art => (
                   <div key={art.id}>
-                  <div className={cn('flex items-center gap-4 px-5 py-3.5',
+                  {/* Below md the actions row cannot share a line with the file
+                      info — five controls plus a select need ~420px. The row
+                      stacks instead, and returns to the exact desktop layout at
+                      md: [version badge] [file info, flex-1] [actions]. */}
+                  <div className={cn('flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-3.5',
                     art.status === 'approved' && 'bg-[var(--color-success)]/3')}>
-                    {/* Version badge */}
-                    <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 border',
-                      art.status === 'approved'
-                        ? 'bg-[var(--color-success)]/10 border-[var(--color-success)]/30 text-[var(--color-success)]'
-                        : 'bg-[var(--color-bg-elevated)] border-[var(--color-border)] text-[var(--color-text-muted)]')}>
-                      v{art.version}
-                    </div>
+                   <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
+                    {/* 125 × 160 preview — replaces the old 40px version chip.
+                        The version number moved onto the thumbnail itself. */}
+                    <ArtworkThumb
+                      url={thumbs[art.id]}
+                      fileName={art.file_name}
+                      fileType={art.file_type}
+                      version={art.version}
+                      approved={art.status === 'approved'}
+                      onClick={() => viewFile(art.file_url)}
+                    />
 
                     {/* File info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{art.file_name}</span>
                         <button onClick={() => openCommentsModal(art)}
                           className={cn('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer', ARTWORK_STATUS_CONFIG[art.status].color)}
@@ -321,7 +409,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                           {ARTWORK_STATUS_CONFIG[art.status].label}
                         </button>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                         {art.file_type && <span className="text-xs text-[var(--color-text-muted)] uppercase">{art.file_type}</span>}
                         <span className="text-xs text-[var(--color-text-muted)]">{formatBytes(art.file_size)}</span>
                         <span className="text-xs text-[var(--color-text-muted)]">Uploaded {formatTimeAgo(art.created_at)}</span>
@@ -334,32 +422,33 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                         </p>
                       )}
                     </div>
+                   </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 md:flex-nowrap md:flex-shrink-0">
                       <button onClick={() => viewFile(art.file_url)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                        className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                         <ExternalLink size={13} />
                       </button>
                       {art.ai_preflight_status ? (
                         <button onClick={() => setPreflightModal(art)}
-                          className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors', PREFLIGHT_CFG[art.ai_preflight_status].color)}>
+                          className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap', PREFLIGHT_CFG[art.ai_preflight_status].color)}>
                           <Sparkles size={12} /> {PREFLIGHT_CFG[art.ai_preflight_status].label}
                         </button>
                       ) : (
                         <button onClick={() => runPreflight(art)} disabled={preflightLoading === art.id}
-                          className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50">
+                          className="flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors disabled:opacity-50 whitespace-nowrap">
                           <Sparkles size={12} /> {preflightLoading === art.id ? 'Checking…' : 'AI Pre-flight'}
                         </button>
                       )}
                       {!['approved', 'rejected', 'archived'].includes(art.status) && (
                         <button onClick={() => openLinkModal(art)}
-                          className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors">
+                          className="flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap">
                           <Link2 size={12} /> Get Approval Link
                         </button>
                       )}
                       <button onClick={() => openCommentsModal(art)}
-                        className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
+                        className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap',
                           hasUnresolvedCustomerComment(art.id)
                             ? 'border-[var(--color-danger)]/50 text-[var(--color-danger)] bg-[var(--color-danger)]/10'
                             : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]')}>
@@ -371,7 +460,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                       </button>
                       {ARTWORK_STATUS_TRANSITIONS[art.status].length > 0 && (
                         <select value="" onChange={e => e.target.value && changeStatus(art.id, e.target.value as ArtworkStatus)}
-                          className="h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+                          className="h-10 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)]">
                           <option value="">Move to…</option>
                           {ARTWORK_STATUS_TRANSITIONS[art.status].map(s => (
                             <option key={s} value={s}>{ARTWORK_STATUS_CONFIG[s].label}</option>
@@ -379,7 +468,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                         </select>
                       )}
                       <button onClick={() => deleteArtwork(art.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                        className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -387,6 +476,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )
         })
@@ -396,9 +486,9 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
       <Modal open={uploadModal} onClose={() => setUploadModal(false)} title="Add Artwork Version" size="md"
         footer={
           <>
-            <button onClick={() => setUploadModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={upload} disabled={loading || !form.job_id || !selectedFile}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Upload size={14} /> {loading ? 'Uploading…' : 'Add Artwork'}
             </button>
           </>
@@ -442,7 +532,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
               </div>
               <p className="text-xs text-[var(--color-text-muted)]">The customer will be able to view this artwork and Approve, Reject, or Request Changes — no login needed. This also moves the status to &quot;Waiting Customer Approval&quot;.</p>
               <button onClick={generateLink} disabled={linkLoading}
-                className="w-full flex items-center justify-center gap-2 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                className="w-full flex items-center justify-center gap-2 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                 <Link2 size={14} /> {linkLoading ? 'Generating…' : 'Generate Link'}
               </button>
             </>
@@ -452,13 +542,13 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                 <label className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
                 <div className="flex items-center gap-2">
                   <input readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button onClick={copyLink} className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                  <button onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                     <Copy size={14} />
                   </button>
                 </div>
               </div>
               <button onClick={() => setLinkModal(null)}
-                className="w-full h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                className="w-full h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                 Done
               </button>
             </>
@@ -577,9 +667,9 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                     <input value={newComment} onChange={e => setNewComment(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && addComment(commentsModal.id)}
                       placeholder="Add an internal note…"
-                      className="flex-1 h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
+                      className="flex-1 min-w-0 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => addComment(commentsModal.id)} disabled={addingComment || !newComment.trim()}
-                      className="h-9 px-3 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                      className="h-11 md:h-9 px-3 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                       Add
                     </button>
                   </div>
