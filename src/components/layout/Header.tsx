@@ -77,7 +77,13 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
       className={cn(
         'fixed top-0 right-0 left-0 z-40 h-[var(--header-total)] pt-safe',
         'bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]',
-        'flex items-center px-4 pl-safe pr-safe gap-2 lg:gap-3'
+        // Side padding must ADD to the safe-area inset, not be replaced by
+        // it. `px-4 pl-safe pr-safe` looked right but .pl-safe/.pr-safe SET
+        // padding to var(--safe-left/right) — 0px on desktop and on a portrait
+        // phone — so the 16px gutter was silently wiped and the logo sat on the
+        // left edge while the avatar sat on the right edge.
+        'flex items-center gap-2 lg:gap-3',
+        'pl-[calc(1rem+var(--safe-left))] pr-[calc(1rem+var(--safe-right))]'
       )}
     >
       {/* Menu + Back — below lg only. The hamburger is the fixed top-left

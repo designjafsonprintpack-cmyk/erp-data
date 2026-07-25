@@ -139,7 +139,12 @@ input[type="number"] {
 }
 
 @layer utilities {
-  /* Safe-area padding utilities. No-ops on desktop. */
+  /* Safe-area padding utilities. No-ops on desktop.
+     CAUTION: these SET padding, they do not add to it. Never pair one with a
+     p*-N class on the same element — the safe utility is declared after
+     Tailwind's own and wins, zeroing your padding wherever the inset is 0
+     (desktop, and any phone in portrait). When you want gutter AND inset, use
+     pl-[calc(1rem+var(--safe-left))] instead. */
   .pt-safe { padding-top: var(--safe-top); }
   .pb-safe { padding-bottom: var(--safe-bottom); }
   .pl-safe { padding-left: var(--safe-left); }

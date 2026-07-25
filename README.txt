@@ -1,97 +1,89 @@
-JAFSON PRINT ERP — GSM v3 + TOPBAR FIX (v4)          Jul 26, 2026
+JAFSON PRINT ERP — GSM + TOPBAR EDGE FIX (v5)        Jul 26, 2026
 Built against GitHub commit 5c4844f.
 
-*** THIS ZIP REPLACES ALL THREE EARLIER ZIPS ***
-  jafson-erp-ui-order-batch.zip      (v1)
-  jafson-erp-ui-order-batch-v2.zip   (v2)
-  jafson-erp-gsm-v3.zip              (v3)
+*** REPLACES ALL EARLIER ZIPS ***
+  jafson-erp-ui-order-batch.zip       (v1)
+  jafson-erp-ui-order-batch-v2.zip    (v2)
+  jafson-erp-gsm-v3.zip               (v3)
+  jafson-erp-gsm-topbar-v4.zip        (v4)
 Extract THIS one only.
 
 >>> RUN BOTH MIGRATIONS FIRST, IN ORDER <<<
     1. supabase/migrations/087_jobs_gsm.sql
     2. supabase/migrations/088_sales_order_items_gsm.sql
-    Both additive, safe to re-run.
 
 ===========================================================================
-NEW IN v4 — TOPBAR
+NEW IN v5 — THE EDGE PROBLEM (logo left, avatar right)
 ===========================================================================
-DESKTOP — the real bug.
-The header is a flex row. The search box was the only item allowed to grow,
-and it was capped at 448px. Flex puts leftover space at the END of the row
-when nothing claims it — so on a wide monitor every spare pixel piled up to
-the RIGHT of the clock, theme, bell and profile, leaving them stranded in
-the middle of the bar with a huge empty stretch beside them. The wider your
-screen, the worse it looked.
+One root cause for both. The header carried:
 
-Fix: the right-hand group now takes ml-auto, so it is pinned to the right
-edge at every width. That is the whole bug.
+    px-4 pl-safe pr-safe
 
-Two supporting changes so a wide screen doesn't just become a bigger gap:
-- The search box may grow to max-w-lg at 1280px+ (was hard-stopped at
-  max-w-md at every size).
-- GlobalSearch's button had its OWN max-w-md on top of the wrapper's, so
-  widening the wrapper alone would have done nothing. The button now fills
-  its wrapper and the wrapper is the single place the width is capped.
+.pl-safe and .pr-safe are custom utilities in globals.css and they SET
+padding rather than adding to it:
 
-MOBILE — the company name now shows.
-It was hidden below md, so a phone showed a lone crown icon and then a long
-empty stretch before the icons on the right. The name now renders at every
-width, capped at 120px on phones and 180px from md up, and truncates.
-The logo link can shrink and the logo tile itself cannot, so on a narrow
-phone with a back arrow present the NAME gives way — the controls never get
-pushed off-screen.
+    .pl-safe { padding-left: var(--safe-left); }
 
-This mobile part is a judgment call, not a bug fix. If you would rather the
-phone bar stayed minimal, say so and I will revert just that line — the
-desktop fix is independent of it.
+They are declared after Tailwind's own utilities, so they win the cascade
+and overwrite px-4. And --safe-left / --safe-right resolve to 0px on
+desktop and on any phone held in portrait — there is no notch on the sides.
 
-Desktop output at 1280px+ is otherwise pixel-identical: same heights, same
-gaps, same 180px name cap, same hidden/shown breakpoints for the clock,
-bell and user block.
+So the header's 16px side gutter was being set to zero at BOTH ends. On
+desktop you saw it on the left (the logo), on the phone you saw it on the
+right (the avatar) — same bug, different end, because those are the items
+that sit hard against each edge on each layout.
 
-NOT CHANGED, worth knowing: the notification bell is still hidden below md
-(`hidden md:flex`), so there is no way to see notifications on a phone.
-Tell me if you want it in the mobile bar and I will fit it.
+Fix — padding that ADDS the inset instead of being replaced by it:
 
-FILES CHANGED FOR THE TOPBAR (2):
-  src/components/layout/Header.tsx
-  src/components/shared/GlobalSearch.tsx
+    pl-[calc(1rem+var(--safe-left))]
+    pr-[calc(1rem+var(--safe-right))]
+
+16px everywhere, plus the notch inset when a phone is actually rotated into
+a notch. Confirmed in the compiled CSS, not just the source.
+
+Also added a warning comment above the utility definitions in globals.css.
+This same trap was already worked around once in Modal.tsx's footer; the
+header hit it again. The comment says plainly: never pair a p*-safe with a
+p*-N on the same element.
+
+FILES: src/components/layout/Header.tsx, src/app/globals.css
 
 ===========================================================================
-EVERYTHING ELSE (from v3, unchanged)
+ALSO IN v5 (carried from v4)
 ===========================================================================
-GSM done properly — three separate records:
-  QUOTED   quotation_items.board_gsm, frozen
-  PLANNED  jobs.gsm, from the quoted value or chosen from real stock weights
-  ACTUAL   derived from the MRN's board_inventory row, never typed
-- Job GSM field offers the weights that actually exist in board_inventory
-  for that board type; free entry still allowed
-- Migration 088 carries the quoted GSM through quotation -> SO -> job
-- Job Detail + printed Job Card show GSM (planned) and GSM (issued),
-  highlighted on variance
-- Store > Issue Materials warns on a GSM mismatch and captures a reason;
-  never blocks the issue. Planned is never overwritten by actual
-Plus, from v1/v2:
-- Dashboard row 2: Recent Jobs | Machines | Alerts
-- Quotation: Box Type on the line item, after Colors, before Board Type
-- New/Edit Job spec order: L / W / H / Ups · Sheet W / Sheet H / Board / GSM
-  · Colors / Quantity / Die Number / Box Type
-- Grain Direction removed from the forms; DB column kept
-- New / Repeat toggle on New Job with a searchable parent-job picker
-- Repeat bug fix: ups, grain_direction, sheet_qty now carried over
+- Desktop topbar: the right-hand group (clock, theme, bell, profile) now
+  takes ml-auto and pins to the right edge. Previously the capped search box
+  was the only growable item, so all leftover width piled up to the RIGHT of
+  those controls and stranded them mid-bar on a wide screen.
+- Search may grow to max-w-lg at 1280px+; GlobalSearch's button no longer
+  carries its own duplicate max-w-md, so the wrapper is the one place the
+  width is set.
+- Company name now shows on phones (capped 120px, truncates). The logo tile
+  cannot shrink, the name can — so the controls never get pushed off-screen.
+  Still a judgment call; say the word and I'll revert just that.
+
+And from v1-v3: GSM modelled as quoted / planned / actual, the stock-sourced
+GSM list, migration 088 carrying the quoted GSM through to the job, planned
+vs issued on Job Detail and the Job Card, the store GSM-mismatch warning
+with a reason, dashboard panel order, quotation Box Type on the line item,
+New/Edit Job field order, and the New/Repeat toggle plus the repeat
+ups/sheet_qty fix.
+
+STILL NOT CHANGED: the notification bell is hidden below md, so a phone has
+no way to see notifications. Say the word and I'll fit it in.
 
 ===========================================================================
 VERIFIED
 ===========================================================================
 npx tsc --noEmit = 0 errors. npm run build = compiled successfully.
-Header render-tested across a top-level route and a sub-route: 11/11
-assertions (right group pinned, search caps, name visible and truncating,
-logo cannot shrink, hamburger present, back arrow only on sub-routes).
+Header render-tested 10/10 across a top-level route and a sub-route.
+Compiled CSS grep-confirmed to contain
+  padding-left:calc(1rem + var(--safe-left))
+  padding-right:calc(1rem + var(--safe-right))
 Plus the 22 GSM assertions from v3.
 
 DEPLOY:
   1. Run 087 then 088 in Supabase
-  2. Extract this zip over the repo root
-  3. npm run dev — check the topbar on a wide screen AND a phone
-  4. npm run build
-  5. GitHub Desktop commit + push
+  2. Extract over the repo root
+  3. npm run dev — check the topbar edges on a wide screen AND a phone
+  4. npm run build, then commit + push
