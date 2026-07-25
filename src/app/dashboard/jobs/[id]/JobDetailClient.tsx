@@ -19,6 +19,7 @@ import {
   type WastageReason, type JobWastage
 } from '@/modules/jobs/types/job.types'
 import JobArtworkTab from './JobArtworkTab'
+import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface DelayReason { id: string; name: string; category: string }
 interface Machine { id: string; name: string }
@@ -246,6 +247,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
   const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
+  // artworks is already ordered version DESC (see page.tsx's query), so [0]
+  // is always the latest — no extra fetch needed, just sign that one file.
+  const latestArtwork = artworks[0]
+  const artworkThumbs = useArtworkThumbnails(latestArtwork ? [latestArtwork] : [])
+
   return (
     <div className="space-y-5">
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
@@ -254,6 +260,17 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <Link href="/dashboard/jobs" className="hidden lg:flex w-8 h-8 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors mt-1">
             <ArrowLeft size={15} />
           </Link>
+          {latestArtwork && (
+            <ArtworkThumb
+              className="hidden sm:flex"
+              url={artworkThumbs[latestArtwork.id]}
+              fileName={latestArtwork.file_name}
+              fileType={latestArtwork.file_type}
+              version={latestArtwork.version}
+              approved={latestArtwork.status === 'approved'}
+              onClick={() => setActiveTab('artwork')}
+            />
+          )}
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] font-mono">{job.job_number}</h1>
@@ -392,7 +409,8 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-4">
               {[
                 { label: 'Size (L×W×H)', value: [job.size_l, job.size_w, job.size_h].filter(Boolean).join(' × ') + (job.size_l ? ' mm' : '') || '—' },
-                { label: 'Sheet Size', value: job.sheet_size || '—' },
+                { label: 'Sheet Size', value: job.sheet_width_in && job.sheet_height_in ? `${job.sheet_width_in} × ${job.sheet_height_in} in` : '—' },
+                { label: 'Box Type', value: (job as any).box_types?.name || '—' },
                 { label: 'Grain Direction', value: job.grain_direction === 'long_grain' ? 'Long Grain' : job.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
                 { label: 'Ups', value: job.ups || '—' },
                 { label: 'Sheet Qty', value: job.sheet_qty?.toLocaleString() || '—' },

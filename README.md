@@ -1,45 +1,56 @@
-# Jafson ERP — Artwork thumbnails (125 × 160)
+# Jafson ERP — Migration 086 FIX #2 (view type mismatch)
 
-4 files (1 naya). Koi SQL migration nahi, koi env var nahi. Repo-root structure.
-Ye zip pichhle `jafson-erp-artwork-users-fix.zip` ko **replace** karta hai —
-usme jo Users ka fix tha wo bhi ismein shamil hai. Seedha ye extract kar do.
+1 file — dobara sirf migration `086_sheet_dimensions_box_type_workflow.sql`.
+Apni pichli copy (chahe wo Stage 1 wali ho ya pehle wali fix) ko isse badal do.
 
-## Kya mila
+## Nayi ghalti pakri gayi
 
-**NEW `src/components/artwork/ArtworkThumb.tsx`** — 125 × 160 px ka thumbnail
-tile. Size ek hi jagah define hai (`THUMB_W` / `THUMB_H`), taake Artwork page
-aur Job Detail ka Artwork tab kabhi alag na ho jayen.
+```
+ERROR: 42809: "global_search_index" is not a materialized view
+HINT: Use DROP VIEW to remove a view.
+```
 
-**1. List view mein thumbnail** — pehle jo chhota 40px ka "v1" chip tha uski
-jagah ab poora 125 × 160 preview hai. Version number thumbnail ke upar corner
-mein chala gaya. Baaqi sab (status, file info, saare buttons) waise ke waise.
+Pichli fix ne maan liya tha ke `global_search_index` **materialized view** hai
+(jaisa ke migration files mein likha hai). Lekin **tumhare asli database mein
+ye ek plain (aam) view ban chuki hai** — kisi ne pehle kabhi Supabase mein
+seedha jaake ise badla hoga, jo migration files mein wapas record nahi hua.
+Isi wajah se mera pehla fix `DROP MATERIALIZED VIEW` bol raha tha jab wahan
+asal mein sirf `VIEW` thi.
 
-**2. Naya Thumbnail (grid) view** — toolbar mein List / Thumbnail toggle. Grid
-mein har version 125 × 160 tile hai, neeche file name + status, aur teen kaam
-ke buttons (comments/markup, approval link, delete). Tile par click karne se
-file khul jati hai. Tumhara choice **localStorage mein yaad rehta hai** — ek
-baar Thumbnail chuna, aage har baar wohi khulega.
+## Fix — is baar guess nahi kiya
 
-Default abhi bhi List hai taake kisi aur ka workflow na tootay.
+Migration ab pehle **check karti hai** ke `global_search_index` abhi kaun sa
+type hai (`pg_matviews` / `pg_views` se dekh kar), aur usay **wapas usi type
+mein** banati hai — chahe wo materialized ho ya plain. Khud se decide nahi
+karti ke konsa "behtar" hai, kyunke ye is migration ka kaam nahi hai — sirf
+sheet size/box type/workflow badalne aaye hain, view ka design badalna nahi.
 
-**3. Job Detail → Artwork tab** mein bhi wohi 125 × 160 thumbnail (wahan toggle
-nahi, kyunke ek job ki list chhoti hoti hai).
-
-## Technical
-
-- `artwork` bucket private hai (migration 036), to har image ko signed URL
-  chahiye. Ek-ek karke sign karte to har artwork par ek request jati — iske
-  bajaye `createSignedUrls()` se **poori screen ke liye ek hi request** jati hai.
-  URL 1 ghante ka hai.
-- Sirf image files (JPG/PNG/WEBP/GIF/BMP/SVG/AVIF) ka preview banta hai.
-  PDF / AI / EPS / PSD ke liye file-type tile aata hai (icon + "AI", "PDF")
-  — layout wahi 125 × 160 rehta hai, to previews load hote waqt page hilta nahi.
-- Image `object-cover` + `loading="lazy"`. Load fail ho to khud-ba-khud
-  file-type tile par gir jata hai.
+Plain view ka ek fayda khud pata chala: usay kabhi "refresh" karne ki zaroorat
+nahi — hamesha live data dikhati hai. (Materialized view ko refresh karne wala
+trigger asal mein kahin wire hi nahi hua tha, to shayad isi wajah se kisi ne
+pehle isay plain view mein badal diya hoga — stale data se bachne ke liye.)
 
 ## Verification
 
-- `npx tsc --noEmit` → 0 errors
-- `npm run build` → compiled successfully, 125/125 routes
-- Render-tested: 13/13 PASS (exact 125/160 px, image + fallback dono branches,
-  approved frame, previewable detection, toggle, default view)
+Is baar maine **dono scenario** asli PostgreSQL par bana kar test kiye —
+tumhare jaisa (plain view) aur jo migration files mein likha hai (materialized
+view dono):
+
+**Plain view (tumhari asli halat):**
+- Migration ke baad bhi plain view hi rehti hai ✓, koi index nahi banta (theek
+  hai, plain view index rakh hi nahi sakti) ✓
+- Ek naya job **bina refresh ke** turant search mein nazar aaya ✓ (live view
+  ka fayda)
+- Sheet size se search ("25"), job number se search, customer se search — sab
+  kaam karte hain ✓
+- **Teen baar chalayi, koi error nahi** ✓
+
+**Materialized view (agar kabhi kahin ho):**
+- Migration ke baad materialized hi rehti hai ✓, teeno indexes wapas ban jate
+  hain ✓
+- Teen baar chalayi, koi error nahi ✓
+
+Dono halaton mein Box Types aur HL workflow bhi theek nikle.
+
+`tsc` 0 errors, `npm run build` 126/126 — app code mein koi tabdeeli nahi,
+sirf SQL fix hai.

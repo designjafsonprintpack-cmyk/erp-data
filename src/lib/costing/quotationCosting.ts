@@ -56,8 +56,8 @@ export interface CostingInput {
   boardRatePerSheet: number
   boardRatePerKg: number
   boardGsm: number
-  sheetLengthIn: number
   sheetWidthIn: number
+  sheetHeightIn: number
   costLines: DynamicCostLine[]
   profitMarginPercent: number
   // Informational only — Packet Size + Div (Excel parity, does not affect cost)
@@ -92,9 +92,9 @@ export interface CostingResult {
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 // Weight of ONE HUNDRED sheets, in kg — trade constant: L(in) x W(in) x GSM / 15500.
-function sheetWeightPer100Kg(lengthIn: number, widthIn: number, gsm: number): number {
-  if (!lengthIn || !widthIn || !gsm) return 0
-  return (lengthIn * widthIn * gsm) / 15500
+function sheetWeightPer100Kg(widthIn: number, heightIn: number, gsm: number): number {
+  if (!widthIn || !heightIn || !gsm) return 0
+  return (widthIn * heightIn * gsm) / 15500
 }
 
 // "Stepped 1000" block count: remainder <= 200 rounds down, otherwise up,
@@ -138,13 +138,13 @@ export function calculateQuotationItemCost(input: CostingInput): CostingResult {
   // job — packing/cartage/pasting are priced per box, and one "piece" here
   // is one finished box, matching the worksheet's own convention.
   const boxQty = quantity
-  const sqftPerSheet = input.sheetLengthIn && input.sheetWidthIn ? (input.sheetLengthIn * input.sheetWidthIn) / 144 : 0
+  const sqftPerSheet = input.sheetWidthIn && input.sheetHeightIn ? (input.sheetWidthIn * input.sheetHeightIn) / 144 : 0
 
   // Board weight — FIXED: sheetWeightPer100Kg is the weight of a batch of
   // 100 sheets, so total weight = grossSheetQty / 100 x that constant, not
   // grossSheetQty x that constant directly (the old 100x-overstated bug).
   const boardWeightKg = input.boardCostingMethod === 'per_kg'
-    ? (grossSheetQty / 100) * sheetWeightPer100Kg(input.sheetLengthIn, input.sheetWidthIn, input.boardGsm)
+    ? (grossSheetQty / 100) * sheetWeightPer100Kg(input.sheetWidthIn, input.sheetHeightIn, input.boardGsm)
     : 0
   const boardCost = input.boardCostingMethod === 'per_kg'
     ? boardWeightKg * (input.boardRatePerKg || 0)

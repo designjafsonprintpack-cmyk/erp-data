@@ -1092,8 +1092,8 @@ export type Database = {
           location: string | null
           reorder_level: number
           reserved_stock: number
-          size_l: number | null
-          size_w: number | null
+          sheet_width_in: number | null
+          sheet_height_in: number | null
           unit_cost: number | null
           unit_id: string | null
           updated_at: string
@@ -1114,8 +1114,8 @@ export type Database = {
           location?: string | null
           reorder_level?: number
           reserved_stock?: number
-          size_l?: number | null
-          size_w?: number | null
+          sheet_width_in?: number | null
+          sheet_height_in?: number | null
           unit_cost?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -1136,8 +1136,8 @@ export type Database = {
           location?: string | null
           reorder_level?: number
           reserved_stock?: number
-          size_l?: number | null
-          size_w?: number | null
+          sheet_width_in?: number | null
+          sheet_height_in?: number | null
           unit_cost?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -1355,8 +1355,8 @@ export type Database = {
           name: string
           rate_per_kg: number | null
           rate_per_sheet: number | null
-          sheet_length_in: number | null
           sheet_width_in: number | null
+          sheet_height_in: number | null
           updated_at: string
           updated_by: string | null
         }
@@ -1373,8 +1373,8 @@ export type Database = {
           name: string
           rate_per_kg?: number | null
           rate_per_sheet?: number | null
-          sheet_length_in?: number | null
           sheet_width_in?: number | null
+          sheet_height_in?: number | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -1391,8 +1391,8 @@ export type Database = {
           name?: string
           rate_per_kg?: number | null
           rate_per_sheet?: number | null
-          sheet_length_in?: number | null
           sheet_width_in?: number | null
+          sheet_height_in?: number | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -1496,6 +1496,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "coating_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      box_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          description: string | null
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          description?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          description?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_types_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -4004,6 +4054,7 @@ export type Database = {
           artwork_by: string | null
           assigned_to: string | null
           board_type_id: string | null
+          box_type_id: string | null
           company_id: string
           completed_date: string | null
           created_at: string
@@ -4039,7 +4090,8 @@ export type Database = {
           sales_order_id: string | null
           sales_order_item_id: string | null
           sheet_qty: number | null
-          sheet_size: string | null
+          sheet_height_in: number | null
+          sheet_width_in: number | null
           size_h: number | null
           size_l: number | null
           size_w: number | null
@@ -4057,6 +4109,7 @@ export type Database = {
           artwork_by?: string | null
           assigned_to?: string | null
           board_type_id?: string | null
+          box_type_id?: string | null
           company_id: string
           completed_date?: string | null
           created_at?: string
@@ -4092,7 +4145,8 @@ export type Database = {
           sales_order_id?: string | null
           sales_order_item_id?: string | null
           sheet_qty?: number | null
-          sheet_size?: string | null
+          sheet_height_in?: number | null
+          sheet_width_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null
@@ -4110,6 +4164,7 @@ export type Database = {
           artwork_by?: string | null
           assigned_to?: string | null
           board_type_id?: string | null
+          box_type_id?: string | null
           company_id?: string
           completed_date?: string | null
           created_at?: string
@@ -4145,7 +4200,8 @@ export type Database = {
           sales_order_id?: string | null
           sales_order_item_id?: string | null
           sheet_qty?: number | null
-          sheet_size?: string | null
+          sheet_height_in?: number | null
+          sheet_width_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null
@@ -6215,6 +6271,7 @@ export type Database = {
           board_rate_per_kg: number | null
           board_rate_per_sheet: number | null
           board_type_id: string | null
+          box_type_id: string | null
           breaking_cost: number | null
           cartage_cost: number | null
           coating_cost: number | null
@@ -6247,9 +6304,9 @@ export type Database = {
           product_desc: string
           quantity: number
           quotation_id: string
-          sheet_length_in: number | null
-          sheet_qty: number | null
           sheet_width_in: number | null
+          sheet_qty: number | null
+          sheet_height_in: number | null
           size_h: number | null
           size_l: number | null
           size_w: number | null
@@ -6270,6 +6327,7 @@ export type Database = {
           board_rate_per_kg?: number | null
           board_rate_per_sheet?: number | null
           board_type_id?: string | null
+          box_type_id?: string | null
           breaking_cost?: number | null
           cartage_cost?: number | null
           coating_cost?: number | null
@@ -6302,9 +6360,9 @@ export type Database = {
           product_desc: string
           quantity?: number
           quotation_id: string
-          sheet_length_in?: number | null
-          sheet_qty?: number | null
           sheet_width_in?: number | null
+          sheet_qty?: number | null
+          sheet_height_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null
@@ -6325,6 +6383,7 @@ export type Database = {
           board_rate_per_kg?: number | null
           board_rate_per_sheet?: number | null
           board_type_id?: string | null
+          box_type_id?: string | null
           breaking_cost?: number | null
           cartage_cost?: number | null
           coating_cost?: number | null
@@ -6357,9 +6416,9 @@ export type Database = {
           product_desc?: string
           quantity?: number
           quotation_id?: string
-          sheet_length_in?: number | null
-          sheet_qty?: number | null
           sheet_width_in?: number | null
+          sheet_qty?: number | null
+          sheet_height_in?: number | null
           size_h?: number | null
           size_l?: number | null
           size_w?: number | null

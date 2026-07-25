@@ -5,6 +5,7 @@ import { RefreshCw, PauseCircle, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
+import { ArtworkThumb, type JobThumbData } from '@/components/artwork/ArtworkThumb'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -31,7 +32,7 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
   return { text: `${days}d`, cls: 'text-[var(--color-text-muted)]' }
 }
 
-export function JobsKanban({ jobs, onStatusChange }: { jobs: Job[]; onStatusChange: (jobId: string, newStatus: JobStatus) => void }) {
+export function JobsKanban({ jobs, onStatusChange, thumbnails }: { jobs: Job[]; onStatusChange: (jobId: string, newStatus: JobStatus) => void; thumbnails: Record<string, JobThumbData> }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<JobStatus | null>(null)
 
@@ -96,9 +97,20 @@ export function JobsKanban({ jobs, onStatusChange }: { jobs: Job[]; onStatusChan
                       </div>
                     </div>
 
-                    <Link href={`/dashboard/jobs/${job.id}`}>
-                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate mb-0.5">{job.job_title}</p>
-                      <p className="text-xs text-[var(--color-text-muted)] truncate mb-2">{job.customers?.name || '—'}</p>
+                    <Link href={`/dashboard/jobs/${job.id}`} className="flex items-center gap-2 mb-2">
+                      <ArtworkThumb
+                        size="sm"
+                        interactive={false}
+                        url={thumbnails[job.id]?.url ?? undefined}
+                        fileName={thumbnails[job.id]?.fileName ?? job.job_title}
+                        fileType={thumbnails[job.id]?.fileType}
+                        version={thumbnails[job.id]?.version ?? 1}
+                        approved={thumbnails[job.id]?.approved}
+                      />
+                      <span className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{job.job_title}</p>
+                        <p className="text-xs text-[var(--color-text-muted)] truncate">{job.customers?.name || '—'}</p>
+                      </span>
                     </Link>
 
                     <div className="flex items-center justify-between">

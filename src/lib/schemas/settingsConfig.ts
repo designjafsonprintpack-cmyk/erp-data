@@ -49,10 +49,11 @@ const materialTypeNumeric = z.preprocess(
 
 const materialTypeNumericFields = {
   gsm: materialTypeNumeric,
-  sheet_length_in: materialTypeNumeric,
   sheet_width_in: materialTypeNumeric,
+  sheet_height_in: materialTypeNumeric,
   rate_per_sheet: materialTypeNumeric,
   rate_per_kg: materialTypeNumeric,
+  sort_order: materialTypeNumeric,
 }
 
 export const materialTypeSchema = z.object({

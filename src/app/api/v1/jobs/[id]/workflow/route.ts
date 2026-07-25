@@ -92,7 +92,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // The artwork stage cannot be marked complete until a version of this job's
   // artwork has status = 'approved'. Matches on workflow_stages.stage_type
   // ('artwork'), not the stage's display name.
-  if (action === 'complete' && targetStageType === 'artwork') {
+  // 'artwork_approval' is the merged Artwork + Customer Approval stage added in
+  // migration 086; 'artwork' is still carried by older stages and running jobs.
+  if (action === 'complete' && (targetStageType === 'artwork' || targetStageType === 'artwork_approval')) {
     const { data: approvedArtwork } = await supabase
       .from('job_artworks' as any)
       .select('id')

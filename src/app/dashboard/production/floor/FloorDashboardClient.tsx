@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
+import { ArtworkThumb, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface Assignment {
   id: string; job_id: string; machine_id: string; operator_id: string | null
@@ -123,6 +124,14 @@ export default function FloorDashboardClient({
   const filteredQueue = filter
     ? queue.filter(a => a.job_stage_progress?.workflow_stages?.name === filter.stageName)
     : queue
+
+  // Every job that appears on this screen, wherever it appears — the Floor
+  // View machine cards and both expandable tables share one batched lookup.
+  const jobThumbs = useJobThumbnails([
+    ...filteredMachines.filter(m => m.job_id).map(m => m.job_id as string),
+    ...filteredActive.map(a => a.job_id),
+    ...filteredQueue.map(a => a.job_id),
+  ])
 
   const assign = async () => {
     if (!assignForm.job_id || !assignForm.machine_id) { toast.error('Job and machine are required'); return }
@@ -318,13 +327,24 @@ export default function FloorDashboardClient({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div>
-                        <Link href={`/dashboard/jobs/${m.job_id}`}
-                          className="text-sm font-semibold text-[var(--color-accent)] font-mono hover:underline">
-                          {m.job_number}
-                        </Link>
-                        <p className="text-sm text-[var(--color-text-primary)] mt-0.5 leading-tight">{m.job_title}</p>
-                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{m.customer_name}</p>
+                      <div className="flex items-center gap-2.5">
+                        <ArtworkThumb
+                          size="sm"
+                          interactive={false}
+                          url={jobThumbs[m.job_id as string]?.url ?? undefined}
+                          fileName={jobThumbs[m.job_id as string]?.fileName ?? m.job_title ?? ''}
+                          fileType={jobThumbs[m.job_id as string]?.fileType}
+                          version={jobThumbs[m.job_id as string]?.version ?? 1}
+                          approved={jobThumbs[m.job_id as string]?.approved}
+                        />
+                        <div className="min-w-0">
+                          <Link href={`/dashboard/jobs/${m.job_id}`}
+                            className="text-sm font-semibold text-[var(--color-accent)] font-mono hover:underline">
+                            {m.job_number}
+                          </Link>
+                          <p className="text-sm text-[var(--color-text-primary)] mt-0.5 leading-tight truncate">{m.job_title}</p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">{m.customer_name}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3 text-xs flex-wrap">
                         {priorityCfg && <span className={cn('font-medium', priorityCfg.color)}>{priorityCfg.label}</span>}
@@ -395,6 +415,7 @@ export default function FloorDashboardClient({
           emptyText="No jobs currently running"
           emptyIcon={<Activity size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />}
           showElapsed
+          jobThumbs={jobThumbs}
         />
       )}
 
@@ -405,6 +426,7 @@ export default function FloorDashboardClient({
           onAction={(a, action) => { setActionModal({ assignment: a, action }); setActionNotes(''); setActionQty('') }}
           emptyText="Queue is empty"
           emptyIcon={<Layers size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />}
+          jobThumbs={jobThumbs}
         />
       )}
 
@@ -542,11 +564,12 @@ export default function FloorDashboardClient({
 
 // ── Reusable assignment table ─────────────────────────────────────────────────
 function AssignmentTable({
-  assignments, onAction, emptyText, emptyIcon, showElapsed
+  assignments, onAction, emptyText, emptyIcon, showElapsed, jobThumbs
 }: {
   assignments: Assignment[]
   onAction: (a: Assignment, action: 'start'|'pause'|'resume'|'complete'|'note'|'issue') => void
   emptyText: string; emptyIcon: React.ReactNode; showElapsed?: boolean
+  jobThumbs: ReturnType<typeof useJobThumbnails>
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -585,6 +608,16 @@ function AssignmentTable({
                   </button>
                 </div>
                 <div className="col-span-2">
+                  <ArtworkThumb
+                    size="sm"
+                    interactive={false}
+                    className="mb-1"
+                    url={jobThumbs[a.job_id]?.url ?? undefined}
+                    fileName={jobThumbs[a.job_id]?.fileName ?? a.jobs?.job_title ?? ''}
+                    fileType={jobThumbs[a.job_id]?.fileType}
+                    version={jobThumbs[a.job_id]?.version ?? 1}
+                    approved={jobThumbs[a.job_id]?.approved}
+                  />
                   <Link href={`/dashboard/jobs/${a.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{a.jobs?.job_number}</Link>
                   <p className={cn('text-xs mt-0.5 font-medium', priorityCfg.color)}>{priorityCfg.label}</p>
                 </div>

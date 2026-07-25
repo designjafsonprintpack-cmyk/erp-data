@@ -15,7 +15,7 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
 
   const [jobRes, stagesRes, eventsRes] = await Promise.all([
     supabase.from('jobs' as any)
-      .select('*, customers(name,customer_code,email,phone), workflow_templates(name), sales_orders(so_number)')
+      .select('*, customers(name,customer_code,email,phone), workflow_templates(name), sales_orders(so_number), box_types(name)')
       .eq('id', params.id).eq('company_id', companyId).single(),
     supabase.from('job_stage_progress' as any)
       .select('*, workflow_stages(name, is_optional, estimated_hours)')
@@ -57,6 +57,8 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (body.size_l !== undefined) updateData.size_l = body.size_l ? parseFloat(String(body.size_l)) : null
   if (body.size_w !== undefined) updateData.size_w = body.size_w ? parseFloat(String(body.size_w)) : null
   if (body.size_h !== undefined) updateData.size_h = body.size_h ? parseFloat(String(body.size_h)) : null
+  if (body.sheet_width_in !== undefined) updateData.sheet_width_in = body.sheet_width_in ? parseFloat(String(body.sheet_width_in)) : null
+  if (body.sheet_height_in !== undefined) updateData.sheet_height_in = body.sheet_height_in ? parseFloat(String(body.sheet_height_in)) : null
   if (body.quantity !== undefined) updateData.quantity = parseFloat(String(body.quantity ?? '0'))
   if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(String(body.no_of_colors))
   if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null

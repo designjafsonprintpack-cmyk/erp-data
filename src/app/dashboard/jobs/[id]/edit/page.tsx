@@ -16,10 +16,11 @@ export default async function EditJobPage({ params }: { params: { id: string } }
   const role = await getAppRole(user, supabase)
   if (role !== 'superadmin') redirect(`/dashboard/jobs/${params.id}`)
 
-  const [jobRes, customers, boardTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders] = await Promise.all([
+  const [jobRes, customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders] = await Promise.all([
     supabase.from('jobs' as any).select('*, customers(name,customer_code), sales_orders(so_number)').eq('id', params.id).eq('company_id', companyId).single(),
     supabase.from('customers' as any).select('id,name,customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('box_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
     supabase.from('paper_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
@@ -34,6 +35,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
       job={jobRes.data as any}
       customers={(customers.data ?? []) as any[]}
       boardTypes={(boardTypes.data ?? []) as any[]}
+      boxTypes={(boxTypes.data ?? []) as any[]}
       paperTypes={(paperTypes.data ?? []) as any[]}
       laminationTypes={(laminationTypes.data ?? []) as any[]}
       foilTypes={(foilTypes.data ?? []) as any[]}

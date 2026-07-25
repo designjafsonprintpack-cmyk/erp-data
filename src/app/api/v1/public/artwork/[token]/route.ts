@@ -162,7 +162,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     const { data: stage } = await supabase.from('job_stage_progress' as any)
       .select('id, sequence_order, status, workflow_stages!inner(stage_type)')
       .eq('job_id', art.job_id).eq('company_id', art.company_id)
-      .eq('workflow_stages.stage_type', 'customer_approval')
+      .in('workflow_stages.stage_type', ['customer_approval', 'artwork_approval'])
       .maybeSingle()
 
     if (stage && (stage as any).status !== 'completed') {

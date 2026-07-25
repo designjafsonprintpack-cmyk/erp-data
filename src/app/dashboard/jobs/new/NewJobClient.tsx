@@ -10,7 +10,7 @@ import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
 import { formatTimeAgo } from '@/lib/utils/format'
 
 interface Props {
-  customers: any[]; boardTypes: any[]; paperTypes: any[]
+  customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
   salesOrders: any[]; defaultWorkflowId: string
 }
@@ -29,7 +29,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function NewJobClient({ customers, boardTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, defaultWorkflowId }: Props) {
+export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, defaultWorkflowId }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
@@ -195,8 +195,19 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
             <input type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Size</label>
-            <input className={inputCls} value={form.sheet_size} onChange={e => set('sheet_size', e.target.value)} placeholder='e.g. 25"×36"' />
+            <label className={labelCls}>Sheet Width (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Sheet Height (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Box Type</label>
+            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+              <option value="">Not specified</option>
+              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Grain Direction</label>

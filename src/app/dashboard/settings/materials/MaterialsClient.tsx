@@ -256,12 +256,15 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
 }
 
 // ─── TABS WRAPPER ─────────────────────────────────────────────────────────────
-type MaterialKey = 'board' | 'paper' | 'ink' | 'glue' | 'foil' | 'costItems'
+type MaterialKey = 'board' | 'box' | 'paper' | 'ink' | 'glue' | 'foil' | 'costItems'
 
-interface InitialData { board: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; costItems: any[] }
+interface InitialData { board: any[]; box: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; costItems: any[] }
 
 const TABS: { key: MaterialKey; label: string; extraFields?: any[] }[] = [
-  { key: 'board',      label: 'Board Types',      extraFields: [{ key: 'flute_type', label: 'Flute', placeholder: 'e.g. B, C, E' }, { key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }, { key: 'sheet_length_in', label: 'Sheet Length (in)', placeholder: '28', type: 'number' }, { key: 'sheet_width_in', label: 'Sheet Width (in)', placeholder: '40', type: 'number' }, { key: 'rate_per_sheet', label: 'Rate/Sheet (PKR)', placeholder: '0.00', type: 'number' }, { key: 'rate_per_kg', label: 'Rate/KG (PKR)', placeholder: '0.00', type: 'number' }] },
+  { key: 'board',      label: 'Board Types',      extraFields: [{ key: 'flute_type', label: 'Flute', placeholder: 'e.g. B, C, E' }, { key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }, { key: 'sheet_width_in', label: 'Sheet Width (in)', placeholder: '28', type: 'number' }, { key: 'sheet_height_in', label: 'Sheet Height (in)', placeholder: '40', type: 'number' }, { key: 'rate_per_sheet', label: 'Rate/Sheet (PKR)', placeholder: '0.00', type: 'number' }, { key: 'rate_per_kg', label: 'Rate/KG (PKR)', placeholder: '0.00', type: 'number' }] },
+  // Box / HL / Label / Sticker — Mehboob adds and removes these himself,
+  // which is why it is a master table and not a hardcoded enum.
+  { key: 'box',        label: 'Box Types',        extraFields: [{ key: 'description', label: 'Description', placeholder: 'e.g. Hinge-lid cigarette pack' }, { key: 'sort_order', label: 'Sort Order', placeholder: '1', type: 'number' }] },
   { key: 'paper',      label: 'Paper Types',      extraFields: [{ key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }] },
   { key: 'ink',        label: 'Ink Types',        extraFields: [{ key: 'color_code', label: 'Color Hex', placeholder: '#000000' }] },
   { key: 'glue',       label: 'Glue Types',       extraFields: [] },

@@ -16,6 +16,7 @@ const VALID_TABLES: Record<string, string> = {
   foil:       'foil_types',
   lamination: 'lamination_types',
   coating:    'coating_types',
+  box:        'box_types',
 }
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { type: string } }) {

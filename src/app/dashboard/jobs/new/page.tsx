@@ -7,9 +7,10 @@ export default async function NewJobPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
-  const [customers, boardTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders] = await Promise.all([
+  const [customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders] = await Promise.all([
     supabase.from('customers' as any).select('id,name,customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('box_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
     supabase.from('paper_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
@@ -24,6 +25,7 @@ export default async function NewJobPage() {
     <NewJobClient
       customers={(customers.data ?? []) as any[]}
       boardTypes={(boardTypes.data ?? []) as any[]}
+      boxTypes={(boxTypes.data ?? []) as any[]}
       paperTypes={(paperTypes.data ?? []) as any[]}
       laminationTypes={(laminationTypes.data ?? []) as any[]}
       foilTypes={(foilTypes.data ?? []) as any[]}

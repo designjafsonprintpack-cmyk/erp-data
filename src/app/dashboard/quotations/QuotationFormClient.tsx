@@ -11,7 +11,7 @@ import { formatTimeAgo } from '@/lib/utils/format'
 import { DesktopOnly } from '@/components/ui/DesktopOnly'
 
 interface Customer { id: string; name: string; customer_code: string }
-interface BoardType { id: string; name: string; sheet_length_in: number | null; sheet_width_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
+interface BoardType { id: string; name: string; sheet_width_in: number | null; sheet_height_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
 interface Tax { id: string; name: string; rate_percent: number }
 interface CostItemType { id: string; name: string; unit_basis: UnitBasis; default_rate: number }
 // `active` is the "tick" — a checked Finish Goods line counts toward the
@@ -22,8 +22,8 @@ interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: U
 
 interface LineItem {
   product_desc: string; size_l: string; size_w: string; size_h: string; quantity: string
-  no_of_colors: string; board_type_id: string; board_costing_method: 'per_sheet' | 'per_kg'
-  sheet_length_in: string; sheet_width_in: string; board_gsm: string
+  no_of_colors: string; board_type_id: string; box_type_id: string; board_costing_method: 'per_sheet' | 'per_kg'
+  sheet_width_in: string; sheet_height_in: string; board_gsm: string
   board_rate_per_sheet: string; board_rate_per_kg: string
   unit_price: string; notes: string
   ups: string; wastage_percent: string
@@ -55,8 +55,8 @@ const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
 
 const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
   product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '1', no_of_colors: '4',
-  board_type_id: '', board_costing_method: 'per_sheet',
-  sheet_length_in: '', sheet_width_in: '', board_gsm: '', board_rate_per_sheet: '', board_rate_per_kg: '',
+  board_type_id: '', box_type_id: '', board_costing_method: 'per_sheet',
+  sheet_width_in: '', sheet_height_in: '', board_gsm: '', board_rate_per_sheet: '', board_rate_per_kg: '',
   unit_price: '0', notes: '',
   ups: '', wastage_percent: DEFAULT_WASTAGE,
   profit_margin_percent: '0',
@@ -69,11 +69,11 @@ const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
 })
 
 interface Props {
-  mode: 'new' | 'edit'; customers: Customer[]; boardTypes: BoardType[]; taxes: Tax[]
+  mode: 'new' | 'edit'; customers: Customer[]; boardTypes: BoardType[]; boxTypes: { id: string; name: string }[]; taxes: Tax[]
   costItemTypes: CostItemType[]; initialData?: any
 }
 
-export default function QuotationFormClient({ mode, customers, boardTypes, taxes, costItemTypes, initialData }: Props) {
+export default function QuotationFormClient({ mode, customers, boardTypes, boxTypes, taxes, costItemTypes, initialData }: Props) {
   const router = useRouter()
 
   const [form, setForm] = useState({
@@ -107,8 +107,8 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
       return {
         product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
         size_h: String(i.size_h || ''), quantity: String(i.quantity), no_of_colors: String(i.no_of_colors || 4),
-        board_type_id: i.board_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
-        sheet_length_in: String(i.sheet_length_in || ''), sheet_width_in: String(i.sheet_width_in || ''),
+        board_type_id: i.board_type_id || '', box_type_id: i.box_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
+        sheet_width_in: String(i.sheet_width_in || ''), sheet_height_in: String(i.sheet_height_in || ''),
         board_gsm: String(i.board_gsm || ''), board_rate_per_sheet: String(i.board_rate_per_sheet || ''),
         board_rate_per_kg: String(i.board_rate_per_kg || ''),
         unit_price: String(i.unit_price), notes: i.notes || '',
@@ -152,8 +152,8 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     setItems(prev => prev.map((item, i) => i === idx ? {
       ...item,
       board_type_id: boardTypeId,
-      sheet_length_in: board?.sheet_length_in ? String(board.sheet_length_in) : item.sheet_length_in,
       sheet_width_in: board?.sheet_width_in ? String(board.sheet_width_in) : item.sheet_width_in,
+      sheet_height_in: board?.sheet_height_in ? String(board.sheet_height_in) : item.sheet_height_in,
       board_gsm: board?.gsm ? String(board.gsm) : item.board_gsm,
       board_rate_per_sheet: board?.rate_per_sheet ? String(board.rate_per_sheet) : item.board_rate_per_sheet,
       board_rate_per_kg: board?.rate_per_kg ? String(board.rate_per_kg) : item.board_rate_per_kg,
@@ -198,8 +198,8 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
     boardRatePerSheet: parseFloat(item.board_rate_per_sheet || '0'),
     boardRatePerKg: parseFloat(item.board_rate_per_kg || '0'),
     boardGsm: parseFloat(item.board_gsm || '0'),
-    sheetLengthIn: parseFloat(item.sheet_length_in || '0'),
     sheetWidthIn: parseFloat(item.sheet_width_in || '0'),
+    sheetHeightIn: parseFloat(item.sheet_height_in || '0'),
     // Only ticked Finish Goods rows count toward the total.
     costLines: item.costLines.filter(l => l.active).map(l => ({ name: l.name, unitBasis: l.unit_basis, rate: parseFloat(l.rate || '0'), perUnitQty: parseFloat(l.per_unit_qty || '1000') })),
     profitMarginPercent: parseFloat(item.profit_margin_percent || '0'),
@@ -215,7 +215,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
   const applyMargin = (idx: number) => {
     const item = items[idx]
     if (!item.ups || parseFloat(item.ups) <= 0) { toast.error('Enter Ups first'); return }
-    if (!item.sheet_length_in || !item.sheet_width_in) { toast.error('Enter sheet size first'); return }
+    if (!item.sheet_width_in || !item.sheet_height_in) { toast.error('Enter sheet width and height first'); return }
     const result = computeFor(item)
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: String(result.suggestedUnitPrice) } : it))
     toast.success(`Unit price set from ${item.profit_margin_percent || 0}% margin`)
@@ -242,9 +242,10 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
             quantity: parseFloat(item.quantity || '1'),
             no_of_colors: parseInt(item.no_of_colors || '4'),
             board_type_id: item.board_type_id || null,
+            box_type_id: item.box_type_id || null,
             board_costing_method: item.board_costing_method,
-            sheet_length_in: item.sheet_length_in ? parseFloat(item.sheet_length_in) : null,
             sheet_width_in: item.sheet_width_in ? parseFloat(item.sheet_width_in) : null,
+            sheet_height_in: item.sheet_height_in ? parseFloat(item.sheet_height_in) : null,
             board_gsm: item.board_gsm ? parseFloat(item.board_gsm) : null,
             board_rate_per_sheet: item.board_rate_per_sheet ? parseFloat(item.board_rate_per_sheet) : null,
             board_rate_per_kg: item.board_rate_per_kg ? parseFloat(item.board_rate_per_kg) : null,
@@ -441,12 +442,19 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
                           <input type="number" className={smallInputCls} value={item.wastage_percent} onChange={e => setItem(idx, 'wastage_percent', e.target.value)} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Sheet Length (in)</label>
-                          <input type="number" className={smallInputCls} value={item.sheet_length_in} onChange={e => setItem(idx, 'sheet_length_in', e.target.value)} placeholder="e.g. 20" />
+                          <label className="text-xs text-[var(--color-text-muted)]">Box Type</label>
+                          <select className={smallInputCls} value={item.box_type_id} onChange={e => setItem(idx, 'box_type_id', e.target.value)}>
+                            <option value="">Not specified</option>
+                            {boxTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                          </select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-[var(--color-text-muted)]">Sheet Width (in)</label>
-                          <input type="number" className={smallInputCls} value={item.sheet_width_in} onChange={e => setItem(idx, 'sheet_width_in', e.target.value)} placeholder="e.g. 30" />
+                          <input type="number" className={smallInputCls} value={item.sheet_width_in} onChange={e => setItem(idx, 'sheet_width_in', e.target.value)} placeholder="e.g. 20" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-[var(--color-text-muted)]">Sheet Height (in)</label>
+                          <input type="number" className={smallInputCls} value={item.sheet_height_in} onChange={e => setItem(idx, 'sheet_height_in', e.target.value)} placeholder="e.g. 30" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-[var(--color-text-muted)]">Board GSM</label>

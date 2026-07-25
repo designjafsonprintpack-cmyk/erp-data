@@ -9,7 +9,7 @@ import { Toolbar } from '@/components/ui/Toolbar'
 import { Modal } from '@/components/ui/Modal'
 
 interface BoardItem {
-  id: string; description: string; gsm: number | null; size_l: number | null; size_w: number | null
+  id: string; description: string; gsm: number | null; sheet_width_in: number | null; sheet_height_in: number | null
   current_stock: number; reserved_stock: number; reorder_level: number
   unit_cost: number; location: string | null; is_active: boolean
   board_types?: { name: string } | null
@@ -42,7 +42,7 @@ const INV_COLUMNS = (
     key: 'size', header: 'Size', span: 2, role: 'meta', label: 'Size',
     render: i => (
       <span className="text-xs text-[var(--color-text-muted)]">
-        {i.size_l && i.size_w ? `${i.size_l} × ${i.size_w}` : '—'}
+        {i.sheet_width_in && i.sheet_height_in ? `${i.sheet_width_in} × ${i.sheet_height_in}` : '—'}
       </span>
     ),
   },
@@ -106,7 +106,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
   const [loading, setLoading] = useState(false)
 
   const [addForm, setAddForm] = useState({
-    description: '', board_type_id: '', gsm: '', size_l: '', size_w: '',
+    description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
     current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '',
   })
   const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '' })
@@ -131,7 +131,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
       const bt = boardTypes.find(b => b.id === addForm.board_type_id)
       setItems(prev => [...prev, { ...data, board_types: bt ? { name: bt.name } : null }].sort((a, b) => a.description.localeCompare(b.description)))
       setAddModal(false)
-      setAddForm({ description: '', board_type_id: '', gsm: '', size_l: '', size_w: '', current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '' })
+      setAddForm({ description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '', current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '' })
       toast.success('Item added to inventory')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -196,7 +196,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
                 if (!filtered.length) { toast.error('Nothing to export'); return }
                 exportToExcel(filtered.map(i => ({
                   'Description': i.description, 'Board Type': i.board_types?.name ?? '',
-                  'GSM': i.gsm ?? '', 'Size L': i.size_l ?? '', 'Size W': i.size_w ?? '',
+                  'GSM': i.gsm ?? '', 'Sheet Width (in)': i.sheet_width_in ?? '', 'Sheet Height (in)': i.sheet_height_in ?? '',
                   'Current Stock': i.current_stock, 'Reserved': i.reserved_stock,
                   'Reorder Level': i.reorder_level, 'Unit Cost': i.unit_cost,
                   'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
@@ -263,12 +263,12 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
             <input type="number" className={inputCls} value={addForm.gsm} onChange={e => setAddForm(p => ({ ...p, gsm: e.target.value }))} placeholder="300" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Length (in)</label>
-            <input type="number" className={inputCls} value={addForm.size_l} onChange={e => setAddForm(p => ({ ...p, size_l: e.target.value }))} placeholder="25" />
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Width (in)</label>
+            <input type="number" className={inputCls} value={addForm.sheet_width_in} onChange={e => setAddForm(p => ({ ...p, sheet_width_in: e.target.value }))} placeholder="25" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Width (in)</label>
-            <input type="number" className={inputCls} value={addForm.size_w} onChange={e => setAddForm(p => ({ ...p, size_w: e.target.value }))} placeholder="36" />
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Height (in)</label>
+            <input type="number" className={inputCls} value={addForm.sheet_height_in} onChange={e => setAddForm(p => ({ ...p, sheet_height_in: e.target.value }))} placeholder="36" />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock</label>

@@ -34,7 +34,9 @@ export interface Job {
   sales_order_id: string | null; customer_id: string
   job_title: string; description: string | null
   size_l: number | null; size_w: number | null; size_h: number | null
-  sheet_size: string | null; quantity: number; no_of_colors: number | null
+  sheet_width_in: number | null; sheet_height_in: number | null
+  quantity: number; no_of_colors: number | null
+  box_type_id: string | null
   die_number: string | null; grain_direction: GrainDirection | null; board_type_id: string | null
   ups: number | null; sheet_qty: number | null
   paper_type_id: string | null; lamination_type_id: string | null
@@ -82,7 +84,8 @@ export interface JobWastage {
 export interface JobFormData {
   customer_id: string; job_title: string; description: string
   sales_order_id: string; sales_order_item_id: string
-  size_l: string; size_w: string; size_h: string; sheet_size: string
+  size_l: string; size_w: string; size_h: string
+  sheet_width_in: string; sheet_height_in: string; box_type_id: string
   quantity: string; no_of_colors: string; die_number: string; grain_direction: string
   ups: string
   board_type_id: string; paper_type_id: string
@@ -94,7 +97,7 @@ export interface JobFormData {
 
 export const EMPTY_JOB_FORM: JobFormData = {
   customer_id: '', job_title: '', description: '', sales_order_id: '', sales_order_item_id: '',
-  size_l: '', size_w: '', size_h: '', sheet_size: '', quantity: '1000',
+  size_l: '', size_w: '', size_h: '', sheet_width_in: '', sheet_height_in: '', box_type_id: '', quantity: '1000',
   no_of_colors: '4', die_number: '', grain_direction: '', ups: '', board_type_id: '', paper_type_id: '',
   lamination_type_id: '', uv_coating: '', foil_type_id: '',
   special_finishing: '', pasting: '', workflow_template_id: '',

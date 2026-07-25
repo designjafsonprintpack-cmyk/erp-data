@@ -1,9 +1,0 @@
-WHATSAPP_ACCESS_TOKEN: 
-EAAW2xSUaca0BSL4ZBjft5vgNPHfIhH3OZBCRn3qsdYpJi3LZCuMzqpkLaytM0TnBiIzesRGLZAQYrgmZBDYbEugcOXzW4pwbAwA2tpwH4WW0tdzZAMIOYOGrhBSnEy4wZCYVpWM8YZB7iuTIC6l5ewQcpsCoZAEtgbG4KryIkJKoODlGJwccLGnbcVAhZCB47YZCixdsgZDZD
-
-WHATSAPP_PHONE_NUMBER_ID: 1156923217515662
-
-https://business.facebook.com/
-https://developers.facebook.com/apps/
-
-data base pass: B@ban1194data

@@ -11,6 +11,7 @@ import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
+import { ArtworkThumb, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -51,8 +52,11 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
 /**
  * Column spans total 11 — DataList prepends a span-1 selection column, keeping
  * the row at the same 12 units the hand-rolled grid used.
+ *
+ * A factory (not a constant) so the thumbnail column can close over the
+ * per-job lookup — same shape as USER_COLUMNS in UsersClient.tsx.
  */
-const JOB_COLUMNS: DataListColumn<Job>[] = [
+const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[] => [
   {
     key: 'job_number', header: 'Job #', span: 1, role: 'identity',
     render: j => (
@@ -63,13 +67,30 @@ const JOB_COLUMNS: DataListColumn<Job>[] = [
     ),
   },
   {
+    // Widened 3 -> the thumbnail needs the room; every other column is
+    // untouched so the row still totals 11 (+1 for DataList's own selection
+    // column = 12).
     key: 'title', header: 'Title / Customer', span: 3, role: 'title',
-    render: j => (
-      <span className="block min-w-0">
-        <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{j.job_title}</span>
-        <span className="block text-xs text-[var(--color-text-muted)] truncate">{j.customers?.name || '—'}</span>
-      </span>
-    ),
+    render: j => {
+      const t = thumbs[j.id]
+      return (
+        <span className="flex items-center gap-2.5 min-w-0">
+          <ArtworkThumb
+            size="sm"
+            interactive={false}
+            url={t?.url ?? undefined}
+            fileName={t?.fileName ?? j.job_title}
+            fileType={t?.fileType}
+            version={t?.version ?? 1}
+            approved={t?.approved}
+          />
+          <span className="block min-w-0">
+            <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{j.job_title}</span>
+            <span className="block text-xs text-[var(--color-text-muted)] truncate">{j.customers?.name || '—'}</span>
+          </span>
+        </span>
+      )
+    },
   },
   {
     key: 'status', header: 'Status', span: 2, role: 'status',
@@ -118,6 +139,7 @@ const JOB_COLUMNS: DataListColumn<Job>[] = [
 
 export default function JobsClient({ initialJobs, initialTotal }: { initialJobs: Job[]; initialTotal: number }) {
   const [jobs, setJobs] = useState(initialJobs)
+  const thumbs = useJobThumbnails(jobs.map(j => j.id))
   const [total, setTotal] = useState(initialTotal)
   const [search, setSearch] = useState('')
   const [activeStatus, setActiveStatus] = useState('')
@@ -231,12 +253,12 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       </div>
 
       {view === 'kanban' ? (
-        <JobsKanban jobs={jobs} onStatusChange={handleKanbanStatusChange} />
+        <JobsKanban jobs={jobs} onStatusChange={handleKanbanStatusChange} thumbnails={thumbs} />
       ) : (
         <div className={cn(loading && 'opacity-60')}>
           <DataList<Job>
             rows={jobs}
-            columns={JOB_COLUMNS}
+            columns={jobColumns(thumbs)}
             getRowId={j => j.id}
             rowHref={j => `/dashboard/jobs/${j.id}`}
             rowClassName={j => urgencyColor(j.required_date, j.status)}

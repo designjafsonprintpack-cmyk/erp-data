@@ -5,8 +5,8 @@ import { z } from 'zod'
 export const boardInventorySchema = z.object({
   board_type_id: z.string().uuid().optional().nullable(),
   description: z.string().trim().min(1, 'Description is required'),
-  size_l: z.union([z.string(), z.number()]).optional().nullable(),
-  size_w: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
   gsm: z.union([z.string(), z.number()]).optional().nullable(),
   current_stock: z.union([z.string(), z.number()]).optional(),
   reorder_level: z.union([z.string(), z.number()]).optional(),
@@ -34,8 +34,8 @@ export const boardInventoryUpdateSchema = z.object({
   // generic-patch fields
   board_type_id: z.string().uuid().optional().nullable(),
   description: z.string().optional(),
-  size_l: z.union([z.string(), z.number()]).optional().nullable(),
-  size_w: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
   gsm: z.union([z.string(), z.number()]).optional().nullable(),
   reorder_level: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),

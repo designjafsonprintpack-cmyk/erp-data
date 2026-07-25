@@ -3,10 +3,16 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 
+/** Same extension set as isPreviewable() in ArtworkThumb.tsx, duplicated
+ *  because this page renders plain HTML/CSS (no Tailwind, no client
+ *  components) and signs the URL itself rather than going through the
+ *  ArtworkThumb component or its hooks. */
+const PREVIEWABLE_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'SVG', 'AVIF'])
+
 export default async function PrintJobCard({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: job } = await supabase.from('jobs' as any)
-    .select('*, customers(name,customer_code,phone)')
+    .select('*, customers(name,customer_code,phone), box_types(name)')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -20,9 +26,27 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     : { data: null }
   const companyName = (companyRow as any)?.name || 'Jafson Print Pack'
 
+  // Latest artwork version's thumbnail, if there is one and it's an image.
+  // Print cards are single-job pages, so this is one query and (at most) one
+  // signed URL — no batching needed the way a list of jobs would.
+  const { data: latestArtwork } = await supabase.from('job_artworks' as any)
+    .select('file_url, file_name, file_type')
+    .eq('job_id', params.id).is('deleted_at', null)
+    .order('version', { ascending: false }).limit(1).maybeSingle()
+  let artworkThumbUrl: string | null = null
+  if (latestArtwork) {
+    const la = latestArtwork as any
+    const ext = (la.file_type || la.file_name.split('.').pop() || '').toUpperCase()
+    if (PREVIEWABLE_EXT.has(ext)) {
+      const { data: signed } = await supabase.storage.from('artwork').createSignedUrl(la.file_url, 3600)
+      artworkThumbUrl = signed?.signedUrl ?? null
+    }
+  }
+
   const specs = [
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
-    { label: 'Sheet Size', value: j.sheet_size || '—' },
+    { label: 'Sheet Size', value: j.sheet_width_in && j.sheet_height_in ? `${j.sheet_width_in} × ${j.sheet_height_in} in` : '—' },
+    { label: 'Box Type', value: j.box_types?.name || '—' },
     { label: 'Grain Direction', value: j.grain_direction === 'long_grain' ? 'Long Grain' : j.grain_direction === 'short_grain' ? 'Short Grain' : '—' },
     { label: 'Ups', value: j.ups || '—' },
     { label: 'Sheet Qty', value: j.sheet_qty?.toLocaleString() || '—' },
@@ -62,6 +86,7 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           .stage-badge { padding: 2px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 10px; }
           .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 10px; color: #57606a; }
           .signature-line { border-bottom: 1px solid #1f2328; width: 150px; height: 36px; }
+          .artwork-thumb { width: 30mm; height: 38mm; object-fit: cover; border: 1px solid #d0d7de; border-radius: 4px; flex-shrink: 0; }
           @media print { .page { margin: 0; } @page { size: A4; margin: 0; } }
           /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
              Reflow it to the screen for READING only — the printed output above
@@ -81,6 +106,10 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               <div style={{ fontSize: 11, color: '#57606a', marginTop: 2 }}>Digital Job Card</div>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              {artworkThumbUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL, not a local asset
+                <img className="artwork-thumb" src={artworkThumbUrl} alt={`Artwork for ${j.job_number}`} />
+              )}
               <div>
                 <div className="job-number">{j.job_number}</div>
                 <div style={{ marginTop: 4 }}>

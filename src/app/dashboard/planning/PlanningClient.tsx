@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
+import { ArtworkThumb, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface Plan {
   id: string; job_id: string; planned_date: string; status: string; notes: string | null
@@ -33,6 +34,9 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
   const [form, setForm] = useState({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
   const [selectedMachines, setSelectedMachines] = useState<{ machine_id: string; estimated_hours: string }[]>([])
   const [activeTab, setActiveTab] = useState<'schedule' | 'unplanned'>('schedule')
+  // Both tabs show real jobs; one batched lookup covers whichever is active
+  // (and both, since switching tabs doesn't unmount the other's data).
+  const jobThumbs = useJobThumbnails([...plans.map(p => p.job_id), ...unplannedJobs.map(j => j.id)])
   const [scheduleView, setScheduleView] = useState<'timeline' | 'calendar'>('timeline')
 
   // Group plans by date
@@ -146,6 +150,15 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
                       const totalHours = plan.job_machine_assignments?.reduce((s, m) => s + (m.estimated_hours || 0), 0) || 0
                       return (
                         <div key={plan.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5">
+                          <ArtworkThumb
+                            size="sm"
+                            interactive={false}
+                            url={jobThumbs[plan.job_id]?.url ?? undefined}
+                            fileName={jobThumbs[plan.job_id]?.fileName ?? plan.jobs?.job_title ?? ''}
+                            fileType={jobThumbs[plan.job_id]?.fileType}
+                            version={jobThumbs[plan.job_id]?.version ?? 1}
+                            approved={jobThumbs[plan.job_id]?.approved}
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <Link href={`/dashboard/jobs/${plan.job_id}`} className="text-sm font-semibold text-[var(--color-accent)] font-mono hover:underline">
@@ -209,7 +222,18 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
                   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                   const isOverdue = job.required_date && new Date(job.required_date) < new Date()
                   return (
-                    <div key={job.id} className={cn('grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 px-4 md:px-5 py-3 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={job.id} className={cn('flex items-center gap-3 px-4 md:px-5 py-3', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                      <ArtworkThumb
+                        size="sm"
+                        interactive={false}
+                        className="flex-shrink-0"
+                        url={jobThumbs[job.id]?.url ?? undefined}
+                        fileName={jobThumbs[job.id]?.fileName ?? job.job_title}
+                        fileType={jobThumbs[job.id]?.fileType}
+                        version={jobThumbs[job.id]?.version ?? 1}
+                        approved={jobThumbs[job.id]?.approved}
+                      />
+                    <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 flex-1 min-w-0">
                       <div className="col-span-1 md:col-span-2">
                         <Link href={`/dashboard/jobs/${job.id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{job.job_number}</Link>
                       </div>
@@ -226,6 +250,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
                           </span>
                         ) : <span className="text-xs text-[var(--color-text-muted)]">—</span>}
                       </div>
+                    </div>
                     </div>
                   )
                 })}

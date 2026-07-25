@@ -8,7 +8,7 @@ import { type JobFormData } from '@/modules/jobs/types/job.types'
 
 interface Props {
   job: any
-  customers: any[]; boardTypes: any[]; paperTypes: any[]
+  customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
   laminationTypes: any[]; foilTypes: any[]; workflows: any[]
   salesOrders: any[]
 }
@@ -27,14 +27,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function EditJobClient({ job, boardTypes, paperTypes, laminationTypes, foilTypes, workflows }: Props) {
+export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({
     customer_id: job.customer_id || '', job_title: job.job_title || '', description: job.description || '',
     sales_order_id: job.sales_order_id || '',
     sales_order_item_id: job.sales_order_item_id || '',
     size_l: String(job.size_l ?? ''), size_w: String(job.size_w ?? ''), size_h: String(job.size_h ?? ''),
-    sheet_size: job.sheet_size || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
+    sheet_width_in: job.sheet_width_in != null ? String(job.sheet_width_in) : '',
+    sheet_height_in: job.sheet_height_in != null ? String(job.sheet_height_in) : '',
+    box_type_id: job.box_type_id || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
     die_number: job.die_number || '', grain_direction: job.grain_direction || '', ups: String(job.ups ?? ''),
     board_type_id: job.board_type_id || '', paper_type_id: job.paper_type_id || '',
     lamination_type_id: job.lamination_type_id || '', uv_coating: job.uv_coating || '',
@@ -142,8 +144,19 @@ export default function EditJobClient({ job, boardTypes, paperTypes, laminationT
             <input type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Size</label>
-            <input className={inputCls} value={form.sheet_size} onChange={e => set('sheet_size', e.target.value)} placeholder='e.g. 25"×36"' />
+            <label className={labelCls}>Sheet Width (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Sheet Height (in)</label>
+            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Box Type</label>
+            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+              <option value="">Not specified</option>
+              {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Grain Direction</label>

@@ -15,6 +15,7 @@ const quotationItemCostLineSchema = z.object({
 // mirrors what the route already reads off each item.
 const quotationItemSchema = z.object({
   product_desc: z.string().trim().min(1, 'Product description is required'),
+  box_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
   size_l: z.union([z.string(), z.number()]).optional().nullable(),
   size_w: z.union([z.string(), z.number()]).optional().nullable(),
   size_h: z.union([z.string(), z.number()]).optional().nullable(),

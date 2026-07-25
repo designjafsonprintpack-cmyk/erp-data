@@ -7,8 +7,9 @@ export default async function MaterialsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
-  const [board, paper, ink, glue, foil, costItems] = await Promise.all([
+  const [board, boxTypes, paper, ink, glue, foil, costItems] = await Promise.all([
     supabase.from('board_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
+    supabase.from('box_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('sort_order').order('name'),
     supabase.from('paper_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('ink_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('glue_types' as any).select('*').eq('company_id', companyId).is('deleted_at', null).order('name'),
@@ -25,6 +26,7 @@ export default async function MaterialsPage() {
       <MaterialsClient
         initialData={{
           board: (board.data ?? []) as any[],
+          box: (boxTypes.data ?? []) as any[],
           paper: (paper.data ?? []) as any[],
           ink: (ink.data ?? []) as any[],
           glue: (glue.data ?? []) as any[],
