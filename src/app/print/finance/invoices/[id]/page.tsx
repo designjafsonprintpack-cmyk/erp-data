@@ -64,6 +64,13 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           .footer { position: absolute; bottom: 14mm; left: 16mm; right: 16mm; border-top: 1px solid #d0d7de; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #57606a; }
           .terms-box { font-size: 9px; color: #57606a; margin-top: 14px; border-top: 1px solid #d0d7de; padding-top: 8px; }
           @media print { .page { position: relative; } @page { size: A4; margin: 0; } }
+          /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
+             Reflow it to the screen for READING only — the printed output above
+             is untouched. Tables keep their shape and scroll sideways. */
+          @media screen and (max-width: 840px) {
+            .page { width: 100%; min-height: auto; padding: 16px; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+          }
         `}</style>
       </head>
       <body>

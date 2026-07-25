@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { ClipboardList, AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 
@@ -14,6 +15,49 @@ interface Vendor { id: string; name: string; vendor_code: string }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+
+const MRP_COLUMNS = (openCreatePO: (r: MrpRow) => void): DataListColumn<MrpRow>[] => [
+  {
+    key: 'type', header: 'Board Type', span: 3, role: 'identity',
+    render: r => (
+      <span className="block min-w-0">
+        <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{r.board_type_name}</span>
+        <span className="block text-xs text-[var(--color-text-muted)]">{r.gsm ? `${r.gsm} GSM · ` : ''}{r.open_job_count} open job{r.open_job_count !== 1 ? 's' : ''}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'demand', header: 'Demand (Open Jobs)', span: 2, role: 'meta', label: 'Demand', align: 'right',
+    render: r => <span className="text-sm text-[var(--color-text-primary)]">{fmt(r.demand_sheets)}</span>,
+  },
+  {
+    key: 'stock', header: 'In Stock', span: 2, role: 'meta', label: 'In stock', align: 'right',
+    render: r => <span className="text-sm text-[var(--color-text-secondary)]">{fmt(r.stock_sheets)}</span>,
+  },
+  {
+    key: 'incoming', header: 'Incoming (PO)', span: 2, role: 'meta', label: 'Incoming', align: 'right',
+    render: r => <span className="text-sm text-[var(--color-text-muted)]">{fmt(r.incoming_sheets)}</span>,
+  },
+  {
+    key: 'shortfall', header: 'Shortfall', span: 2, role: 'status', align: 'right',
+    render: r => (
+      <span className={cn('text-sm font-semibold', r.shortfall_sheets > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]')}>
+        {r.shortfall_sheets > 0 ? `${fmt(r.shortfall_sheets)} short` : 'OK'}
+      </span>
+    ),
+  },
+  {
+    key: 'action', header: 'Action', span: 1, role: 'actions', align: 'right',
+    render: r =>
+      r.shortfall_sheets > 0 ? (
+        <button onClick={() => openCreatePO(r)} title="Create Purchase Order"
+          className="flex items-center gap-1.5 px-3 md:px-0 h-9 md:h-8 md:w-8 justify-center rounded-md border md:border-0 border-[var(--color-accent)]/30 text-xs md:text-sm text-[var(--color-accent)] md:text-[var(--color-text-muted)] hover:bg-[var(--color-accent)]/10 hover:text-[var(--color-accent)] transition-colors">
+          <ShoppingCart size={14} /> <span className="md:hidden">Create PO</span>
+        </button>
+      ) : null,
+  },
+]
 
 export default function MrpClient() {
   const [rows, setRows] = useState<MrpRow[]>([])
@@ -76,9 +120,9 @@ export default function MrpClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
             <ClipboardList size={22} /> Material Requirement Planning
           </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
@@ -86,7 +130,7 @@ export default function MrpClient() {
           </p>
         </div>
         <button onClick={load} disabled={loading}
-          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors">
+          className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
@@ -98,50 +142,23 @@ export default function MrpClient() {
         </div>
       )}
 
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          <div className="col-span-3">Board Type</div>
-          <div className="col-span-2 text-right">Demand (Open Jobs)</div>
-          <div className="col-span-2 text-right">In Stock</div>
-          <div className="col-span-2 text-right">Incoming (PO)</div>
-          <div className="col-span-2 text-right">Shortfall</div>
-          <div className="col-span-1 text-right">Action</div>
-        </div>
-
-        {loading ? (
-          <div className="p-10 text-center text-sm text-[var(--color-text-muted)]">Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="p-10 text-center">
-            <ClipboardList size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
-            <p className="text-sm text-[var(--color-text-muted)]">No open demand or stock to plan against yet.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-border-subtle)]">
-            {rows.map(r => (
-              <div key={r.board_type_id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center', r.shortfall_sheets > 0 && 'bg-[var(--color-danger)]/5')}>
-                <div className="col-span-3">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{r.board_type_name}</p>
-                  <p className="text-xs text-[var(--color-text-muted)]">{r.gsm ? `${r.gsm} GSM · ` : ''}{r.open_job_count} open job{r.open_job_count !== 1 ? 's' : ''}</p>
-                </div>
-                <div className="col-span-2 text-right text-sm text-[var(--color-text-primary)]">{fmt(r.demand_sheets)}</div>
-                <div className="col-span-2 text-right text-sm text-[var(--color-text-secondary)]">{fmt(r.stock_sheets)}</div>
-                <div className="col-span-2 text-right text-sm text-[var(--color-text-muted)]">{fmt(r.incoming_sheets)}</div>
-                <div className={cn('col-span-2 text-right text-sm font-semibold', r.shortfall_sheets > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]')}>
-                  {r.shortfall_sheets > 0 ? fmt(r.shortfall_sheets) : '—'}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  {r.shortfall_sheets > 0 && (
-                    <button onClick={() => openCreatePO(r)} title="Create Purchase Order"
-                      className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-accent)]/10 hover:text-[var(--color-accent)] transition-colors">
-                      <ShoppingCart size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-10 text-center text-sm text-[var(--color-text-muted)]">Loading…</div>
+      ) : (
+        <DataList<MrpRow>
+          rows={rows}
+          columns={MRP_COLUMNS(openCreatePO)}
+          getRowId={r => r.board_type_id}
+          rowClassName={r => (r.shortfall_sheets > 0 ? 'bg-[var(--color-danger)]/5' : undefined)}
+          striped={false}
+          empty={
+            <div className="p-10 text-center">
+              <ClipboardList size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+              <p className="text-sm text-[var(--color-text-muted)]">No open demand or stock to plan against yet.</p>
+            </div>
+          }
+        />
+      )}
 
       {/* Create PO from shortfall */}
       <Modal open={!!poRow} onClose={() => setPoRow(null)} title={poRow ? `Create PO — ${poRow.board_type_name}` : ''} size="sm"
@@ -162,7 +179,7 @@ export default function MrpClient() {
               {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.vendor_code})</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity (sheets)</label>
               <input type="number" className={inputCls} value={poForm.quantity} onChange={e => setPoForm(p => ({ ...p, quantity: e.target.value }))} />

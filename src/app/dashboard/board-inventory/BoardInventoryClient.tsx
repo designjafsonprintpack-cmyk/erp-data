@@ -4,6 +4,8 @@ import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangl
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
+import { DataList, type DataListColumn } from '@/components/ui/DataList'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { Modal } from '@/components/ui/Modal'
 
 interface BoardItem {
@@ -16,6 +18,83 @@ interface BoardType { id: string; name: string }
 interface Unit { id: string; name: string; symbol: string }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+
+
+const INV_COLUMNS = (
+  setLotsItem: (i: BoardItem) => void,
+  setMovementModal: (m: { item: BoardItem; action: 'in' | 'out' | 'adjustment' }) => void,
+  setMoveForm: (f: { quantity: string; notes: string; lot_number: string }) => void,
+): DataListColumn<BoardItem>[] => [
+  {
+    key: 'desc', header: 'Description', span: 3, role: 'identity',
+    render: i => <span className="text-sm font-medium text-[var(--color-text-primary)]">{i.description}</span>,
+  },
+  {
+    key: 'type', header: 'Type / GSM', span: 2, role: 'title',
+    render: i => (
+      <span className="block">
+        <span className="block text-xs text-[var(--color-text-secondary)]">{i.board_types?.name || '—'}</span>
+        {i.gsm && <span className="block text-xs text-[var(--color-text-muted)]">{i.gsm} GSM</span>}
+      </span>
+    ),
+  },
+  {
+    key: 'size', header: 'Size', span: 2, role: 'meta', label: 'Size',
+    render: i => (
+      <span className="text-xs text-[var(--color-text-muted)]">
+        {i.size_l && i.size_w ? `${i.size_l} × ${i.size_w}` : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'stock', header: 'Stock', span: 1, role: 'status', align: 'right',
+    render: i => {
+      const isLow = i.current_stock <= i.reorder_level
+      const isOut = i.current_stock <= 0
+      return (
+        <span className="inline-flex flex-col items-end">
+          <span className={cn('text-sm font-bold',
+            isOut ? 'text-[var(--color-danger)]' : isLow ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
+            {i.current_stock.toLocaleString()}
+            {isLow && !isOut && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" />}
+          </span>
+          {isOut && <span className="text-xs text-[var(--color-danger)]">OUT</span>}
+        </span>
+      )
+    },
+  },
+  {
+    key: 'reorder', header: 'Reorder', span: 1, role: 'meta', label: 'Reorder at', align: 'right',
+    render: i => <span className="text-xs text-[var(--color-text-muted)]">{i.reorder_level.toLocaleString()}</span>,
+  },
+  {
+    key: 'location', header: 'Location', span: 1, role: 'desktop',
+    render: i => <span className="text-xs text-[var(--color-text-muted)]">{i.location || '—'}</span>,
+  },
+  {
+    key: 'actions', header: 'Actions', span: 2, role: 'actions', align: 'right',
+    render: i => (
+      <span className="inline-flex items-center gap-1 justify-end">
+        <button onClick={() => setLotsItem(i)} title="Lot History" aria-label="Lot history"
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          <Layers size={11} />
+        </button>
+        <button onClick={() => { setMovementModal({ item: i, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+          <TrendingUp size={11} /> In
+        </button>
+        <button onClick={() => { setMovementModal({ item: i, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+          <TrendingDown size={11} /> Out
+        </button>
+        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(i.current_stock), notes: '', lot_number: '' }) }}
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          <SlidersHorizontal size={11} /> Adj
+        </button>
+      </span>
+    ),
+  },
+]
 
 export default function BoardInventoryClient({ initialItems, boardTypes, units }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[] }) {
   const [items, setItems] = useState(initialItems)
@@ -81,7 +160,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         {[
           { label: 'Total Stock Items', value: items.length, icon: Layers, color: 'var(--color-accent)' },
           { label: 'Total Units in Stock', value: totalStock.toLocaleString(), icon: TrendingUp, color: 'var(--color-success)' },
@@ -100,109 +179,61 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search inventory…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors" />
-        </div>
-        <button onClick={() => setShowLowOnly(!showLowOnly)}
-          className={cn('flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm font-medium transition-colors',
-            showLowOnly ? 'bg-[var(--color-warning)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
-          <AlertTriangle size={14} /> Low Stock
-        </button>
-        <button onClick={() => {
-            if (!filtered.length) { toast.error('Nothing to export'); return }
-            exportToExcel(filtered.map(i => ({
-              'Description': i.description, 'Board Type': i.board_types?.name ?? '',
-              'GSM': i.gsm ?? '', 'Size L': i.size_l ?? '', 'Size W': i.size_w ?? '',
-              'Current Stock': i.current_stock, 'Reserved': i.reserved_stock,
-              'Reorder Level': i.reorder_level, 'Unit Cost': i.unit_cost,
-              'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
-            })), 'board-inventory-export')
-          }}
-          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
-          <Download size={14} /> Export
-        </button>
-        <button onClick={() => setAddModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
-          <Plus size={15} /> Add Item
-        </button>
-      </div>
+      <Toolbar
+        search={{ value: search, onChange: setSearch, placeholder: 'Search inventory…' }}
+        filters={
+          <button onClick={() => setShowLowOnly(!showLowOnly)}
+            className={cn('flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border text-sm font-medium transition-colors w-full md:w-auto justify-center',
+              showLowOnly ? 'bg-[var(--color-warning)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
+            <AlertTriangle size={14} /> Low Stock only
+          </button>
+        }
+        activeFilterCount={showLowOnly ? 1 : 0}
+        onClearFilters={() => setShowLowOnly(false)}
+        actions={
+          <>
+            <button onClick={() => {
+                if (!filtered.length) { toast.error('Nothing to export'); return }
+                exportToExcel(filtered.map(i => ({
+                  'Description': i.description, 'Board Type': i.board_types?.name ?? '',
+                  'GSM': i.gsm ?? '', 'Size L': i.size_l ?? '', 'Size W': i.size_w ?? '',
+                  'Current Stock': i.current_stock, 'Reserved': i.reserved_stock,
+                  'Reorder Level': i.reorder_level, 'Unit Cost': i.unit_cost,
+                  'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
+                })), 'board-inventory-export')
+              }}
+              className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Download size={14} /> Export
+            </button>
+            <button onClick={() => setAddModal(true)}
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              <Plus size={15} /> Add Item
+            </button>
+          </>
+        }
+      />
 
       {/* Inventory table */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
-          <div className="col-span-3">Description</div>
-          <div className="col-span-2">Type / GSM</div>
-          <div className="col-span-2">Size</div>
-          <div className="col-span-1 text-right">Stock</div>
-          <div className="col-span-1 text-right">Reorder</div>
-          <div className="col-span-1">Location</div>
-          <div className="col-span-2 text-right">Actions</div>
-        </div>
-
-        <div className="divide-y divide-[var(--color-border-subtle)]">
-          {filtered.map((item, idx) => {
-            const isLow = item.current_stock <= item.reorder_level
-            const isOut = item.current_stock <= 0
-            return (
-              <div key={item.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center',
-                idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15',
-                isOut && 'border-l-2 border-l-[var(--color-danger)]',
-                isLow && !isOut && 'border-l-2 border-l-[var(--color-warning)]')}>
-                <div className="col-span-3 min-w-0">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{item.description}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-[var(--color-text-secondary)]">{item.board_types?.name || '—'}</p>
-                  {item.gsm && <p className="text-xs text-[var(--color-text-muted)]">{item.gsm} GSM</p>}
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-[var(--color-text-muted)]">
-                    {item.size_l && item.size_w ? `${item.size_l} × ${item.size_w}` : '—'}
-                  </p>
-                </div>
-                <div className="col-span-1 text-right">
-                  <span className={cn('text-sm font-bold',
-                    isOut ? 'text-[var(--color-danger)]' : isLow ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
-                    {item.current_stock.toLocaleString()}
-                  </span>
-                  {isLow && !isOut && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" />}
-                  {isOut && <span className="block text-xs text-[var(--color-danger)]">OUT</span>}
-                </div>
-                <div className="col-span-1 text-right text-xs text-[var(--color-text-muted)]">{item.reorder_level.toLocaleString()}</div>
-                <div className="col-span-1 text-xs text-[var(--color-text-muted)] truncate">{item.location || '—'}</div>
-                <div className="col-span-2 flex items-center gap-1 justify-end">
-                  <button onClick={() => setLotsItem(item)} title="Lot History"
-                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-                    <Layers size={11} />
-                  </button>
-                  <button onClick={() => { setMovementModal({ item, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
-                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
-                    <TrendingUp size={11} /> In
-                  </button>
-                  <button onClick={() => { setMovementModal({ item, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
-                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
-                    <TrendingDown size={11} /> Out
-                  </button>
-                  <button onClick={() => { setMovementModal({ item, action: 'adjustment' }); setMoveForm({ quantity: String(item.current_stock), notes: '', lot_number: '' }) }}
-                    className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-                    <SlidersHorizontal size={11} /> Adj
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {filtered.length === 0 && (
+      <DataList<BoardItem>
+        rows={filtered}
+        columns={INV_COLUMNS(setLotsItem, setMovementModal, setMoveForm)}
+        getRowId={i => i.id}
+        rowClassName={item => {
+          const isLow = item.current_stock <= item.reorder_level
+          const isOut = item.current_stock <= 0
+          return cn(
+            isOut && 'border-l-2 border-l-[var(--color-danger)]',
+            isLow && !isOut && 'border-l-2 border-l-[var(--color-warning)]'
+          )
+        }}
+        stickyHeader
+        empty={
           <div className="p-12 text-center">
             <Layers size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
-            <p className="text-sm text-[var(--color-text-muted)]">{search ? 'No items match your search' : 'No inventory items yet'}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{search || showLowOnly ? 'No matching items' : 'No inventory items yet'}</p>
           </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Add Item Modal */}
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Inventory Item" size="md"

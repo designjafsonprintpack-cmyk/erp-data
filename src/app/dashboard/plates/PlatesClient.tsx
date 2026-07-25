@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Plus, Search, ExternalLink, Scissors, Trash2, RotateCcw, History, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
@@ -228,28 +229,32 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search color…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
-        </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
-          <option value="">All Statuses</option>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <select value={jobFilter} onChange={e => setJobFilter(e.target.value)}
-          className="h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
-          <option value="">All Jobs</option>
-          <option value="__unassigned__">In Storage / Not Assigned</option>
-          {jobNumbersForFilter.map(jn => <option key={jn} value={jn}>{jn}</option>)}
-        </select>
-        <button onClick={() => setAddModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
-          <Plus size={15} /> Add Plates
-        </button>
-      </div>
+      <Toolbar
+        search={{ value: search, onChange: setSearch, placeholder: 'Search color…' }}
+        filters={
+          <>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+              <option value="">All Statuses</option>
+              {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select value={jobFilter} onChange={e => setJobFilter(e.target.value)}
+              className="h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+              <option value="">All Jobs</option>
+              <option value="__unassigned__">In Storage / Not Assigned</option>
+              {jobNumbersForFilter.map(jn => <option key={jn} value={jn}>{jn}</option>)}
+            </select>
+          </>
+        }
+        activeFilterCount={(statusFilter ? 1 : 0) + (jobFilter ? 1 : 0)}
+        onClearFilters={() => { setStatusFilter(''); setJobFilter('') }}
+        actions={
+          <button onClick={() => setAddModal(true)}
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            <Plus size={15} /> Add Plates
+          </button>
+        }
+      />
 
       {/* Job-wise groups */}
       {filtered.length === 0 ? (
@@ -260,14 +265,14 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
             const group = groupsMap.get(key)
             const groupPlates = groupedPlates.get(key)!
             return (
-              <div key={key} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]/60 flex items-center gap-2">
+              <div key={key} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
+                <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]/60 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-[760px]">
                   <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                     {group ? `${group.job_number} — ${group.job_title}` : 'In Storage / Not Currently Assigned'}
                   </span>
                   <span className="text-xs text-[var(--color-text-muted)]">({groupPlates.length} plate{groupPlates.length > 1 ? 's' : ''})</span>
                 </div>
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
                       <th className="px-4 py-2 font-medium">Color</th>
@@ -293,7 +298,7 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
                           {sizeEdit === plate.id ? (
                             <select autoFocus defaultValue={plate.plate_size || SIZES[0]} onBlur={e => changeSize(plate, e.target.value)}
                               onChange={e => changeSize(plate, e.target.value)}
-                              className="h-7 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-accent)]">
+                              className="h-9 md:h-7 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-accent)]">
                               {allowedSizesFor(plate).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                           ) : allowedSizesFor(plate).length > 1 ? (
@@ -313,7 +318,7 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
                         </td>
                         <td className="px-4 py-2.5">
                           <select value={plate.status} onChange={e => changeStatus(plate, e.target.value)}
-                            className="h-7 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+                            className="h-9 md:h-7 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
                             {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                           </select>
                         </td>
@@ -323,16 +328,16 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
                           <div className="flex items-center justify-end gap-1.5">
                             {plate.current_job && (
                               <button onClick={() => openReturn(plate)} title="Return this plate (job is done with it)"
-                                className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
+                                className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
                                 <RotateCcw size={13} />
                               </button>
                             )}
                             <button onClick={() => openHistory(plate)} title="Assignment history"
-                              className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
                               <History size={13} />
                             </button>
                             <button onClick={() => deletePlate(plate)} title="Delete"
-                              className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -390,26 +395,26 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
                 <div key={i} className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <input value={row.color} onChange={e => updateColorRow(i, { color: e.target.value })}
-                      list="color-specs-datalist" placeholder="e.g. Cyan" className="flex-1 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
+                      list="color-specs-datalist" placeholder="e.g. Cyan" className="flex-1 min-w-0 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => updateColorRow(i, { mode: 'new' })}
-                      className={cn('h-8 px-2.5 rounded-md border text-xs font-medium transition-colors',
+                      className={cn('h-11 md:h-8 px-2.5 rounded-md border text-xs font-medium transition-colors flex-shrink-0',
                         row.mode === 'new' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
                       New
                     </button>
                     <button onClick={() => updateColorRow(i, { mode: 'old' })}
-                      className={cn('h-8 px-2.5 rounded-md border text-xs font-medium transition-colors',
+                      className={cn('h-11 md:h-8 px-2.5 rounded-md border text-xs font-medium transition-colors flex-shrink-0',
                         row.mode === 'old' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
                       Old
                     </button>
                     {colorRows.length > 1 && (
-                      <button onClick={() => removeColorRow(i)} className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">
+                      <button onClick={() => removeColorRow(i)} aria-label="Remove color" className="w-11 h-11 md:w-8 md:h-8 flex items-center justify-center flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">
                         <Trash2 size={13} />
                       </button>
                     )}
                   </div>
                   {row.mode === 'old' && (
                     <select value={row.existing_plate_id} onChange={e => updateColorRow(i, { existing_plate_id: e.target.value })}
-                      className="w-full h-8 px-2.5 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+                      className="w-full h-11 md:h-8 px-2.5 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
                       <option value="">Select existing {addSize} plate…</option>
                       {reuseOptions.map(p => <option key={p.id} value={p.id}>{p.color}</option>)}
                     </select>
@@ -418,7 +423,7 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
               )
             })}
             <button onClick={addColorRow}
-              className="w-full h-8 rounded-md border border-dashed border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors flex items-center justify-center gap-1.5">
+              className="w-full h-11 md:h-8 rounded-md border border-dashed border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors flex items-center justify-center gap-1.5">
               <Plus size={12} /> Add another color
             </button>
             {colorSpecs.length > 0 && (
@@ -449,7 +454,7 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
                     {row.returned_at ? 'Returned' : 'Currently With This Job'}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-[var(--color-text-muted)]">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-[var(--color-text-muted)]">
                   <span>{row.is_reused ? 'Reused plate' : 'New plate'}</span>
                   {row.machines && <span>{row.machines.name} ({row.machines.code})</span>}
                   <span>Assigned {formatDateTime(row.assigned_at)}</span>

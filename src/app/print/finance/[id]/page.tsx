@@ -76,6 +76,13 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           .footer-bar { margin-top: 14px; padding-top: 8px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 9px; color: #57606a; }
           .overdue-banner { background: #ffebe9; border: 1px solid #ff818266; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 10px; color: #82071e; font-weight: 600; text-align: center; }
           @media print { .page { margin: 0; } @page { size: A4; margin: 0; } }
+          /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
+             Reflow it to the screen for READING only — the printed output above
+             is untouched. Tables keep their shape and scroll sideways. */
+          @media screen and (max-width: 840px) {
+            .page { width: 100%; min-height: auto; padding: 16px; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+          }
         `}</style>
       </head>
       <body>

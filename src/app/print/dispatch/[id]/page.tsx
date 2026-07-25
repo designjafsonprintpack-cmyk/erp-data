@@ -56,6 +56,13 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
           .badge-dispatched { background: #fff8c5; color: #7d4e00; border-color: #e3b341; }
           .badge-delivered { background: #dafbe1; color: #116329; border-color: #56d364; }
           @media print { .page { margin: 0; } @page { size: A4; margin: 0; } }
+          /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
+             Reflow it to the screen for READING only — the printed output above
+             is untouched. Tables keep their shape and scroll sideways. */
+          @media screen and (max-width: 840px) {
+            .page { width: 100%; min-height: auto; padding: 16px; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+          }
         `}</style>
       </head>
       <body>

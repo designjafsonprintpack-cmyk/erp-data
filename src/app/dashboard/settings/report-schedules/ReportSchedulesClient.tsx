@@ -59,7 +59,7 @@ export default function ReportSchedulesClient({ initialSchedules }: { initialSch
     <div className="space-y-4">
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 space-y-3">
         <p className="text-sm font-medium text-[var(--color-text-primary)]">New Schedule</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <select className={inputCls} value={form.report_type} onChange={e => setForm(p => ({ ...p, report_type: e.target.value }))}>
             {REPORT_TYPES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>

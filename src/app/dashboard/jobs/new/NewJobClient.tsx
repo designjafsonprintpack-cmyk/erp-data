@@ -122,7 +122,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Customer & SO */}
       <Section title="Customer & Sales Order">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className={labelCls}>Customer <span className="text-[var(--color-danger)]">*</span></label>
             <select className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
@@ -154,7 +154,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Job Details */}
       <Section title="Job Details">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-2 space-y-1.5">
             <label className={labelCls}>Job Title <span className="text-[var(--color-danger)]">*</span></label>
             <input className={inputCls} value={form.job_title} onChange={e => set('job_title', e.target.value)} placeholder="e.g. Lipton Tea Box 500g" />
@@ -181,7 +181,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Product Specifications */}
       <Section title="Product Specifications">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-1.5">
             <label className={labelCls}>Length (mm)</label>
             <input type="number" className={inputCls} value={form.size_l} onChange={e => set('size_l', e.target.value)} placeholder="L" />
@@ -251,7 +251,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Finishing */}
       <Section title="Finishing">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-1.5">
             <label className={labelCls}>Lamination</label>
             <select className={inputCls} value={form.lamination_type_id} onChange={e => set('lamination_type_id', e.target.value)}>
@@ -293,7 +293,7 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
 
       {/* Workflow & Financials */}
       <Section title="Workflow & Financials">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className={labelCls}>Production Workflow</label>
             <select className={inputCls} value={form.workflow_template_id} onChange={e => set('workflow_template_id', e.target.value)}>
@@ -313,12 +313,12 @@ export default function NewJobClient({ customers, boardTypes, paperTypes, lamina
       </Section>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 justify-end">
-        <Link href="/dashboard/jobs" className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+      <div className="form-actions flex items-center gap-3 justify-end [&>*]:flex-1 lg:[&>*]:flex-none [&>*]:justify-center [&>a]:flex [&>a]:items-center">
+        <Link href="/dashboard/jobs" className="px-4 h-11 lg:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           Cancel
         </Link>
         <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
-          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
         </button>
       </div>

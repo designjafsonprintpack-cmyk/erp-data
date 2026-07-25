@@ -66,7 +66,7 @@ export default function NewCustomerPage() {
         <div className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Basic Information</h2>
         </div>
-        <div className="p-5 grid grid-cols-2 gap-4">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Name <span className="text-[var(--color-danger)]">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Unilever Pakistan" />
@@ -109,7 +109,7 @@ export default function NewCustomerPage() {
         <div className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Contact Information</h2>
         </div>
-        <div className="p-5 grid grid-cols-2 gap-4">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { key: 'email', label: 'Email', placeholder: 'accounts@company.com', type: 'email' },
             { key: 'phone', label: 'Phone', placeholder: '+92 21 111 000 000' },
@@ -128,7 +128,7 @@ export default function NewCustomerPage() {
         <div className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Financial Settings</h2>
         </div>
-        <div className="p-5 grid grid-cols-2 gap-4">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Credit Limit (PKR)</label>
             <input className={inputCls} type="number" value={form.credit_limit} onChange={e => set('credit_limit', e.target.value)} placeholder="0" />
@@ -144,10 +144,10 @@ export default function NewCustomerPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 justify-end">
-        <Link href="/dashboard/customers" className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</Link>
+      <div className="form-actions flex items-center gap-3 justify-end [&>*]:flex-1 lg:[&>*]:flex-none [&>*]:justify-center [&>a]:flex [&>a]:items-center">
+        <Link href="/dashboard/customers" className="px-4 h-11 lg:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</Link>
         <button onClick={save} disabled={loading || !form.name}
-          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Creating…' : form.pipeline_stage === 'lead' ? 'Create Lead' : form.pipeline_stage === 'prospect' ? 'Create Prospect' : 'Create Customer'}
         </button>
       </div>

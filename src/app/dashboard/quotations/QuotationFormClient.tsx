@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast'
 import { calculateQuotationItemCost, type UnitBasis } from '@/lib/costing/quotationCosting'
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
 import { formatTimeAgo } from '@/lib/utils/format'
+import { DesktopOnly } from '@/components/ui/DesktopOnly'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string; sheet_length_in: number | null; sheet_width_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
@@ -286,6 +287,11 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
   }
 
   return (
+    <DesktopOnly
+      title="Quotation costing"
+      reason="The costing sheet works item-by-item across paper, printing, lamination, die and finishing columns at once — on a phone the columns collapse and it becomes easy to cost against the wrong item. Open it on a desktop, or a tablet in landscape."
+      backHref={mode === 'edit' && initialData?.id ? `/dashboard/quotations/${initialData.id}` : '/dashboard/quotations'}
+    >
     <div className="space-y-6">
       {draftAvailable && (
         <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
@@ -644,5 +650,6 @@ export default function QuotationFormClient({ mode, customers, boardTypes, taxes
         </button>
       </div>
     </div>
+    </DesktopOnly>
   )
 }

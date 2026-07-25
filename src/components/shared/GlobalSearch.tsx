@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Briefcase, Users, ShoppingCart, X } from 'lucide-react'
+import { Search, Briefcase, Users, ShoppingCart, X, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 interface SearchResult {
@@ -92,27 +92,44 @@ export function GlobalSearch() {
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger — icon-only below md, where a squeezed ~150px search field is
+          a worse affordance than a clear 44px button; full field at md+ */}
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Search"
+        className={cn(
+          'md:hidden w-11 h-11 flex items-center justify-center rounded-md',
+          'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]',
+          'hover:text-[var(--color-text-primary)] transition-colors'
+        )}>
+        <Search size={19} />
+      </button>
       <button onClick={() => setOpen(true)}
         className={cn(
-          'flex items-center gap-2 px-3 h-8 rounded-md border w-full max-w-md',
+          'hidden md:flex items-center gap-2 px-3 h-8 rounded-md border w-full max-w-md',
           'border-[var(--color-border)] bg-[var(--color-bg-elevated)]',
           'text-sm text-[var(--color-text-muted)] hover:border-[var(--color-accent)]',
           'transition-colors duration-150'
         )}>
         <Search size={14} />
         <span className="flex-1 text-left">Search jobs, customers…</span>
-        <kbd className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 hidden sm:block">⌘K</kbd>
+        <kbd className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 hidden lg:block">⌘K</kbd>
       </button>
 
       {/* Modal overlay */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-2xl rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-2xl animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-0 pt-0 md:px-4 md:pt-20">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm hidden md:block" onClick={() => setOpen(false)} />
+          <div className="relative w-full h-full md:h-auto flex flex-col md:max-w-2xl md:rounded-xl border-0 md:border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-2xl animate-fade-in pt-safe md:pt-0">
             {/* Search input */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)]">
-              <Search size={16} className="text-[var(--color-text-muted)] flex-shrink-0" />
+            <div className="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 md:py-3 border-b border-[var(--color-border)] flex-shrink-0">
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Close search"
+                className="md:hidden w-11 h-11 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-bg-secondary)] flex-shrink-0">
+                <ArrowLeft size={20} />
+              </button>
+              <Search size={16} className="hidden md:block text-[var(--color-text-muted)] flex-shrink-0" />
               <input
                 ref={inputRef}
                 value={query}
@@ -123,20 +140,20 @@ export function GlobalSearch() {
               />
               {loading && <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin flex-shrink-0" />}
               {query && !loading && (
-                <button onClick={() => { setQuery(''); setResults([]) }} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex-shrink-0">
-                  <X size={14} />
+                <button onClick={() => { setQuery(''); setResults([]) }} aria-label="Clear search" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex-shrink-0">
+                  <X size={16} />
                 </button>
               )}
             </div>
 
             {/* Results */}
             {results.length > 0 && (
-              <div className="max-h-96 overflow-y-auto py-1">
+              <div className="flex-1 min-h-0 md:flex-none md:max-h-96 overflow-y-auto overscroll-contain py-1">
                 {results.map((result, idx) => {
                   const Icon = ENTITY_ICONS[result.entity_type] || Briefcase
                   return (
                     <button key={result.id} onClick={() => navigate(result)}
-                      className={cn('w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-bg-secondary)] transition-colors',
+                      className={cn('w-full flex items-center gap-3 px-4 py-3 min-h-14 md:min-h-0 text-left hover:bg-[var(--color-bg-secondary)] transition-colors',
                         selectedIndex === idx && 'bg-[var(--color-bg-secondary)]')}>
                       <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0">
                         <Icon size={14} className="text-[var(--color-accent)]" />
@@ -180,7 +197,7 @@ export function GlobalSearch() {
             )}
 
             {/* Footer */}
-            <div className="px-4 py-2 border-t border-[var(--color-border)] flex items-center gap-4 text-xs text-[var(--color-text-muted)]">
+            <div className="hidden md:flex px-4 py-2 border-t border-[var(--color-border)] items-center gap-4 text-xs text-[var(--color-text-muted)]">
               <span><kbd className="border border-[var(--color-border)] rounded px-1">↑↓</kbd> Navigate</span>
               <span><kbd className="border border-[var(--color-border)] rounded px-1">↵</kbd> Open</span>
               <span><kbd className="border border-[var(--color-border)] rounded px-1">Esc</kbd> Close</span>

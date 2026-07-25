@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Calendar, Plus, AlertTriangle, CheckCircle2, Clock, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
@@ -88,20 +88,20 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
   return (
     <div className="space-y-4">
       {/* Tabs + Add button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
           {([['schedule', 'Schedule'], ['unplanned', `Unplanned Jobs (${unplannedJobs.length})`]] as const).map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={cn('px-4 h-8 rounded-md text-sm font-medium border transition-all',
+              className={cn('px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 activeTab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
             </button>
           ))}
           {activeTab === 'schedule' && (
-            <div className="flex items-center gap-1 ml-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5">
+            <div className="flex items-center gap-1 ml-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5 flex-shrink-0">
               {(['timeline', 'calendar'] as const).map(v => (
                 <button key={v} onClick={() => setScheduleView(v)}
-                  className={cn('px-3 h-6 rounded text-xs font-medium capitalize transition-colors', scheduleView === v ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)]')}>
+                  className={cn('px-3 h-9 md:h-6 rounded text-xs font-medium capitalize transition-colors', scheduleView === v ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)]')}>
                   {v}
                 </button>
               ))}
@@ -109,7 +109,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
           )}
         </div>
         <button onClick={() => setPlanModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={15} /> Plan Job
         </button>
       </div>
@@ -122,7 +122,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
         Object.keys(grouped).length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-16 text-center">
             <Calendar size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
-            <p className="text-sm font-medium text-[var(--color-text-primary)]">No plans scheduled</p>
+            <p className="text-xs sm:text-sm font-medium text-[var(--color-text-primary)] text-center min-w-0 px-2">No plans scheduled</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">Plan a job to get started</p>
           </div>
         ) : (
@@ -144,7 +144,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
                       const priorityCfg = JOB_PRIORITY_CONFIG[plan.jobs?.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                       const totalHours = plan.job_machine_assignments?.reduce((s, m) => s + (m.estimated_hours || 0), 0) || 0
                       return (
-                        <div key={plan.id} className="flex items-center gap-4 px-5 py-3.5">
+                        <div key={plan.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <Link href={`/dashboard/jobs/${plan.job_id}`} className="text-sm font-semibold text-[var(--color-accent)] font-mono hover:underline">
@@ -196,7 +196,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+              <div className="hidden md:grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
                 <div className="col-span-2">Job #</div>
                 <div className="col-span-4">Title</div>
                 <div className="col-span-3">Customer</div>
@@ -208,16 +208,16 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
                   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                   const isOverdue = job.required_date && new Date(job.required_date) < new Date()
                   return (
-                    <div key={job.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
-                      <div className="col-span-2">
+                    <div key={job.id} className={cn('grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 px-4 md:px-5 py-3 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                      <div className="col-span-1 md:col-span-2">
                         <Link href={`/dashboard/jobs/${job.id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{job.job_number}</Link>
                       </div>
-                      <div className="col-span-4 text-sm text-[var(--color-text-primary)] truncate">{job.job_title}</div>
-                      <div className="col-span-3 text-xs text-[var(--color-text-muted)] truncate">{job.customers?.name}</div>
-                      <div className="col-span-1">
+                      <div className="col-span-2 md:col-span-4 text-sm text-[var(--color-text-primary)] truncate order-first md:order-none">{job.job_title}</div>
+                      <div className="col-span-2 md:col-span-3 text-xs text-[var(--color-text-muted)] truncate">{job.customers?.name}</div>
+                      <div className="hidden md:block md:col-span-1">
                         <span className={cn('text-xs font-medium', priorityCfg.color)}>{priorityCfg.label}</span>
                       </div>
-                      <div className="col-span-2 text-right">
+                      <div className="col-span-1 md:col-span-2 text-right">
                         {job.required_date ? (
                           <span className={cn('text-xs font-medium', isOverdue ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-muted)]')}>
                             {isOverdue && <AlertTriangle size={10} className="inline mr-1" />}
@@ -246,7 +246,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
           </>
         }>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
@@ -298,6 +298,12 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
 }
 
 function PlanningCalendar({ plans }: { plans: Plan[] }) {
+  // Scrolls the strip to today on first paint (no-op at lg+, where the grid
+  // shows the whole week anyway).
+  const todayRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    todayRef.current?.scrollIntoView({ inline: 'start', block: 'nearest' })
+  }, [])
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date()
     const day = d.getDay() // 0 = Sunday
@@ -324,25 +330,31 @@ function PlanningCalendar({ plans }: { plans: Plan[] }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <button onClick={() => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n })}
-          className="px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-          ← Previous Week
+          className="px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">
+          ← <span className="hidden sm:inline">Previous Week</span><span className="sm:hidden">Prev</span>
         </button>
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+        <p className="text-xs sm:text-sm font-medium text-[var(--color-text-primary)] text-center min-w-0 px-2">
           {formatDate(days[0].toISOString().slice(0, 10), { day: 'numeric', month: 'short' })} — {formatDate(days[6].toISOString().slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
         <button onClick={() => setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n })}
-          className="px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-          Next Week →
+          className="px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">
+          <span className="hidden sm:inline">Next Week</span><span className="sm:hidden">Next</span> →
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      {/* lg+: the full week as a 7-column grid, exactly as before.
+          Below lg: the same seven days as a horizontally scrolling snap strip —
+          each day panel is 240px, so a tablet shows about three days at a time
+          (the working window planning actually needs) and a phone about one
+          and a half, with today snapped into view first. */}
+      <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto lg:overflow-visible scrollbar-none snap-x snap-mandatory -mx-1 px-1 lg:mx-0 lg:px-0">
         {days.map(d => {
           const dateStr = d.toISOString().slice(0, 10)
           const dayPlans = byDate[dateStr] || []
           const isToday = dateStr === today
           return (
-            <div key={dateStr} className={cn('rounded-lg border min-h-[220px]', isToday ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]')}>
+            <div key={dateStr} ref={isToday ? todayRef : undefined}
+              className={cn('rounded-lg border min-h-[220px] min-w-[240px] lg:min-w-0 flex-shrink-0 lg:flex-shrink snap-start', isToday ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]')}>
               <div className={cn('px-2 py-1.5 text-center border-b', isToday ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)]')}>
                 <p className="text-xs font-medium text-[var(--color-text-muted)]">{d.toLocaleDateString('en-PK', { weekday: 'short' })}</p>
                 <p className={cn('text-sm font-semibold', isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]')}>{d.getDate()}</p>

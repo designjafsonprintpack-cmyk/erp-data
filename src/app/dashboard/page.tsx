@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import DashboardPanel from './DashboardPanel'
 import AutoRefresh from '@/components/shared/AutoRefresh'
+import MobileHome from '@/components/layout/MobileHome'
 
 interface StatCard {
   label: string
@@ -184,18 +185,20 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <AutoRefresh />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
             Production overview — {new Date().toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <span className="flex items-center gap-1.5 text-xs text-[var(--color-success)] bg-[var(--color-success)]/10 px-2.5 py-1 rounded-full border border-[var(--color-success)]/20">
+        <span className="flex items-center gap-1.5 flex-shrink-0 text-xs text-[var(--color-success)] bg-[var(--color-success)]/10 px-2.5 py-1 rounded-full border border-[var(--color-success)]/20">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
           Live
         </span>
       </div>
+
+      <MobileHome />
 
       <DashboardPanel
         stats={stats}

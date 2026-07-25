@@ -174,7 +174,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                 </div>
                 <p className="text-xs text-[var(--color-text-muted)]">PNG, JPG, SVG or WEBP — up to 2MB. Shown in the top-left header.</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Company Name <span className="text-[var(--color-danger)]">*</span></label>
                   <input className={inputCls} value={companyForm.name} onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))} placeholder="Jafson Print Pack" />
@@ -207,7 +207,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                   <img src={company.logo_url} alt="Logo" className="w-full h-full object-contain" />
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-6 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 flex-1">
                 {[
                   { label: 'Company Name', value: company?.name },
                   { label: 'NTN Number', value: company?.ntn || '—' },

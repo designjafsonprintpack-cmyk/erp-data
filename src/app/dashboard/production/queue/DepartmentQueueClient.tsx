@@ -73,13 +73,13 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
       {entries.length === 0 ? (
         <p className="px-3 py-4 text-xs text-[var(--color-text-muted)] text-center">Nothing here</p>
       ) : (
-        <div className="divide-y divide-[var(--color-border-subtle)] max-h-72 overflow-y-auto">
+        <div className="divide-y divide-[var(--color-border-subtle)] max-h-96 md:max-h-72 overflow-y-auto">
           {entries.map(e => {
             const pcfg = JOB_PRIORITY_CONFIG[e.priority as keyof typeof JOB_PRIORITY_CONFIG]
             return (
-              <div key={e.stage_progress_id} className="px-3 py-2">
+              <div key={e.stage_progress_id} className="px-3 py-3 md:py-2">
                 <div className="flex items-center gap-2">
-                  <Link href={`/dashboard/jobs/${e.job_id}`} className="text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate">
+                  <Link href={`/dashboard/jobs/${e.job_id}`} className="text-sm md:text-xs font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate py-0.5 md:py-0">
                     {e.job_number} — {e.job_title}
                   </Link>
                   {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
@@ -94,7 +94,7 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
                     <AlertTriangle size={10} className="mt-0.5 flex-shrink-0" /> {e.blocked_reason}
                   </p>
                 )}
-                <div className="mt-1.5">{renderAction(e)}</div>
+                <div className="mt-2 md:mt-1.5">{renderAction(e)}</div>
               </div>
             )
           })}
@@ -107,12 +107,12 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <select value={departmentId} onChange={e => setDepartmentId(e.target.value)}
-          className="h-8 px-2.5 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
+          className="h-11 md:h-8 px-3 md:px-2.5 rounded-md border text-sm md:text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] flex-1 md:flex-none min-w-0">
           <option value="">Select a department…</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <button onClick={load} disabled={loading}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
+          className="flex items-center gap-1.5 h-11 md:h-8 px-3 md:px-2.5 rounded-md border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors disabled:opacity-50">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
@@ -126,8 +126,8 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
             tone="bg-[var(--color-info)]/10 text-[var(--color-info)]"
             renderAction={e => (
               <button onClick={() => act(e, 'complete')} disabled={actingOn === e.stage_progress_id}
-                className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-[var(--color-success)] text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
-                <CheckCircle2 size={11} /> Complete
+                className="flex items-center justify-center gap-1.5 h-14 md:h-7 w-full md:w-auto px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-success)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
+                <CheckCircle2 size={16} className="md:hidden" /><CheckCircle2 size={11} className="hidden md:block" /> Complete
               </button>
             )}
           />
@@ -135,15 +135,15 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
             title="Ready to Start" icon={<Play size={13} />} entries={ready}
             tone="bg-[var(--color-success)]/10 text-[var(--color-success)]"
             renderAction={e => (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 md:gap-1.5">
                 <button onClick={() => act(e, 'start')} disabled={actingOn === e.stage_progress_id}
-                  className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-[var(--color-accent)] text-white text-[11px] font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-                  <Play size={11} /> Start
+                  className="flex items-center justify-center gap-1.5 h-14 md:h-7 flex-1 md:flex-none px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-accent)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                  <Play size={16} className="md:hidden" /><Play size={11} className="hidden md:block" /> Start
                 </button>
                 <button onClick={() => act(e, 'skip')} disabled={actingOn === e.stage_progress_id}
-                  title="Skip this stage"
-                  className="flex items-center gap-1 h-7 px-2 rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] text-[11px] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors">
-                  <SkipForward size={11} />
+                  title="Skip this stage" aria-label="Skip this stage"
+                  className="flex items-center justify-center gap-1 h-14 w-14 md:h-7 md:w-auto md:px-2 rounded-lg md:rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] text-[11px] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors flex-shrink-0">
+                  <SkipForward size={16} className="md:hidden" /><SkipForward size={11} className="hidden md:block" />
                 </button>
               </div>
             )}

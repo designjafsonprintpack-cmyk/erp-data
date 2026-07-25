@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
@@ -162,41 +163,41 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1 flex-wrap">
-          {['', 'draft', 'sent', 'confirmed', 'partially_received', 'received'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={cn('px-3 h-7 rounded-md text-xs font-medium border transition-all',
-                filterStatus === s ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
-              {s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+        <TabStrip
+          className="flex-1 min-w-0"
+          tabs={['', 'draft', 'sent', 'confirmed', 'partially_received', 'received'].map(s => ({
+            key: s,
+            label: s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label,
+          }))}
+          active={filterStatus}
+          onChange={setFilterStatus}
+        />
+        <div className="flex items-center gap-2 flex-wrap [&>button]:flex-1 md:[&>button]:flex-none">
           {selected.size > 0 && (
             <>
               <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
               <button onClick={() => bulkStatus('draft', 'sent', 'marked Sent')}
-                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-info)]/40 text-sm text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-info)]/40 text-sm text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
                 <Send size={13} /> Mark Sent
               </button>
               <button onClick={() => bulkStatus('sent', 'confirmed', 'confirmed')}
-                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-accent)]/40 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-accent)]/40 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
                 <Check size={13} /> Confirm
               </button>
             </>
           )}
           <button onClick={exportPOs}
             title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors justify-center">
             <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
           </button>
           <button onClick={() => setNewVendorModal(true)}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors justify-center">
             <Plus size={14} /> New Vendor
           </button>
           <button onClick={() => setNewPOModal(true)}
-            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors justify-center">
             <Plus size={15} /> New PO
           </button>
         </div>
@@ -217,7 +218,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
               const items = po.purchase_order_items || []
               return (
                 <div key={po.id}>
-                  <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
                     <input type="checkbox" checked={selected.has(po.id)} onChange={() => toggleSelect(po.id)}
                       className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
                     <button onClick={() => toggle(po.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
@@ -229,7 +230,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                         <span className="text-sm text-[var(--color-text-primary)]">{po.vendors?.name}</span>
                         <span className="text-xs text-[var(--color-text-muted)]">({po.vendors?.vendor_code})</span>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--color-text-muted)]">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-[var(--color-text-muted)]">
                         <span>{items.length} item{items.length !== 1 ? 's' : ''}</span>
                         <span>Order: {formatDate(po.order_date)}</span>
                         {po.expected_date && <span>Expected: {formatDate(po.expected_date)}</span>}
@@ -242,25 +243,25 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {po.status === 'draft' && (
                         <button onClick={() => updateStatus(po.id, 'sent')}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-info)]/30 text-xs text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-info)]/30 text-xs text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
                           <Send size={11} /> Send
                         </button>
                       )}
                       {po.status === 'sent' && (
                         <button onClick={() => updateStatus(po.id, 'confirmed')}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
                           <Check size={11} /> Confirm
                         </button>
                       )}
                       {['confirmed','partially_received'].includes(po.status) && (
                         <button onClick={() => { setReceiveModal(po); const q: Record<string,string> = {}; items.forEach(i => { q[i.id] = String(i.quantity - i.quantity_received) }); setReceiveQtys(q) }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                           <Check size={11} /> Receive
                         </button>
                       )}
                       {['confirmed','partially_received','received'].includes(po.status) && (
                         <button onClick={() => setMatchModal(po)}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                           <Scale size={11} /> 3-Way Match
                         </button>
                       )}
@@ -269,7 +270,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
 
                   {isOpen && items.length > 0 && (
                     <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)]/30">
-                      <div className="grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
+                      <div className="hidden md:grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
                         <div className="col-span-4">Description</div>
                         <div className="col-span-3">Specification</div>
                         <div className="col-span-1 text-right">Qty</div>
@@ -277,7 +278,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                         <div className="col-span-2 text-right">Subtotal</div>
                       </div>
                       {items.map(item => (
-                        <div key={item.id} className="grid grid-cols-12 gap-3 px-10 py-2.5 text-sm border-b border-[var(--color-border-subtle)] last:border-0 items-center">
+                        <div key={item.id} className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 px-5 md:px-10 py-2.5 text-sm border-b border-[var(--color-border-subtle)] last:border-0 items-center">
                           <div className="col-span-4 text-[var(--color-text-primary)]">{item.description}</div>
                           <div className="col-span-3 text-xs text-[var(--color-text-muted)]">{item.specification || '—'}</div>
                           <div className="col-span-1 text-right text-[var(--color-text-secondary)]">{item.quantity}</div>
@@ -313,7 +314,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           </>
         }>
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={poForm.vendor_id} onChange={e => setPOForm(p => ({ ...p, vendor_id: e.target.value }))}>
@@ -337,7 +338,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
               <span className="text-sm font-medium text-[var(--color-text-primary)]">Line Items</span>
               <button onClick={addLine} className="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1"><Plus size={12} /> Add Line</button>
             </div>
-            <div className="grid grid-cols-12 gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-12 gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               <div className="col-span-4">Description</div>
               <div className="col-span-3">Specification</div>
               <div className="col-span-1">Qty</div>
@@ -348,14 +349,14 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
               {lineItems.map((item, idx) => {
                 const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
                 return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-4"><input className={inputCls} value={item.description} onChange={e => setLine(idx, 'description', e.target.value)} placeholder="Item description *" /></div>
-                    <div className="col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
-                    <div className="col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
-                    <div className="col-span-2"><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></div>
-                    <div className="col-span-2 flex items-center justify-between">
+                  <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
+                    <div className="col-span-2 md:col-span-4"><input className={inputCls} value={item.description} onChange={e => setLine(idx, 'description', e.target.value)} placeholder="Item description *" /></div>
+                    <div className="col-span-2 md:col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
+                    <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
+                    <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></div>
+                    <div className="col-span-2 md:col-span-2 flex items-center justify-between">
                       <span className="text-sm font-medium text-[var(--color-text-primary)]">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—'}</span>
-                      {lineItems.length > 1 && <button onClick={() => removeLine(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={13} /></button>}
+                      {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={14} /></button>}
                     </div>
                   </div>
                 )
@@ -375,7 +376,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
               <input className={inputCls} value={poForm.notes} onChange={e => setPOForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special instructions" />
@@ -403,7 +404,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           <div className="space-y-3">
             <p className="text-sm text-[var(--color-text-muted)]">Enter quantities received for each item. Board inventory will be updated automatically.</p>
             {(receiveModal.purchase_order_items || []).map(item => (
-              <div key={item.id} className="flex items-center gap-3">
+              <div key={item.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.description}</p>
                   <p className="text-xs text-[var(--color-text-muted)]">Ordered: {item.quantity} | Previously received: {item.quantity_received}</p>
@@ -430,7 +431,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             </button>
           </>
         }>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
             <input className={inputCls} value={vendorForm.name} onChange={e => setVendorForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
@@ -557,7 +558,7 @@ function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
         </button>
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] p-3 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input className={inputCls} placeholder="Vendor bill number *" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p!, bill_number: e.target.value }))} />
             <input type="date" className={inputCls} value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p!, bill_date: e.target.value }))} />
           </div>

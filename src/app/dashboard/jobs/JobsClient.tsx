@@ -1,13 +1,16 @@
 'use client'
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Briefcase, AlertTriangle, Clock, PauseCircle, RefreshCw, LayoutGrid, List, Download } from 'lucide-react'
+import { Plus, Briefcase, PauseCircle, RefreshCw, LayoutGrid, List, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
 import JobsKanban from './JobsKanban'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
+import { DataList, type DataListColumn } from '@/components/ui/DataList'
+import { Toolbar } from '@/components/ui/Toolbar'
+import { TabStrip } from '@/components/ui/TabStrip'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -43,6 +46,75 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
   if (days <= 2) return { text: `${days}d left`, cls: 'text-[var(--color-warning)]' }
   return { text: `${days}d`, cls: 'text-[var(--color-text-muted)]' }
 }
+
+
+/**
+ * Column spans total 11 — DataList prepends a span-1 selection column, keeping
+ * the row at the same 12 units the hand-rolled grid used.
+ */
+const JOB_COLUMNS: DataListColumn<Job>[] = [
+  {
+    key: 'job_number', header: 'Job #', span: 1, role: 'identity',
+    render: j => (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-xs font-mono font-semibold text-[var(--color-accent)]">{j.job_number}</span>
+        {j.is_repeat && <RefreshCw size={10} className="text-[var(--color-text-muted)] flex-shrink-0" />}
+      </span>
+    ),
+  },
+  {
+    key: 'title', header: 'Title / Customer', span: 3, role: 'title',
+    render: j => (
+      <span className="block min-w-0">
+        <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{j.job_title}</span>
+        <span className="block text-xs text-[var(--color-text-muted)] truncate">{j.customers?.name || '—'}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'status', header: 'Status', span: 2, role: 'status',
+    render: j => {
+      const cfg = JOB_STATUS_CONFIG[j.status] || JOB_STATUS_CONFIG.new
+      return (
+        <span className={cn('inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border font-medium', cfg.color)}>
+          <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
+          {cfg.label}
+          {j.is_on_hold && <PauseCircle size={10} />}
+        </span>
+      )
+    },
+  },
+  {
+    key: 'priority', header: 'Priority', span: 1, role: 'meta', label: 'Priority',
+    render: j => {
+      const cfg = JOB_PRIORITY_CONFIG[j.priority] || JOB_PRIORITY_CONFIG.normal
+      return <span className={cn('text-xs font-medium', cfg.color)}>{cfg.label}</span>
+    },
+  },
+  {
+    key: 'qty', header: 'Qty', span: 1, role: 'meta', label: 'Qty',
+    render: j => <span className="text-sm text-[var(--color-text-secondary)]">{j.quantity.toLocaleString()}</span>,
+  },
+  {
+    key: 'workflow', header: 'Workflow', span: 2, role: 'desktop',
+    render: j => <span className="text-xs text-[var(--color-text-muted)]">{j.workflow_templates?.name || '—'}</span>,
+  },
+  {
+    key: 'due', header: 'Due Date', span: 1, role: 'meta', label: 'Due',
+    render: j => (
+      <span className="text-xs text-[var(--color-text-secondary)]">
+        {j.required_date ? formatDate(j.required_date, { day: 'numeric', month: 'short' }) : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'days', header: 'Days', span: 1, role: 'meta', label: 'Time left', align: 'right',
+    render: j => {
+      const d = daysLabel(j.required_date, j.status)
+      return d ? <span className={cn('text-xs font-medium', d.cls)}>{d.text}</span> : <span className="text-xs text-[var(--color-text-muted)]">—</span>
+    },
+  },
+]
 
 export default function JobsClient({ initialJobs, initialTotal }: { initialJobs: Job[]; initialTotal: number }) {
   const [jobs, setJobs] = useState(initialJobs)
@@ -106,8 +178,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
     finally { setLoading(false) }
   }, [])
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
+  const handleSearch = (val: string) => {
     setSearch(val)
     setTimeout(() => fetchJobs(val, activeStatus), 350)
   }
@@ -120,41 +191,39 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input value={search} onChange={handleSearch} placeholder="Search by job number, title…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors" />
-        </div>
-        <button onClick={() => exportJobs(selected.size ? jobs.filter(j => selected.has(j.id)) : jobs)}
-          title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
-          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">
-          <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
-        </button>
-        <Link href="/dashboard/jobs/new"
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
-          <Plus size={15} /> New Job
-        </Link>
-      </div>
+      <Toolbar
+        search={{ value: search, onChange: handleSearch, placeholder: 'Search by job number, title…' }}
+        actions={
+          <>
+            <button onClick={() => exportJobs(selected.size ? jobs.filter(j => selected.has(j.id)) : jobs)}
+              title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
+              className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
+            </button>
+            <Link href="/dashboard/jobs/new"
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              <Plus size={15} /> New Job
+            </Link>
+          </>
+        }
+      />
 
       {/* Status tabs */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {STATUS_TABS.map(tab => (
-          <button key={tab.key} onClick={() => handleStatusTab(tab.key)}
-            className={cn('px-3 h-7 rounded-md text-xs font-medium transition-all border',
-              activeStatus === tab.key
-                ? 'bg-[var(--color-accent)] text-white border-transparent'
-                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]')}>
-            {tab.label}
-          </button>
-        ))}
-        {total > 0 && <span className="text-xs text-[var(--color-text-muted)] ml-2">{total} jobs</span>}
-        <div className="flex items-center gap-1 ml-auto bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
-          <button onClick={() => setView('list')} title="List view"
+      <div className="flex items-center gap-2">
+        <TabStrip
+          className="flex-1 min-w-0"
+          tabs={STATUS_TABS.map(t => ({ key: t.key, label: t.label }))}
+          active={activeStatus}
+          onChange={handleStatusTab}
+          trailing={total > 0 ? <span className="text-xs text-[var(--color-text-muted)]">{total} jobs</span> : undefined}
+        />
+        {/* Kanban needs horizontal room by nature, so the toggle is desktop-only */}
+        <div className="hidden lg:flex items-center gap-1 flex-shrink-0 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
+          <button onClick={() => setView('list')} title="List view" aria-label="List view"
             className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'list' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
             <List size={13} />
           </button>
-          <button onClick={() => setView('kanban')} title="Kanban view"
+          <button onClick={() => setView('kanban')} title="Kanban view" aria-label="Kanban view"
             className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'kanban' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
             <LayoutGrid size={13} />
           </button>
@@ -164,99 +233,33 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       {view === 'kanban' ? (
         <JobsKanban jobs={jobs} onStatusChange={handleKanbanStatusChange} />
       ) : (
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        {/* Column headers */}
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
-          <div className="col-span-1 flex items-center gap-2">
-            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
-              className="accent-[var(--color-accent)] cursor-pointer" title="Select all" />
-            Job #
-          </div>
-          <div className="col-span-3">Title / Customer</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-1">Priority</div>
-          <div className="col-span-1">Qty</div>
-          <div className="col-span-2">Workflow</div>
-          <div className="col-span-1">Due Date</div>
-          <div className="col-span-1 text-right">Days</div>
+        <div className={cn(loading && 'opacity-60')}>
+          <DataList<Job>
+            rows={jobs}
+            columns={JOB_COLUMNS}
+            getRowId={j => j.id}
+            rowHref={j => `/dashboard/jobs/${j.id}`}
+            rowClassName={j => urgencyColor(j.required_date, j.status)}
+            selection={{
+              selectedIds: selected,
+              onToggle: toggleSelect,
+              onToggleAll: toggleSelectAll,
+              allSelected,
+            }}
+            stickyHeader
+            empty={
+              <div className="flex flex-col items-center py-16">
+                <Briefcase size={32} className="text-[var(--color-text-muted)] opacity-30 mb-3" />
+                <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  {search || activeStatus ? 'No jobs found' : 'No jobs yet'}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {search || activeStatus ? 'Try a different filter' : 'Create your first job to get started'}
+                </p>
+              </div>
+            }
+          />
         </div>
-
-        <div className={cn('divide-y divide-[var(--color-border-subtle)]', loading && 'opacity-60')}>
-          {jobs.map((job, idx) => {
-            const statusCfg = JOB_STATUS_CONFIG[job.status] || JOB_STATUS_CONFIG.new
-            const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
-            const urgency = urgencyColor(job.required_date, job.status)
-            const days = daysLabel(job.required_date, job.status)
-
-            return (
-              <Link key={job.id} href={`/dashboard/jobs/${job.id}`}
-                className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center hover:bg-[var(--color-bg-elevated)]/50 transition-colors group',
-                  idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15', urgency)}>
-                {/* Job # */}
-                <div className="col-span-1">
-                  <div className="flex items-center gap-1.5">
-                    <input type="checkbox" checked={selected.has(job.id)}
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleSelect(job.id) }}
-                      onChange={() => {}}
-                      className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
-                    <span className="text-xs font-mono font-semibold text-[var(--color-accent)] group-hover:underline">{job.job_number}</span>
-                    {job.is_repeat && <RefreshCw size={10} className="text-[var(--color-text-muted)]" />}
-                  </div>
-                </div>
-                {/* Title / Customer */}
-                <div className="col-span-3 min-w-0">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{job.job_title}</p>
-                  <p className="text-xs text-[var(--color-text-muted)] truncate">{job.customers?.name || '—'}</p>
-                </div>
-                {/* Status */}
-                <div className="col-span-2">
-                  <span className={cn('inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border font-medium', statusCfg.color)}>
-                    <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', statusCfg.dot)} />
-                    {statusCfg.label}
-                    {job.is_on_hold && <PauseCircle size={10} />}
-                  </span>
-                </div>
-                {/* Priority */}
-                <div className="col-span-1">
-                  <span className={cn('text-xs font-medium', priorityCfg.color)}>{priorityCfg.label}</span>
-                </div>
-                {/* Qty */}
-                <div className="col-span-1">
-                  <span className="text-sm text-[var(--color-text-secondary)]">{job.quantity.toLocaleString()}</span>
-                </div>
-                {/* Workflow */}
-                <div className="col-span-2">
-                  <span className="text-xs text-[var(--color-text-muted)] truncate">{job.workflow_templates?.name || '—'}</span>
-                </div>
-                {/* Due date */}
-                <div className="col-span-1">
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    {job.required_date ? formatDate(job.required_date, { day: 'numeric', month: 'short' }) : '—'}
-                  </span>
-                </div>
-                {/* Days remaining */}
-                <div className="col-span-1 text-right">
-                  {days && (
-                    <span className={cn('text-xs font-medium', days.cls)}>{days.text}</span>
-                  )}
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-
-        {jobs.length === 0 && !loading && (
-          <div className="flex flex-col items-center py-16">
-            <Briefcase size={32} className="text-[var(--color-text-muted)] opacity-30 mb-3" />
-            <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
-              {search || activeStatus ? 'No jobs found' : 'No jobs yet'}
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              {search || activeStatus ? 'Try a different filter' : 'Create your first job to get started'}
-            </p>
-          </div>
-        )}
-      </div>
       )}
 
       {view === 'list' && total > 25 && (

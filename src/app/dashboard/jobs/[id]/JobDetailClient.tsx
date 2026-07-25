@@ -248,14 +248,14 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   return (
     <div className="space-y-5">
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 lg:gap-4">
         <div className="flex items-start gap-3">
-          <Link href="/dashboard/jobs" className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors mt-1">
+          <Link href="/dashboard/jobs" className="hidden lg:flex w-8 h-8 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors mt-1">
             <ArrowLeft size={15} />
           </Link>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)] font-mono">{job.job_number}</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] font-mono">{job.job_number}</h1>
               <span className={cn('inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>
                 <span className={cn('w-1.5 h-1.5 rounded-full', statusCfg.dot)} />
                 {statusCfg.label}
@@ -282,22 +282,22 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap lg:justify-end [&>*]:flex-1 sm:[&>*]:flex-none [&>*]:justify-center">
           <Link href={`/print/jobs/${job.id}/card`} target="_blank"
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Printer size={14} /> Print Card
           </Link>
           <Link href={`/dashboard/jobs/${job.id}/edit`}
-            className={cn('items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors', isSuperadmin ? 'flex' : 'hidden')}>
+            className={cn('items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors', isSuperadmin ? 'flex' : 'hidden')}>
             <Pencil size={14} /> Edit
           </Link>
           <button onClick={() => setRepeatModal(true)}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <RefreshCw size={14} /> Repeat Job
           </button>
           {isSuperadmin && (
             <button onClick={() => setDeleteModal(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-danger)]/40 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+              className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-danger)]/40 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
               <Trash2 size={14} /> Delete
             </button>
           )}
@@ -347,7 +347,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       )}
 
       {/* ─── Tabs ────────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-[var(--color-border)]">
+      <div className="flex items-center gap-1 border-b border-[var(--color-border)] overflow-x-auto scrollbar-none -mx-1 px-1">
         {([
           { key: 'overview', label: 'Overview', icon: FileText },
           { key: 'workflow', label: 'Workflow', icon: Layers },
@@ -359,7 +359,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           const Icon = tab.icon
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+              className={cn('flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex-shrink-0 whitespace-nowrap',
                 activeTab === tab.key
                   ? 'border-b-[var(--color-accent)] text-[var(--color-accent)]'
                   : 'border-b-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
@@ -380,13 +380,13 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
       {/* ─── Tab: Overview ───────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-5">
           {/* Job specs */}
           <div className="col-span-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Product Specifications</h2>
             </div>
-            <div className="p-5 grid grid-cols-3 gap-x-6 gap-y-4">
+            <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-x-4 md:gap-x-6 gap-y-4">
               {[
                 { label: 'Size (L×W×H)', value: [job.size_l, job.size_w, job.size_h].filter(Boolean).join(' × ') + (job.size_l ? ' mm' : '') || '—' },
                 { label: 'Sheet Size', value: job.sheet_size || '—' },
@@ -731,7 +731,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <div className="rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-3 text-sm text-[var(--color-text-secondary)]">
             All product specifications will be copied from <span className="font-semibold text-[var(--color-accent)]">{job.job_number}</span>. You can change quantity and due date.
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity</label>
               <input type="number" className={inputCls} value={repeatForm.quantity} onChange={e => setRepeatForm(p => ({ ...p, quantity: e.target.value }))} />
@@ -771,7 +771,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               {wastageReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Wasted <span className="text-[var(--color-danger)]">*</span></label>
               <input type="number" className={inputCls} value={wastageForm.quantity} onChange={e => setWastageForm(p => ({ ...p, quantity: e.target.value }))} placeholder="0" />

@@ -8,6 +8,41 @@ const config: Config = {
     './src/modules/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    // ─────────────────────────────────────────────────────────────────────
+    // BREAKPOINT CONTRACT
+    //
+    // These are Tailwind's stock values, declared explicitly so the device
+    // meaning of each prefix lives in the codebase instead of in someone's
+    // head. Values are UNCHANGED — declaring them cannot alter any existing
+    // class. Mirrored in src/app/globals.css.
+    //
+    //   (none)  < 768px       Mobile   single column, sheets, card lists
+    //   md:     768–1023px    Tablet   2-col forms, condensed tables
+    //   lg:     1024–1279px   Desktop  persistent sidebar, full tables
+    //   xl:     >= 1280px     Wide     current desktop layout, unchanged
+    //
+    // `sm:` (640px) is retained for compatibility but should NOT be used for
+    // new layout decisions — it splits the mobile tier in half and is the
+    // main reason breakpoint usage has been inconsistent so far.
+    // ─────────────────────────────────────────────────────────────────────
+    /* ── Control height contract (R8) ──────────────────────────────────────
+       Three tiers, applied as responsive pairs — not five ad-hoc sizes:
+
+         TOUCH    h-11 (44px)  every interactive control below md
+         DESKTOP  h-9 / h-8 / h-7 (36/32/28px) the existing compact sizes at md+
+         OPERATOR h-14 (56px)  primary actions on factory-floor screens
+                               (department queue Start/Complete, scan actions)
+
+       The pattern everywhere is `h-11 md:h-9` (or md:h-8 / md:h-7 to match
+       whatever the desktop design already used — desktop is never resized).
+       New controls must pick from these tiers; do not introduce new heights. */
+    screens: {
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       colors: {
         erp: {

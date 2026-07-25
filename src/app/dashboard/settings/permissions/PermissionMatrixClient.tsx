@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react'
 import { Check, X, Shield, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { DesktopOnly } from '@/components/ui/DesktopOnly'
 import {
   ERP_MODULES, PERMISSION_ACTIONS, PERMISSION_ACTION_LABELS,
   type Role, type Permission, type PermissionMatrix
@@ -97,6 +98,11 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
   const isSystemRole = selectedRoleObj?.slug === 'superadmin' || selectedRoleObj?.slug === 'owner'
 
   return (
+    <DesktopOnly
+      title="Permission matrix"
+      reason="The matrix crosses every module against every action for a role — dozens of checkboxes that must be read as a grid. On a phone the grid shreds and a mis-tap silently grants or removes access. Open it on a desktop."
+      backHref="/dashboard/settings"
+    >
     <div className="space-y-4">
       {/* Role Selector */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -234,5 +240,6 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
         Changes save instantly. Each toggle updates the database immediately.
       </p>
     </div>
+    </DesktopOnly>
   )
 }

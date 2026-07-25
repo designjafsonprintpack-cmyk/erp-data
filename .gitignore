@@ -37,3 +37,6 @@ next-env.d.ts
 
 # whatsapp
 whatsapp.txt
+
+# supabase database
+/data

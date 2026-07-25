@@ -105,7 +105,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
       </div>
 
       {/* Customer + Summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5">
           <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Customer</h3>
           <p className="text-base font-semibold text-[var(--color-text-primary)]">{qt.customers?.name}</p>
@@ -137,21 +137,21 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
         </div>
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {qt.quotation_items.map((item, idx) => (
-            <div key={item.id} className={cn('px-5 py-3.5 grid grid-cols-12 gap-3 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
-              <div className="col-span-1 text-xs text-[var(--color-text-muted)]">#{item.line_no}</div>
-              <div className="col-span-4">
-                <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.product_desc}</p>
+            <div key={item.id} className={cn('px-4 md:px-5 py-3.5 grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+              <div className="hidden md:block md:col-span-1 text-xs text-[var(--color-text-muted)]">#{item.line_no}</div>
+              <div className="col-span-2 md:col-span-4">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]"><span className="md:hidden text-xs text-[var(--color-text-muted)]">#{item.line_no} </span>{item.product_desc}</p>
                 {(item.size_l || item.size_w || item.size_h) && (
                   <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{[item.size_l, item.size_w, item.size_h].filter(Boolean).join(' × ')} mm</p>
                 )}
               </div>
-              <div className="col-span-2 text-sm text-[var(--color-text-secondary)]">
+              <div className="col-span-1 md:col-span-2 text-sm text-[var(--color-text-secondary)]">
                 {item.quantity} pcs {item.no_of_colors ? `· ${item.no_of_colors}C` : ''}
               </div>
-              <div className="col-span-2 text-sm text-[var(--color-text-secondary)]">
-                PKR {Number(item.unit_price).toLocaleString()}
+              <div className="col-span-1 md:col-span-2 text-sm text-[var(--color-text-secondary)] text-right md:text-left">
+                <span className="md:hidden text-xs text-[var(--color-text-muted)]">@ </span>PKR {Number(item.unit_price).toLocaleString()}
               </div>
-              <div className="col-span-3 text-right text-sm font-semibold text-[var(--color-text-primary)]">
+              <div className="col-span-2 md:col-span-3 text-right text-sm font-semibold text-[var(--color-text-primary)] border-t md:border-0 border-[var(--color-border-subtle)] pt-1.5 md:pt-0">
                 PKR {Number(item.subtotal).toLocaleString()}
               </div>
             </div>
@@ -264,7 +264,7 @@ function VersionHistoryView({ quotationId }: { quotationId: string }) {
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
         {[right, left].map((v, col) => (
           <div key={col} className="rounded-lg border border-[var(--color-border)] p-3">
             <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-2">v{v.version_number}{v.is_current ? ' (current)' : ''}</p>

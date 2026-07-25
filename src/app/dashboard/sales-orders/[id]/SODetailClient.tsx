@@ -88,7 +88,7 @@ export default function SODetailClient({ so }: { so: SO }) {
       </div>
 
       {/* Info cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Customer */}
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
           <div className="flex items-center gap-2 mb-3">

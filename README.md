@@ -1,16 +1,24 @@
-# vercel.json — Hobby-plan cron fix
+# Jafson ERP — Responsive R0–R8 + Scan in Bottom Bar
 
-Replace the `vercel.json` at the ROOT of the repo (next to package.json —
-NOT inside src/) with this one, commit, push. The failing deployment will
-go green.
+**Verified:** `npx tsc --noEmit` → 0 errors · `npm run build` → 125/125 routes ·
+render-tested (scan button present, raised circle, 6 slots, active state on /dashboard/scan — ALL PASS).
+**Migrations:** NONE. **New env vars:** NONE.
 
-Change: production-reminders cron was every 15 minutes (`*/15 * * * *`),
-which Vercel's Hobby plan rejects at deploy time (daily-only limit) — that
-was the entire reason deployments were failing. It now runs once daily at
-09:00 Pakistan time (0 4 * * * UTC). The other two crons (reports 8am,
-automation rules 6am) were already daily and are unchanged.
+⚠️ **Cumulative ZIP — the entire responsive project R0–R8 PLUS this change.**
+Deploy this one alone; it supersedes every earlier zip including phaseR8.
 
-Trade-off (accepted): the "3-hours-before" stage reminders and Pending
-Alerts now only fire once a day instead of every 15 minutes. If you move
-to Vercel Pro later, changing this one line back to `*/15 * * * *`
-restores the original behavior.
+## New in this update
+
+**Scan is now in the mobile bottom bar** — as a raised round accent button in
+the centre, the standard placement for a bar's primary action. Scanning job
+cards is *the* floor action in a printing factory, so it now sits under the
+thumb on every screen without costing any role one of its four tabs.
+
+- Bar layout: 2 role tabs · **Scan** · 2 role tabs · More
+- Gated on `jobs` access like the Scan page itself; users without it see the
+  previous 4-tabs + More layout
+- Lights up when you're on the scan screen
+- Desktop untouched (the bar only exists below `lg`)
+
+File changed: `src/components/layout/BottomNav.tsx` only. Everything else is
+R0–R8 as delivered.

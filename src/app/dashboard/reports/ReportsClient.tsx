@@ -154,8 +154,8 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
           {([
             ['overview',   'Overview',    BarChart3],
             ['production', 'Production',  Cpu],
@@ -166,16 +166,16 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             ['custom',     'Custom Report', Sliders],
           ] as const).map(([key, label, Icon]) => (
             <button key={key} onClick={() => setTab(key)}
-              className={cn('flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-medium border transition-all',
+              className={cn('flex items-center gap-1.5 px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               <Icon size={13} />{label}
             </button>
           ))}
-          <span className="text-xs text-[var(--color-text-muted)] ml-2">Last 30 days</span>
+          <span className="hidden md:inline text-xs text-[var(--color-text-muted)] ml-2 flex-shrink-0">Last 30 days</span>
         </div>
         {exportForTab(tab) && (
           <button onClick={() => exportForTab(tab)!()}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors flex-shrink-0">
             <Download size={13} /> Export to Excel
           </button>
         )}
@@ -185,20 +185,20 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
       {tab === 'overview' && (
         <div className="space-y-4">
           {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
             <StatCard label="Total Jobs" value={kpi?.jobs.total ?? 0} sub={`${kpi?.jobs.completed ?? 0} completed`} icon={Briefcase} color="var(--color-accent)" />
             <StatCard label="Revenue Invoiced" value={PKR(kpi?.revenue.invoiced ?? 0)} sub={`${PKR(kpi?.revenue.collected ?? 0)} collected`} icon={TrendingUp} color="var(--color-success)" trend="up" />
             <StatCard label="Outstanding" value={PKR(kpi?.revenue.outstanding ?? 0)} sub={kpi?.revenue.overdue ? `${PKR(kpi.revenue.overdue)} overdue` : undefined} icon={DollarSign} color={(kpi?.revenue.overdue ?? 0) > 0 ? 'var(--color-danger)' : 'var(--color-text-muted)'} />
             <StatCard label="Machines Running" value={kpi?.production.machines_running ?? 0} sub={`QC pass rate: ${PCT(kpi?.production.qc_pass_rate ?? null)}`} icon={Cpu} color="var(--color-warning)" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
             <StatCard label="In Progress" value={kpi?.jobs.in_progress ?? 0} icon={Activity} color="var(--color-warning)" />
             <StatCard label="On Hold" value={kpi?.jobs.on_hold ?? 0} icon={Clock} color="var(--color-text-muted)" />
             <StatCard label="Overdue Jobs" value={kpi?.jobs.overdue ?? 0} icon={AlertTriangle} color={(kpi?.jobs.overdue ?? 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)'} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             {/* Top Customers */}
             <Section title="Top Customers (by job count)" icon={Users}>
               {!kpi?.top_customers?.length ? (
@@ -286,7 +286,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           {/* Monthly table */}
           <Section title="Production Summary Table" icon={Activity}>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
                     {['Month','Created','Completed','Dispatched','Qty','Avg Days','On-Time %'].map(h => (
@@ -359,7 +359,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No customer data</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
                     {['Customer','Code','Total Jobs','Completed','Invoiced','Collected','Outstanding'].map(h => (
@@ -434,7 +434,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           {/* Financial table */}
           <Section title="Monthly Financial Summary" icon={BarChart3}>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
                     {['Month','Invoices','Invoiced','Collected','Outstanding','Overdue'].map(h => (
@@ -478,7 +478,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
       {tab === 'quality' && (
         <div className="space-y-4">
           {/* QC pass rate visual */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
             {qc.length > 0 ? (() => {
               const latest = qc[0]
               const totalInsp = qc.reduce((s, r) => s + r.total_inspections, 0)
@@ -506,7 +506,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
               <p className="text-sm text-[var(--color-text-muted)] text-center py-6">No data yet</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-border)]">
                       {['Month','Inspections','Passed','Failed','Conditional','Pass Rate','Defects','Re-prints'].map(h => (
@@ -550,7 +550,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
       {/* ── COSTING TAB ──────────────────────────────────────────────────────── */}
       {tab === 'costing' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
             {costingVariance.length > 0 ? (() => {
               const totalQuoted = costingVariance.reduce((s, r) => s + (r.quoted_amount ?? 0), 0)
               const totalActual = costingVariance.reduce((s, r) => s + r.total_cost, 0)
@@ -578,7 +578,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
               <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No costing data yet</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-border)]">
                       {['Job #','Customer','Quoted','Actual Cost','Margin','Variance','Status'].map(h => (
@@ -723,7 +723,7 @@ function CustomReportBuilder() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 space-y-4">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-[var(--color-text-muted)]">Report On</label>
             <select value={entity} onChange={e => changeEntity(e.target.value)}
@@ -780,7 +780,7 @@ function CustomReportBuilder() {
           <p className="text-sm text-[var(--color-text-muted)] text-center py-10">No results for this filter.</p>
         ) : (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
                   {columns.filter(c => selectedCols.has(c.key)).map(c => (

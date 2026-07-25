@@ -105,7 +105,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         <div className="px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Order Information</h2>
         </div>
-        <div className="p-5 grid grid-cols-3 gap-4">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
             <select className={inputCls} value={form.customer_id} onChange={e => setF('customer_id', e.target.value)}>

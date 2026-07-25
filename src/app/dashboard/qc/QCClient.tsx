@@ -5,6 +5,7 @@ import {
   Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
@@ -252,7 +253,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {[
           { label: 'Inspections',   value: inspections.length, icon: ClipboardList, color: 'var(--color-accent)' },
           { label: 'Passed',        value: passCount,          icon: CheckCircle2,  color: 'var(--color-success)' },
@@ -273,37 +274,34 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          {([
-            ['inspections', `Inspections (${inspections.length})`],
-            ['defects',     `Open Defects (${defects.length})`],
-            ['reprints',    `Re-prints (${reprints.length})`],
-            ['trends',      'Trends'],
-          ] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={cn('px-4 h-8 rounded-md text-sm font-medium border transition-all',
-                tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <TabStrip
+          className="flex-1 min-w-0"
+          tabs={[
+            { key: 'inspections', label: 'Inspections', count: inspections.length },
+            { key: 'defects',     label: 'Open Defects', count: defects.length },
+            { key: 'reprints',    label: 'Re-prints', count: reprints.length },
+            { key: 'trends',      label: 'Trends' },
+          ]}
+          active={tab}
+          onChange={k => setTab(k as typeof tab)}
+        />
+        <div className="flex items-center gap-2 flex-shrink-0 [&>*]:flex-1 md:[&>*]:flex-none">
           {tab === 'inspections' && (
             <button onClick={() => setInspectModal(true)}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={14} /> New Inspection
             </button>
           )}
           {tab === 'defects' && (
             <button onClick={() => setDefectModal(true)}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 transition-colors">
               <Plus size={14} /> Log Defect
             </button>
           )}
           {tab === 'reprints' && (
             <button onClick={() => setReprintModal(true)}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-warning)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-warning)] text-white text-sm font-medium hover:opacity-90 transition-colors">
               <RefreshCw size={14} /> Request Re-print
             </button>
           )}
@@ -312,7 +310,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
 
       {/* ── INSPECTIONS TAB ─────────────────────────────────────────────────────── */}
       {tab === 'inspections' && (
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
           {inspections.length === 0 ? (
             <div className="p-12 text-center">
               <ClipboardList size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
@@ -320,7 +318,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider min-w-[860px]">
                 <div className="col-span-2">Job</div>
                 <div className="col-span-3">Title</div>
                 <div className="col-span-2">Template</div>
@@ -333,7 +331,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                   const resultCfg = insp.result ? RESULT_CFG[insp.result as keyof typeof RESULT_CFG] : null
                   const openDef = (insp.qc_defects || []).filter(d => !d.resolved).length
                   return (
-                    <div key={insp.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={insp.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${insp.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">
                           {insp.jobs?.job_number}
@@ -377,7 +375,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
 
       {/* ── DEFECTS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'defects' && (
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
           {defects.length === 0 ? (
             <div className="p-12 text-center">
               <CheckCircle2 size={28} className="text-[var(--color-success)] opacity-50 mx-auto mb-2" />
@@ -386,7 +384,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider min-w-[860px]">
                 <div className="col-span-2">Job</div>
                 <div className="col-span-3">Defect Type</div>
                 <div className="col-span-2">Severity</div>
@@ -398,7 +396,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                 {defects.map((d, idx) => {
                   const sevCfg = SEVERITY_CFG[d.severity as keyof typeof SEVERITY_CFG] || SEVERITY_CFG.minor
                   return (
-                    <div key={d.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={d.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${d.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{d.jobs?.job_number}</Link>
                       </div>
@@ -438,7 +436,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
 
       {/* ── REPRINTS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'reprints' && (
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
           {reprints.length === 0 ? (
             <div className="p-12 text-center">
               <RefreshCw size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
@@ -446,7 +444,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+              <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider min-w-[860px]">
                 <div className="col-span-2">Job</div>
                 <div className="col-span-4">Reason</div>
                 <div className="col-span-1">Qty</div>
@@ -457,7 +455,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                 {reprints.map((rpr, idx) => {
                   const stCfg = REPRINT_STATUS_CFG[rpr.status as keyof typeof REPRINT_STATUS_CFG] || REPRINT_STATUS_CFG.pending
                   return (
-                    <div key={rpr.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={rpr.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${rpr.original_job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{rpr.jobs?.job_number}</Link>
                         <p className="text-xs text-[var(--color-text-muted)]">{rpr.jobs?.customers?.name}</p>
@@ -506,7 +504,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           </>
         }>
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={inspJob} onChange={e => setInspJob(e.target.value)}>
@@ -529,8 +527,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
 
           {/* Checklist */}
           {items.length > 0 && (
-            <div className="rounded-xl border border-[var(--color-border)] overflow-hidden">
-              <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            <div className="rounded-xl border border-[var(--color-border)] overflow-x-auto">
+              <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider min-w-[720px]">
                 <div className="col-span-5">Check Point</div>
                 <div className="col-span-1 text-center">Critical</div>
                 <div className="col-span-3 text-center">Result</div>
@@ -540,7 +538,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                 {items.map(item => {
                   const resp = responses[item.id]?.response || 'pass'
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center">
+                    <div key={item.id} className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center min-w-[720px]">
                       <div className="col-span-5 text-sm text-[var(--color-text-primary)]">{item.question}</div>
                       <div className="col-span-1 text-center">
                         {item.is_critical && <span className="text-xs text-[var(--color-danger)] font-bold">●</span>}
@@ -595,7 +593,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Defect Type <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={defectForm.defect_type} onChange={e => setDefectForm(p => ({ ...p, defect_type: e.target.value }))}>
@@ -649,7 +647,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Re-print Quantity <span className="text-[var(--color-danger)]">*</span></label>
               <input type="number" className={inputCls} value={reprintForm.quantity} onChange={e => setReprintForm(p => ({ ...p, quantity: e.target.value }))} placeholder="Pieces to reprint" />
@@ -941,7 +939,7 @@ function QcDefectTrends() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
           <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Defects by Type</h3>
           <div className="space-y-2.5">

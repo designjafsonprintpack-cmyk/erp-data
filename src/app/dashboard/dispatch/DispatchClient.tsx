@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronRight, FileText, Camera, Clock, Send, ExternalLink, Download
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
@@ -254,33 +255,35 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          {([['all','All'], ['pending','Pending'], ['dispatched','In Transit'], ['delivered','Delivered']] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={cn('px-4 h-8 rounded-md text-sm font-medium border transition-all',
-                tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <TabStrip
+          className="flex-1 min-w-0"
+          tabs={[
+            { key: 'all', label: 'All' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'dispatched', label: 'In Transit' },
+            { key: 'delivered', label: 'Delivered' },
+          ]}
+          active={tab}
+          onChange={k => setTab(k as typeof tab)}
+        />
+        <div className="flex items-center gap-2 flex-wrap [&>button]:flex-1 md:[&>button]:flex-none">
           {selected.size > 0 && (
             <>
               <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
               <button onClick={bulkDeliver}
-                className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-success)]/40 text-sm text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 justify-center rounded-md border border-[var(--color-success)]/40 text-sm text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
                 <CheckCircle2 size={13} /> Mark Delivered
               </button>
             </>
           )}
           <button onClick={exportDispatches}
             title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
           </button>
           <button onClick={() => setNewModal(true)}
-            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New Challan
           </button>
         </div>
@@ -304,10 +307,11 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               return (
                 <div key={d.id} id={`dispatch-${d.id}`}>
                   {/* Main row */}
-                  <div className={cn('flex items-center gap-4 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                  <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-4 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
                     <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleSelect(d.id)}
-                      className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
-                    <button onClick={() => toggle(d.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
+                      className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer flex-shrink-0" aria-label="Select dispatch" />
+                    <button onClick={() => toggle(d.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
+                      className="w-11 h-11 md:w-auto md:h-auto -ml-2 md:ml-0 flex items-center justify-center text-[var(--color-text-muted)] flex-shrink-0">
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
 
@@ -324,7 +328,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-1 flex-wrap text-xs text-[var(--color-text-muted)]">
+                      <div className="flex items-center gap-x-4 gap-y-1 mt-1 flex-wrap text-xs text-[var(--color-text-muted)]">
                         <span className="font-medium text-[var(--color-text-secondary)]">{d.customers?.name}</span>
                         {d.delivery_city && <span className="flex items-center gap-1"><MapPin size={10} />{d.delivery_city}</span>}
                         <span>{METHOD_LABELS[d.dispatch_method] || d.dispatch_method}</span>
@@ -446,7 +450,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
         }>
         <div className="space-y-5">
           {/* Customer & Delivery */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={form.customer_id} onChange={e => {
@@ -482,7 +486,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           {/* Dispatch Method */}
           <div>
             <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Dispatch Method</p>
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
               {(['own_vehicle','courier','customer_pickup','third_party'] as const).map(m => (
                 <button key={m} onClick={() => setForm(p => ({ ...p, dispatch_method: m }))}
                   className={cn('h-9 rounded-md border text-xs font-medium transition-all',
@@ -492,14 +496,14 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               ))}
             </div>
             {form.dispatch_method === 'own_vehicle' && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Vehicle No.</label><input className={inputCls} value={form.vehicle_number} onChange={e => setForm(p => ({ ...p, vehicle_number: e.target.value }))} placeholder="LEA-0000" /></div>
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Driver Name</label><input className={inputCls} value={form.driver_name} onChange={e => setForm(p => ({ ...p, driver_name: e.target.value }))} placeholder="Driver name" /></div>
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Driver Phone</label><input className={inputCls} value={form.driver_phone} onChange={e => setForm(p => ({ ...p, driver_phone: e.target.value }))} placeholder="+92 300 0000000" /></div>
               </div>
             )}
             {form.dispatch_method === 'courier' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Courier Name</label><input className={inputCls} value={form.courier_name} onChange={e => setForm(p => ({ ...p, courier_name: e.target.value }))} placeholder="TCS, Leopards, DHL…" /></div>
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Tracking Number</label><input className={inputCls} value={form.tracking_number} onChange={e => setForm(p => ({ ...p, tracking_number: e.target.value }))} placeholder="Tracking / waybill number" /></div>
               </div>
@@ -512,7 +516,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               <p className="text-sm font-semibold text-[var(--color-text-primary)]">Jobs to Dispatch</p>
               <button onClick={addLine} className="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1"><Plus size={12} /> Add Job</button>
             </div>
-            <div className="grid grid-cols-12 gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-12 gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               <div className="col-span-4">Job</div>
               <div className="col-span-3">Qty Dispatched</div>
               <div className="col-span-2">Cartons</div>
@@ -521,8 +525,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             </div>
             <div className="space-y-1.5">
               {lineItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4">
+                <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
+                  <div className="col-span-2 md:col-span-4">
                     <select className={inputCls} value={item.job_id} onChange={e => {
                       const job = readyJobs.find(j => j.id === e.target.value)
                       setLine(idx, 'job_id', e.target.value)
@@ -532,18 +536,18 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                       {readyJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
                     </select>
                   </div>
-                  <div className="col-span-3"><input type="number" className={inputCls} value={item.quantity_dispatched} onChange={e => setLine(idx, 'quantity_dispatched', e.target.value)} placeholder="Qty" /></div>
-                  <div className="col-span-2"><input type="number" className={inputCls} value={item.carton_count} onChange={e => setLine(idx, 'carton_count', e.target.value)} placeholder="Ctns" /></div>
-                  <div className="col-span-2"><input type="number" className={inputCls} value={item.weight_kg} onChange={e => setLine(idx, 'weight_kg', e.target.value)} placeholder="kg" /></div>
-                  <div className="col-span-1 flex justify-end">
-                    {lineItems.length > 1 && <button onClick={() => removeLine(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">✕</button>}
+                  <div className="col-span-1 md:col-span-3"><input type="number" className={inputCls} value={item.quantity_dispatched} onChange={e => setLine(idx, 'quantity_dispatched', e.target.value)} placeholder="Qty" /></div>
+                  <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.carton_count} onChange={e => setLine(idx, 'carton_count', e.target.value)} placeholder="Ctns" /></div>
+                  <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.weight_kg} onChange={e => setLine(idx, 'weight_kg', e.target.value)} placeholder="kg" /></div>
+                  <div className="col-span-1 md:col-span-1 flex justify-end">
+                    {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]">✕</button>}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Charges (PKR)</label>
               <input type="number" className={inputCls} value={form.delivery_charges} onChange={e => setForm(p => ({ ...p, delivery_charges: e.target.value }))} />

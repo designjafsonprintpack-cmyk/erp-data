@@ -450,7 +450,7 @@ export default function FloorDashboardClient({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Operator</label>
               <select className={inputCls} value={assignForm.operator_id} onChange={e => setAssignForm(p => ({ ...p, operator_id: e.target.value }))}>

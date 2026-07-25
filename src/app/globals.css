@@ -65,3 +65,170 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE FOUNDATION (Phase R0)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   BREAKPOINT CONTRACT — the single source of truth for what each device
+   class means. Mirrored (with the same comments) in tailwind.config.ts.
+
+     Mobile   < 768px    (no prefix)  single column, sheets, card lists,
+                                      slide-in drawer nav
+     Tablet   768–1023   md:          two-column forms, condensed tables,
+                                      drawer nav still
+     Desktop  1024–1279  lg:          persistent sidebar, full tables, dialogs
+     Wide     >= 1280    xl:          current desktop layout, unchanged
+
+   NOTE: the shell currently switches to the desktop layout at `md:` (768px),
+   which is why tablets receive the full desktop treatment. Moving that switch
+   to `lg:` is Phase R1 — deliberately NOT done here so R0 stays invisible on
+   every device that already works.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Safe-area insets. Resolve to 0px on every device without a notch,
+     gesture bar or rounded display, so all derived values are unchanged
+     on desktop. Requires `viewportFit: 'cover'` in the viewport export
+     (src/app/layout.tsx) — without it the browser reports 0 everywhere. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Header height INCLUDING the status-bar inset. On desktop this is
+     identical to --header-height. Fixed/sticky elements that sit below the
+     header must offset by this, not by --header-height, or they slide under
+     the notch on iOS. --header-height itself is left untouched (it is set
+     per-theme in styles/themes/index.css). */
+  --header-total: calc(var(--header-height) + var(--safe-top));
+}
+
+/* ── iOS input auto-zoom fix ───────────────────────────────────────────────
+   Safari on iOS zooms the viewport whenever a focused form control has a
+   computed font-size below 16px — and never zooms back out. The app's base
+   font is 14px and Tailwind's `text-sm` is remapped to 13px here, so EVERY
+   field in the ERP was triggering it: tap a field, the page zooms in, the
+   rest of the layout goes off-screen, and the user has to pinch back.
+
+   16px is applied only below the tablet breakpoint, so desktop typography
+   is completely unaffected. `font-size` is the only property touched —
+   heights, padding and borders all stay as they are. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  /* Checkbox/radio have no text, and forcing 16px on them changes their
+     rendered box size on iOS. Excluded explicitly. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    font-size: inherit !important;
+  }
+}
+
+/* Removes the 300ms tap delay and double-tap-to-zoom on touch devices
+   without disabling pinch-to-zoom (which would be an accessibility failure). */
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"],
+  label {
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  /* Safe-area padding utilities. No-ops on desktop. */
+  .pt-safe { padding-top: var(--safe-top); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pl-safe { padding-left: var(--safe-left); }
+  .pr-safe { padding-right: var(--safe-right); }
+  .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .mb-safe { margin-bottom: var(--safe-bottom); }
+  /* For a fixed bottom bar: its own height plus the gesture-bar inset. */
+  .h-bottom-safe { height: calc(56px + var(--safe-bottom)); }
+
+  /* Hides the scrollbar while keeping the element scrollable.
+     NOTE: `scrollbar-none` was already in use on the sidebar nav, but it is
+     not a Tailwind class, there is no scrollbar plugin installed, and it was
+     defined nowhere — so it has always been a no-op and the sidebar's
+     scrollbar has always shown. Defining it here fixes that and makes it
+     usable for the horizontally scrolling tab strips. */
+  .scrollbar-none {
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* legacy Edge */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;                  /* Chrome, Safari */
+    width: 0;
+    height: 0;
+  }
+}
+
+/* Respect the OS "reduce motion" setting. The app uses 150–200ms transitions
+   throughout; this disables them rather than removing them from the source. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── DataList responsive column spans ──────────────────────────────────────
+   A cell's grid span differs between the tablet table (where `desktop`-only
+   columns are hidden and the remaining spans are redistributed to still fill
+   12 units) and the wide table (where the author's declared spans apply
+   exactly). Tailwind can't build `col-span-N` from a runtime number, and an
+   inline `gridColumn` can't be breakpoint-scoped — so the component publishes
+   both values as CSS variables and this rule chooses per breakpoint. */
+.dl-cell {
+  grid-column: span var(--sp-md) / span var(--sp-md);
+}
+@media (min-width: 1280px) {
+  .dl-cell {
+    grid-column: span var(--sp-xl) / span var(--sp-xl);
+  }
+}
+
+/* ── Sticky form action bar (mobile) ───────────────────────────────────────
+   On long create/edit forms the Save button used to live at the very bottom
+   of the page — on a phone that means scrolling past every field to submit,
+   and any validation error at the top means scrolling all the way back. This
+   pins the action row to the bottom of the viewport, sitting just above the
+   fixed bottom tab bar (3.5rem tall + the home-indicator inset). It reverts
+   to a normal in-flow row at lg, where the bottom bar doesn't exist and the
+   page is short enough for this not to matter. */
+.form-actions {
+  position: sticky;
+  bottom: calc(3.5rem + var(--safe-bottom));
+  z-index: 20;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border);
+}
+/* Content padding is p-5 (1.25rem) on tablets; the bar's negative margins
+   must match or it stops 4px short of each edge. */
+@media (min-width: 768px) {
+  .form-actions {
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .form-actions {
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border-top: 0;
+  }
+}

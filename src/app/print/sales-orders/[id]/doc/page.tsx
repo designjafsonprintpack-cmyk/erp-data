@@ -96,6 +96,14 @@ export default async function PrintSalesOrder({ params }: { params: { id: string
           /* Urgency bar */
           .urgency-bar { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 5px 10px; margin-bottom: 10px; font-size: 9px; font-weight: 600; color: #92400e; display: flex; align-items: center; gap: 6px; }
 
+
+          /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
+             Reflow it to the screen for READING only — the printed output above
+             is untouched. Tables keep their shape and scroll sideways. */
+          @media screen and (max-width: 840px) {
+            .page { width: 100%; min-height: auto; padding: 16px; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+          }
           @media print {
             .page { margin: 0; padding: 10mm 12mm; }
             @page { size: A4; margin: 0; }

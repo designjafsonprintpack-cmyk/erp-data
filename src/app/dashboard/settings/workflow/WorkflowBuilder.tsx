@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, Check, X, GripVertical, Star, ChevronDown, Chevro
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
+import { DesktopOnly } from '@/components/ui/DesktopOnly'
 
 interface Template { id: string; name: string; description: string | null; is_default: boolean; is_active: boolean }
 interface Stage { id: string; workflow_template_id: string; name: string; department_id: string | null; sequence_order: number; is_optional: boolean; is_active: boolean }
@@ -165,6 +166,11 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
   }
 
   return (
+    <DesktopOnly
+      title="Workflow builder"
+      reason="Designing a workflow means seeing every stage, its sequence and its department side by side. On a phone the stage list truncates and reordering by drag becomes error-prone. Open it on a desktop."
+      backHref="/dashboard/settings/workflow"
+    >
     <div className="grid grid-cols-[280px_1fr] gap-5">
       {/* ── Template list ── */}
       <div className="space-y-3">
@@ -372,5 +378,6 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
         loading={loading}
       />
     </div>
+    </DesktopOnly>
   )
 }

@@ -23,6 +23,9 @@ export const ERP_MODULES = [
   { key: 'sales_orders',   label: 'Sales Orders' },
   { key: 'jobs',           label: 'Jobs' },
   { key: 'artwork',        label: 'Artwork' },
+  // Seeded by migration 042_plate_management.sql but omitted from this list,
+  // so Plates permissions could never be granted through Settings > Permissions.
+  { key: 'plates',         label: 'Plates' },
   { key: 'planning',       label: 'Planning' },
   { key: 'store',          label: 'Store' },
   { key: 'board_inventory',label: 'Board Inventory' },

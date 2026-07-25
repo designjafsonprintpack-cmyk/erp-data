@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Package, Plus, ChevronDown, ChevronRight, Check, X, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
@@ -115,18 +116,18 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          {['', 'pending', 'approved', 'partially_issued', 'issued'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={cn('px-3 h-7 rounded-md text-xs font-medium border transition-all',
-                filterStatus === s ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
-              {s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label || s}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col md:flex-row md:items-center gap-2.5 md:gap-3">
+        <TabStrip
+          className="flex-1 min-w-0"
+          tabs={['', 'pending', 'approved', 'partially_issued', 'issued'].map(s => ({
+            key: s,
+            label: s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label || s,
+          }))}
+          active={filterStatus}
+          onChange={setFilterStatus}
+        />
         <button onClick={() => setNewMRNModal(true)}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors ml-auto">
+          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors md:ml-auto flex-shrink-0">
           <Plus size={15} /> New MRN
         </button>
       </div>
@@ -148,8 +149,9 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
               return (
                 <div key={mrn.id}>
                   {/* MRN header row */}
-                  <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
-                    <button onClick={() => toggle(mrn.id)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex-shrink-0">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                    <button onClick={() => toggle(mrn.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
+                      className="w-11 h-11 md:w-auto md:h-auto -ml-2 md:ml-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex-shrink-0">
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -161,7 +163,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                           </Link>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--color-text-muted)]">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-[var(--color-text-muted)]">
                         <span>{items.length} material{items.length !== 1 ? 's' : ''}</span>
                         {items.length > 0 && <span>{issuedCount}/{items.length} issued</span>}
                         {mrn.required_date && <span>Required: {formatDate(mrn.required_date)}</span>}
@@ -172,13 +174,13 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {mrn.status === 'pending' && (
                         <button onClick={() => approveMRN(mrn)}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
                           <Check size={11} /> Approve
                         </button>
                       )}
                       {['approved','partially_issued'].includes(mrn.status) && (
                         <button onClick={() => { setIssueModal(mrn); const qtys: Record<string, string> = {}; items.forEach(i => { qtys[i.id] = String(i.quantity_required - i.quantity_issued) }); setIssueQtys(qtys) }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                           <Package size={11} /> Issue
                         </button>
                       )}
@@ -188,7 +190,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                   {/* Expanded line items */}
                   {isOpen && items.length > 0 && (
                     <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)]/30">
-                      <div className="grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
+                      <div className="hidden md:grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
                         <div className="col-span-3">Material</div>
                         <div className="col-span-2">Type</div>
                         <div className="col-span-3">Specification</div>
@@ -196,12 +198,18 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                         <div className="col-span-2">Issued</div>
                       </div>
                       {items.map(item => (
-                        <div key={item.id} className="grid grid-cols-12 gap-3 px-10 py-2.5 items-center text-sm border-b border-[var(--color-border-subtle)] last:border-0">
-                          <div className="col-span-3 text-[var(--color-text-primary)]">{item.material_name}</div>
-                          <div className="col-span-2 text-[var(--color-text-muted)] capitalize">{item.material_type || '—'}</div>
-                          <div className="col-span-3 text-[var(--color-text-muted)] text-xs">{item.specification || '—'}</div>
-                          <div className="col-span-2 text-[var(--color-text-primary)]">{item.quantity_required}</div>
-                          <div className="col-span-2">
+                        <div key={item.id} className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 px-5 md:px-10 py-2.5 items-center text-sm border-b border-[var(--color-border-subtle)] last:border-0">
+                          <div className="col-span-2 md:col-span-3 text-[var(--color-text-primary)]">
+                            {item.material_name}
+                            <span className="md:hidden text-[var(--color-text-muted)] capitalize"> {item.material_type ? `· ${item.material_type}` : ''}</span>
+                          </div>
+                          <div className="hidden md:block md:col-span-2 text-[var(--color-text-muted)] capitalize">{item.material_type || '—'}</div>
+                          <div className="col-span-2 md:col-span-3 text-[var(--color-text-muted)] text-xs">{item.specification || '—'}</div>
+                          <div className="md:col-span-2 text-[var(--color-text-primary)]">
+                            <span className="md:hidden text-xs text-[var(--color-text-muted)]">Required: </span>{item.quantity_required}
+                          </div>
+                          <div className="md:col-span-2 text-right md:text-left">
+                            <span className="md:hidden text-xs text-[var(--color-text-muted)]">Issued: </span>
                             <span className={cn('font-medium', item.quantity_issued >= item.quantity_required ? 'text-[var(--color-success)]' : item.quantity_issued > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]')}>
                               {item.quantity_issued}
                             </span>
@@ -229,7 +237,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
           </>
         }>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Link to Job</label>
               <select className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
@@ -251,25 +259,25 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
             </div>
             <div className="space-y-2">
               {lineItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4">
+                <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
+                  <div className="col-span-2 md:col-span-4">
                     <input className={inputCls} value={item.material_name} onChange={e => setLine(idx, 'material_name', e.target.value)} placeholder="Material name *" />
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1 md:col-span-2">
                     <select className={inputCls} value={item.material_type} onChange={e => setLine(idx, 'material_type', e.target.value)}>
                       <option value="">Type…</option>
                       {MATERIAL_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
                     </select>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-1 md:col-span-3">
                     <input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Specification" />
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1 md:col-span-2">
                     <input type="number" className={inputCls} value={item.quantity_required} onChange={e => setLine(idx, 'quantity_required', e.target.value)} placeholder="Qty" />
                   </div>
-                  <div className="col-span-1 flex justify-end">
+                  <div className="col-span-1 md:col-span-1 flex justify-end">
                     {lineItems.length > 1 && (
-                      <button onClick={() => removeLine(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={13} /></button>
+                      <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={14} /></button>
                     )}
                   </div>
                 </div>
@@ -298,13 +306,13 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
           }>
           <div className="space-y-3">
             {(issueModal.material_requisition_items || []).map(item => (
-              <div key={item.id} className="flex items-center gap-3 flex-wrap">
-                <div className="flex-1 min-w-[140px]">
+              <div key={item.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
+                <div className="flex-1 min-w-0 md:min-w-[140px]">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.material_name}</p>
                   <p className="text-xs text-[var(--color-text-muted)]">Required: {item.quantity_required} | Issued so far: {item.quantity_issued}</p>
                 </div>
                 <select
-                  className="h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors max-w-[180px]"
+                  className="h-11 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full md:w-auto md:max-w-[180px]"
                   value={issueBoardLinks[item.id] ?? item.board_item_id ?? ''}
                   onChange={e => setIssueBoardLinks(prev => ({ ...prev, [item.id]: e.target.value }))}>
                   <option value="">Not tracked in inventory</option>
@@ -313,7 +321,7 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                   ))}
                 </select>
                 <input type="number"
-                  className="w-24 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                  className="w-full md:w-24 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
                   value={issueQtys[item.id] ?? ''}
                   onChange={e => setIssueQtys(prev => ({ ...prev, [item.id]: e.target.value }))}
                   placeholder="Qty" />

@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, Receipt, Wallet, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { DataList, type DataListColumn } from '@/components/ui/DataList'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Modal } from '@/components/ui/Modal'
@@ -15,6 +17,66 @@ interface LedgerEntry { id: string; entry_date: string; entry_type: string; desc
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const EMPTY = { name: '', contact_person: '', email: '', phone: '', mobile: '', address: '', ntn: '', payment_terms: '30' }
+
+
+const VENDOR_COLUMNS = (
+  onLedger: (v: Vendor) => void,
+  onPay: (v: Vendor) => void,
+  onEdit: (v: Vendor) => void,
+  onDelete: (v: Vendor) => void,
+): DataListColumn<Vendor>[] => [
+  {
+    key: 'code', header: 'Code', span: 1, role: 'desktop',
+    render: v => <span className="text-xs font-mono text-[var(--color-accent)]">{v.vendor_code}</span>,
+  },
+  {
+    key: 'name', header: 'Name', span: 3, role: 'identity',
+    render: v => (
+      <span className="block min-w-0">
+        <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{v.name}</span>
+        <span className="block md:hidden text-xs font-mono text-[var(--color-accent)]">{v.vendor_code}</span>
+        {v.address && <span className="hidden md:block text-xs text-[var(--color-text-muted)] truncate">{v.address}</span>}
+      </span>
+    ),
+  },
+  {
+    key: 'contact', header: 'Contact', span: 2, role: 'meta', label: 'Contact',
+    render: v => <span className="text-sm text-[var(--color-text-secondary)]">{v.contact_person || '—'}</span>,
+  },
+  {
+    key: 'phone', header: 'Phone / Email', span: 3, role: 'meta', label: 'Phone / Email',
+    render: v => (
+      <span className="block space-y-0.5 min-w-0">
+        {v.mobile && <span className="block text-xs text-[var(--color-text-secondary)]"><Phone size={10} className="inline mr-1" />{v.mobile}</span>}
+        {v.email && <span className="block text-xs text-[var(--color-text-muted)] truncate"><Mail size={10} className="inline mr-1" />{v.email}</span>}
+        {!v.mobile && !v.email && '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'ntn', header: 'NTN', span: 2, role: 'desktop',
+    render: v => <span className="text-xs text-[var(--color-text-muted)]">{v.ntn || '—'}</span>,
+  },
+  {
+    key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
+    render: v => (
+      <span className="inline-flex items-center gap-1 justify-end">
+        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+          <Receipt size={12} />
+        </button>
+        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
+          <Wallet size={12} />
+        </button>
+        <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+          <Edit2 size={12} />
+        </button>
+        <button onClick={() => onDelete(v)} title="Delete" aria-label="Delete vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+          <Trash2 size={12} />
+        </button>
+      </span>
+    ),
+  },
+]
 
 export default function VendorsClient({ initialVendors }: { initialVendors: Vendor[] }) {
   const [vendors, setVendors] = useState(initialVendors)
@@ -99,80 +161,43 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vendors…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] transition-colors" />
-        </div>
-        <button onClick={() => {
-            if (!filtered.length) { toast.error('Nothing to export'); return }
-            exportToExcel(filtered.map(v => ({
-              'Code': v.vendor_code, 'Name': v.name, 'Contact': v.contact_person ?? '',
-              'Email': v.email ?? '', 'Phone': v.phone ?? '', 'Mobile': v.mobile ?? '',
-              'NTN': v.ntn ?? '', 'Payment Terms (days)': v.payment_terms,
-              'Active': v.is_active ? 'Yes' : 'No',
-            })), 'vendors-export')
-          }}
-          className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors ml-auto">
-          <Download size={14} /> Export
-        </button>
-        <button onClick={openNew}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
-          <Plus size={15} /> New Vendor
-        </button>
-      </div>
+      <Toolbar
+        search={{ value: search, onChange: setSearch, placeholder: 'Search vendors…' }}
+        actions={
+          <>
+            <button onClick={() => {
+                if (!filtered.length) { toast.error('Nothing to export'); return }
+                exportToExcel(filtered.map(v => ({
+                  'Code': v.vendor_code, 'Name': v.name, 'Contact': v.contact_person ?? '',
+                  'Email': v.email ?? '', 'Phone': v.phone ?? '', 'Mobile': v.mobile ?? '',
+                  'NTN': v.ntn ?? '', 'Payment Terms (days)': v.payment_terms,
+                  'Active': v.is_active ? 'Yes' : 'No',
+                })), 'vendors-export')
+              }}
+              className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Download size={14} /> Export
+            </button>
+            <button onClick={openNew}
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              <Plus size={15} /> New Vendor
+            </button>
+          </>
+        }
+      />
 
       {/* Table */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider sticky top-[var(--header-height)] z-10 rounded-t-xl">
-          <div className="col-span-1">Code</div>
-          <div className="col-span-3">Name</div>
-          <div className="col-span-2">Contact</div>
-          <div className="col-span-3">Phone / Email</div>
-          <div className="col-span-2">NTN</div>
-          <div className="col-span-1 text-right">Actions</div>
-        </div>
-
-        {filtered.length === 0 ? (
+      <DataList<Vendor>
+        rows={filtered}
+        columns={VENDOR_COLUMNS(setLedgerVendor, setPayVendor, openEdit, deleteVendor)}
+        getRowId={v => v.id}
+        stickyHeader
+        empty={
           <div className="p-12 text-center">
             <Users size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">{search ? 'No vendors found' : 'No vendors yet'}</p>
           </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-border-subtle)]">
-            {filtered.map((v, idx) => (
-              <div key={v.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
-                <div className="col-span-1 text-xs font-mono text-[var(--color-accent)]">{v.vendor_code}</div>
-                <div className="col-span-3">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{v.name}</p>
-                  {v.address && <p className="text-xs text-[var(--color-text-muted)] truncate">{v.address}</p>}
-                </div>
-                <div className="col-span-2 text-sm text-[var(--color-text-secondary)]">{v.contact_person || '—'}</div>
-                <div className="col-span-3 space-y-0.5">
-                  {v.mobile && <p className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><Phone size={10} />{v.mobile}</p>}
-                  {v.email && <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1"><Mail size={10} />{v.email}</p>}
-                </div>
-                <div className="col-span-2 text-xs text-[var(--color-text-muted)]">{v.ntn || '—'}</div>
-                <div className="col-span-1 flex items-center gap-1 justify-end">
-                  <button onClick={() => setLedgerVendor(v)} title="View Ledger" className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
-                    <Receipt size={12} />
-                  </button>
-                  <button onClick={() => setPayVendor(v)} title="Record Payment" className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
-                    <Wallet size={12} />
-                  </button>
-                  <button onClick={() => openEdit(v)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
-                    <Edit2 size={12} />
-                  </button>
-                  <button onClick={() => deleteVendor(v)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title={editVendor ? `Edit — ${editVendor.name}` : 'New Vendor'} size="md"
@@ -185,8 +210,8 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
             </button>
           </>
         }>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
             <input className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
           </div>
@@ -214,7 +239,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
             <input type="number" className={inputCls} value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: e.target.value }))} />
           </div>
-          <div className="col-span-2 space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
             <input className={inputCls} value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Vendor address" />
           </div>
@@ -232,8 +257,8 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
             </button>
           </>
         }>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Amount (PKR) <span className="text-[var(--color-danger)]">*</span></label>
             <input type="number" autoFocus className={inputCls} value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
           </div>
@@ -251,11 +276,11 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
               <option value="other">Other</option>
             </select>
           </div>
-          <div className="col-span-2 space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Reference (cheque #, bank ref…)</label>
             <input className={inputCls} value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Optional" />
           </div>
-          <div className="col-span-2 space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
             <input className={inputCls} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional" />
           </div>
@@ -295,8 +320,8 @@ function VendorLedgerView({ vendorId }: { vendorId: string }) {
       ) : entries.length === 0 ? (
         <div className="py-10 text-center text-sm text-[var(--color-text-muted)]">No ledger activity yet. Purchase orders and payments for this vendor will appear here.</div>
       ) : (
-        <div className="max-h-96 overflow-y-auto">
-          <table className="w-full text-sm">
+        <div className="max-h-96 overflow-y-auto overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="sticky top-0 bg-[var(--color-bg-secondary)]">
               <tr className="text-left text-xs text-[var(--color-text-muted)] uppercase border-b border-[var(--color-border-subtle)]">
                 <th className="py-2 font-medium">Date</th>

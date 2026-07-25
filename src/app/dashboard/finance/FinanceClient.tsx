@@ -207,7 +207,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {[
           { label: 'Total Billed',      value: PKR(stats.totalBilled),     color: 'var(--color-accent)',   icon: FileText },
           { label: 'Collected',         value: PKR(stats.totalReceived),   color: 'var(--color-success)',  icon: CheckCircle2 },
@@ -228,8 +228,8 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 -mx-1 px-1">
           {(['','draft','sent','partial','paid','overdue'] as const).map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={cn('px-3 h-7 rounded-md text-xs font-medium border transition-all',
@@ -240,15 +240,15 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setAgingModal(true)}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <AlertTriangle size={14} /> Aging Report
           </button>
           <button onClick={() => setCostModal(true)}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Calculator size={14} /> Job Costing
           </button>
           <button onClick={() => setInvModal(true)}
-            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New Invoice
           </button>
         </div>
@@ -263,7 +263,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               <div className="col-span-1" />
               <div className="col-span-2">Invoice #</div>
               <div className="col-span-3">Customer</div>
@@ -281,28 +281,29 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
                 return (
                   <div key={inv.id}>
-                    <div className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15', isOverdue && 'border-l-2 border-l-[var(--color-danger)]')}>
-                      <div className="col-span-1">
-                        <button onClick={() => toggle(inv.id)} className="text-[var(--color-text-muted)]">
+                    <div className={cn('grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 px-4 md:px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15', isOverdue && 'border-l-2 border-l-[var(--color-danger)]')}>
+                      <div className="col-span-1 md:col-span-1">
+                        <button onClick={() => toggle(inv.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
+                          className="w-11 h-11 md:w-auto md:h-auto -ml-2 md:ml-0 flex items-center justify-center text-[var(--color-text-muted)]">
                           {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                         </button>
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-1 md:col-span-2 text-right md:text-left">
                         <Link href={`/print/finance/${inv.id}`} target="_blank"
                           className="text-sm font-bold font-mono text-[var(--color-accent)] hover:underline">
                           {inv.invoice_number}
                         </Link>
                         <span className={cn('ml-2 text-xs px-2 py-0.5 rounded-full border font-medium', stCfg.color)}>{stCfg.label}</span>
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-2 md:col-span-3">
                         <p className="text-sm text-[var(--color-text-primary)]">{inv.customers?.name}</p>
                         <p className="text-xs text-[var(--color-text-muted)]">{inv.customers?.customer_code}</p>
                       </div>
-                      <div className="col-span-1 text-xs text-[var(--color-text-muted)]">{formatDate(inv.invoice_date, { day:'numeric', month:'short' })}</div>
-                      <div className="col-span-1 text-xs text-[var(--color-text-muted)]">
-                        {inv.due_date ? <span className={cn(isOverdue && 'text-[var(--color-danger)] font-semibold')}>{formatDate(inv.due_date, { day:'numeric', month:'short' })}</span> : '—'}
+                      <div className="col-span-1 md:col-span-1 text-xs text-[var(--color-text-muted)]"><span className="md:hidden">Date: </span>{formatDate(inv.invoice_date, { day:'numeric', month:'short' })}</div>
+                      <div className="col-span-1 md:col-span-1 text-xs text-[var(--color-text-muted)] text-right md:text-left">
+                        <span className="md:hidden">Due: </span>{inv.due_date ? <span className={cn(isOverdue && 'text-[var(--color-danger)] font-semibold')}>{formatDate(inv.due_date, { day:'numeric', month:'short' })}</span> : '—'}
                       </div>
-                      <div className="col-span-2 text-right">
+                      <div className="col-span-2 md:col-span-2 md:text-right">
                         <p className="text-sm font-bold text-[var(--color-text-primary)]">{PKR(inv.total_amount)}</p>
                         {inv.balance_due > 0 && inv.status !== 'draft' && (
                           <p className="text-xs text-[var(--color-danger)]">Bal: {PKR(inv.balance_due)}</p>
@@ -314,21 +315,21 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                           </div>
                         )}
                       </div>
-                      <div className="col-span-2 flex items-center gap-1 justify-end">
+                      <div className="col-span-2 md:col-span-2 flex items-center gap-1.5 md:gap-1 justify-end flex-wrap">
                         {inv.status === 'draft' && (
                           <button onClick={() => sendInvoice(inv)}
-                            className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
                             <Send size={11} /> Send
                           </button>
                         )}
                         {['sent','partial','overdue'].includes(inv.status) && (
                           <button onClick={() => { setPayModal(inv); setPayForm(p => ({ ...p, amount: String(inv.balance_due) })) }}
-                            className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                             <CreditCard size={11} /> Pay
                           </button>
                         )}
                         <Link href={`/print/finance/${inv.id}`} target="_blank"
-                          className="flex items-center gap-1 px-2 h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2 h-11 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
                           <FileText size={11} />
                         </Link>
                       </div>
@@ -337,7 +338,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                     {/* Expanded */}
                     {isOpen && (
                       <div className="px-10 py-3 bg-[var(--color-bg-elevated)]/30 border-t border-[var(--color-border-subtle)] space-y-2">
-                        <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           {[
                             { label: 'Subtotal', value: PKR(inv.subtotal) },
                             { label: `Discount (${inv.discount_pct}%)`, value: inv.discount_pct > 0 ? `-${PKR(inv.discount_pct * inv.subtotal / 100)}` : '—' },
@@ -397,7 +398,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           </>
         }>
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={invForm.customer_id} onChange={e => setInvForm(p => ({ ...p, customer_id: e.target.value }))}>
@@ -421,7 +422,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               <p className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</p>
               <button onClick={addInvLine} className="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1"><Plus size={12} /> Add Line</button>
             </div>
-            <div className="grid grid-cols-12 gap-2 px-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+            <div className="hidden md:grid grid-cols-12 gap-2 px-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
               <div className="col-span-5">Description</div>
               <div className="col-span-2">Link Job</div>
               <div className="col-span-1">Qty</div>
@@ -432,9 +433,9 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               {invLines.map((line, idx) => {
                 const sub = parseFloat(line.quantity||'0') * parseFloat(line.unit_price||'0')
                 return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-5"><input className={inputCls} value={line.description} onChange={e => setInvLine(idx,'description',e.target.value)} placeholder="Description *" /></div>
-                    <div className="col-span-2">
+                  <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
+                    <div className="col-span-2 md:col-span-5"><input className={inputCls} value={line.description} onChange={e => setInvLine(idx,'description',e.target.value)} placeholder="Description *" /></div>
+                    <div className="col-span-1 md:col-span-2">
                       <select className={inputCls} value={line.job_id} onChange={e => {
                         const job = completedJobs.find(j => j.id === e.target.value)
                         setInvLine(idx,'job_id',e.target.value)
@@ -445,9 +446,9 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                         {completedJobs.map(j => <option key={j.id} value={j.id}>{j.job_number}</option>)}
                       </select>
                     </div>
-                    <div className="col-span-1"><input type="number" className={inputCls} value={line.quantity} onChange={e => setInvLine(idx,'quantity',e.target.value)} /></div>
-                    <div className="col-span-2"><input type="number" className={inputCls} value={line.unit_price} onChange={e => setInvLine(idx,'unit_price',e.target.value)} /></div>
-                    <div className="col-span-2 flex items-center justify-between">
+                    <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={line.quantity} onChange={e => setInvLine(idx,'quantity',e.target.value)} /></div>
+                    <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={line.unit_price} onChange={e => setInvLine(idx,'unit_price',e.target.value)} /></div>
+                    <div className="col-span-2 md:col-span-2 flex items-center justify-between">
                       <span className="text-sm font-medium text-[var(--color-text-primary)]">{sub > 0 ? PKR(sub) : '—'}</span>
                       {invLines.length > 1 && <button onClick={() => removeInvLine(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={13} /></button>}
                     </div>

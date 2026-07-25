@@ -265,7 +265,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
         }
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Name <span className="text-[var(--color-danger)]">*</span></label>
               <input className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. MP-1 (5 Color)" />
@@ -275,7 +275,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
               <input className={inputCls} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. MP-1" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Type <span className="text-[var(--color-danger)]">*</span></label>
               <select className={inputCls} value={form.machine_type} onChange={e => setForm(p => ({ ...p, machine_type: e.target.value }))}>

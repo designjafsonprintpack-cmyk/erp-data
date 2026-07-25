@@ -99,7 +99,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
       {/* ─── Row 1: KPI band (one container, cells divided by hairlines) + graph ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 items-stretch">
         <div className="xl:col-span-2 rounded-lg border border-[var(--color-border)] overflow-hidden">
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-px bg-[var(--color-border)]">
+          <div className="grid grid-cols-3 md:grid-cols-6 xl:grid-cols-4 gap-px bg-[var(--color-border)]">
             {stats.map(stat => {
               const isSelected = selection?.type === 'card' && selection.key === stat.card
               return (

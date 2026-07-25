@@ -206,7 +206,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                 {[
                   { label: 'Email', value: customer.email }, { label: 'Phone', value: customer.phone },
                   { label: 'Mobile', value: customer.mobile }, { label: 'Website', value: customer.website },
@@ -315,7 +315,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
             ))}
             {newAddress && (
               <div className="px-5 py-4 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20 space-y-3">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <input autoFocus className={inputCls} value={newAddress.label} onChange={e => setNewAddress(p => ({ ...p!, label: e.target.value }))} placeholder="Label (e.g. Head Office) *" />
                   <select className={inputCls} value={newAddress.address_type} onChange={e => setNewAddress(p => ({ ...p!, address_type: e.target.value }))}>
                     <option value="billing">Billing</option>
