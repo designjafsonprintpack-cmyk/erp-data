@@ -24,16 +24,34 @@ export default async function PlanningPage() {
       .in('status', ['new','in_progress']).order('required_date').limit(100),
   ])
 
+  // "Unplanned" has to mean unplanned. This list used to be every active job,
+  // so a job that had just been scheduled still showed up under Unplanned Jobs
+  // — the tab contradicted the schedule right next to it. Any live
+  // (non-cancelled) plan counts, whatever its date: a job planned for last week
+  // isn't unplanned, it's late.
+  const { data: plannedRows } = await supabase.from('job_plans' as any)
+    .select('job_id')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .neq('status', 'cancelled')
+
+  const plannedJobIds = new Set(((plannedRows ?? []) as any[]).map(r => r.job_id))
+  const unplannedJobs = ((jobsRes.data ?? []) as any[]).filter(j => !plannedJobIds.has(j.id))
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Production Planning</h1>
-        <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{plansRes.count ?? 0} plans scheduled in the next 30 days</p>
+        {/* plansRes.count is always null — the query above doesn't ask for an
+            exact count, which is why this header read "0 plans scheduled" with
+            a plan sitting right underneath it. The fetched rows ARE the answer
+            for a 30-day window. */}
+        <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{(plansRes.data ?? []).length} plans scheduled in the next 30 days</p>
       </div>
       <PlanningClient
         initialPlans={(plansRes.data ?? []) as any[]}
         machines={(machinesRes.data ?? []) as any[]}
-        unplannedJobs={(jobsRes.data ?? []) as any[]}
+        unplannedJobs={unplannedJobs}
       />
     </div>
   )

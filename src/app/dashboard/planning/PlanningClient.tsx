@@ -27,8 +27,11 @@ const PLAN_STATUS_CONFIG = {
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
-export default function PlanningClient({ initialPlans, machines, unplannedJobs }: { initialPlans: Plan[]; machines: Machine[]; unplannedJobs: Job[] }) {
+export default function PlanningClient({ initialPlans, machines, unplannedJobs: initialUnplanned }: { initialPlans: Plan[]; machines: Machine[]; unplannedJobs: Job[] }) {
   const [plans, setPlans] = useState(initialPlans)
+  // Local copy so a job drops out of Unplanned the moment it's scheduled,
+  // instead of lingering until the next server render.
+  const [unplannedJobs, setUnplannedJobs] = useState(initialUnplanned)
   const [planModal, setPlanModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
@@ -71,6 +74,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs }
         estimated_hours: m.estimated_hours ? parseFloat(m.estimated_hours) : null,
       }))
       setPlans(prev => [...prev, { ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title, status: 'new', priority: job.priority, customers: job.customers } : null, job_machine_assignments: machineFull }].sort((a, b) => a.planned_date.localeCompare(b.planned_date)))
+      setUnplannedJobs(prev => prev.filter(j => j.id !== form.job_id))
       setPlanModal(false)
       setForm({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
       setSelectedMachines([])

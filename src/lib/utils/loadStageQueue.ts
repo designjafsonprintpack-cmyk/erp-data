@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { checkStageGate } from './jobStageGate'
+import { getPlannedDates } from './plannedDates'
 
 export interface StageQueueEntry {
   stage_progress_id: string
@@ -75,23 +76,10 @@ export async function loadStageQueue(
   }
 
   // Planned date per job, so a queue answers "yeh kab ka plan hai" without
-  // anyone opening the Planning page. Earliest live (non-cancelled) plan wins
-  // — a job normally has one; if it was re-planned, the nearest date is the
-  // one the floor cares about.
-  const jobIds = Array.from(new Set(rows.map(r => r.job_id)))
-  const plannedDateByJob = new Map<string, string>()
-  if (jobIds.length > 0) {
-    const { data: plans } = await supabase.from('job_plans' as any)
-      .select('job_id, planned_date, status')
-      .eq('company_id', companyId)
-      .in('job_id', jobIds)
-      .is('deleted_at', null)
-      .neq('status', 'cancelled')
-      .order('planned_date')
-    for (const p of ((plans ?? []) as any[])) {
-      if (!plannedDateByJob.has(p.job_id)) plannedDateByJob.set(p.job_id, p.planned_date)
-    }
-  }
+  // anyone opening the Planning page.
+  const plannedDateByJob = await getPlannedDates(
+    supabase, companyId, Array.from(new Set(rows.map(r => r.job_id)))
+  )
 
   const ready: StageQueueEntry[] = []
   const blocked: StageQueueEntry[] = []
