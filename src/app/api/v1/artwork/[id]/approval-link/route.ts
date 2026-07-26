@@ -7,6 +7,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { artworkApprovalLinkSchema } from '@/lib/schemas/artwork'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 
 const EXPIRY_MS: Record<string, number | null> = {
   '7d':   7  * 24 * 60 * 60 * 1000,
@@ -107,11 +108,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         }, supabase)
 
         // Mirror the same "first activity on this job" transition the
-        // manual stage-start action performs in /api/v1/jobs/[id]/workflow.
+        // manual stage-start action performs in /api/v1/jobs/[id]/workflow —
+        // including the current-stage bookkeeping, so both paths leave the
+        // job pointing at the same live stage.
         await supabase.from('jobs' as any)
-          .update({ status: 'in_progress', current_stage_id: stage.id })
+          .update({ status: 'in_progress' })
           .eq('id', jobId).eq('company_id', companyId)
           .eq('status', 'new')
+
+        await syncJobCurrentStage(supabase, companyId, jobId).catch(() => null)
       }
     }
   }

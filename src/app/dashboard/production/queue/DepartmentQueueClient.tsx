@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Play, CheckCircle2, SkipForward, AlertTriangle, Clock, RefreshCw } from 'lucide-react'
+import { Play, CheckCircle2, SkipForward, AlertTriangle, Clock, RefreshCw, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { formatTimeAgo } from '@/lib/utils/format'
+import { formatDate, formatTimeAgo } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
 
@@ -12,11 +12,29 @@ interface QueueEntry {
   stage_progress_id: string; job_id: string; job_number: string; job_title: string
   customer_name: string | null; priority: string; required_date: string | null
   stage_name: string; started_at: string | null; blocked_reason?: string
+  planned_date: string | null; department_name: string | null
 }
 interface Department { id: string; name: string; code: string }
 
+// "Planned aaj / kal / 27 Jul" — a bare date makes the floor do the mental
+// arithmetic, and today-vs-tomorrow is the only distinction that changes what
+// anyone does next.
+const planLabel = (date: string): string => {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(`${date}T00:00:00`)
+  const days = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (days === 0) return 'Planned today'
+  if (days === 1) return 'Planned tomorrow'
+  if (days === -1) return 'Planned yesterday'
+  if (days < 0) return `Planned ${formatDate(date)} (${Math.abs(days)}d late)`
+  return `Planned ${formatDate(date)}`
+}
+
 export default function DepartmentQueueClient({ departments, initialDepartmentId }: { departments: Department[]; initialDepartmentId: string }) {
-  const [departmentId, setDepartmentId] = useState(initialDepartmentId || departments[0]?.id || '')
+  // No department on the user (owner / admin / superadmin, or simply not set)
+  // → show the whole plant rather than silently landing on whichever
+  // department happens to sort first and looking empty.
+  const [departmentId, setDepartmentId] = useState(initialDepartmentId || 'all')
   const [ready, setReady] = useState<QueueEntry[]>([])
   const [blocked, setBlocked] = useState<QueueEntry[]>([])
   const [inProgress, setInProgress] = useState<QueueEntry[]>([])
@@ -84,11 +102,17 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
                   </Link>
                   {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[var(--color-text-muted)] flex-wrap">
                   <span>{e.stage_name}</span>
+                  {departmentId === 'all' && e.department_name && <span>· {e.department_name}</span>}
                   {e.customer_name && <span>· {e.customer_name}</span>}
                   {e.started_at && <span>· {formatTimeAgo(e.started_at)}</span>}
                 </div>
+                {e.planned_date && (
+                  <p className="text-[11px] text-[var(--color-accent)] mt-0.5 flex items-center gap-1">
+                    <CalendarClock size={10} className="flex-shrink-0" /> {planLabel(e.planned_date)}
+                  </p>
+                )}
                 {e.blocked_reason && (
                   <p className="text-[11px] text-[var(--color-danger)] mt-1 flex items-start gap-1">
                     <AlertTriangle size={10} className="mt-0.5 flex-shrink-0" /> {e.blocked_reason}
@@ -108,7 +132,7 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
       <div className="flex items-center gap-3">
         <select value={departmentId} onChange={e => setDepartmentId(e.target.value)}
           className="h-11 md:h-8 px-3 md:px-2.5 rounded-md border text-sm md:text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] flex-1 md:flex-none min-w-0">
-          <option value="">Select a department…</option>
+          <option value="all">All departments</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <button onClick={load} disabled={loading}
@@ -117,8 +141,13 @@ export default function DepartmentQueueClient({ departments, initialDepartmentId
         </button>
       </div>
 
-      {!departmentId ? (
-        <EmptyState title="No department selected" description="Pick a department above, or ask an admin to assign one to your user in Settings > Users" />
+      {!loading && ready.length === 0 && blocked.length === 0 && inProgress.length === 0 ? (
+        <EmptyState
+          title="Nothing in this queue"
+          description={departmentId === 'all'
+            ? 'No job is sitting at any workflow stage right now — either everything is finished, or jobs are being created without a workflow template.'
+            : 'No job is at a stage this department owns. If that looks wrong, check Settings > Workflow Engine — a stage with no department assigned never shows up here.'}
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
           <Section

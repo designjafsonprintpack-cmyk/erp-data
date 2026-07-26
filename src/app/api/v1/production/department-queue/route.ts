@@ -23,25 +23,55 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   let departmentId = searchParams.get('department_id') || ''
 
-  if (!departmentId) {
+  // 'all' — the whole plant's live work in one list. Needed for anyone who
+  // isn't tied to a single department (owner, admin, superadmin, and any user
+  // whose department_id was never set), who would otherwise land on some
+  // arbitrary department's empty queue and conclude the page is broken. Also
+  // the only view that surfaces a stage with NO department assigned — those
+  // are invisible to every per-department query by definition.
+  const allDepartments = departmentId === 'all'
+
+  if (!allDepartments && !departmentId) {
     const { data: profile } = await supabase.from('users' as any)
       .select('department_id').eq('company_id', companyId).eq('auth_user_id', user.id).maybeSingle()
     departmentId = (profile as any)?.department_id || ''
   }
 
-  if (!departmentId) {
+  if (!allDepartments && !departmentId) {
     return NextResponse.json({ data: { department_id: null, ready: [], blocked: [], in_progress: [] } })
   }
 
-  const { data: rows, error } = await supabase.from('job_stage_progress' as any)
-    .select('id, job_id, sequence_order, workflow_stage_id, status, started_at, workflow_stages!inner(name, department_id, stage_type), jobs(job_number, job_title, priority, required_date, customers(name))')
+  let query = supabase.from('job_stage_progress' as any)
+    .select('id, job_id, sequence_order, workflow_stage_id, status, started_at, workflow_stages!inner(name, department_id, stage_type, departments(name)), jobs(job_number, job_title, priority, required_date, customers(name))')
     .eq('company_id', companyId)
-    .eq('workflow_stages.department_id', departmentId)
     .in('status', ['pending', 'in_progress'])
     .eq('is_active', true)
     .order('sequence_order')
 
+  if (!allDepartments) query = query.eq('workflow_stages.department_id', departmentId)
+
+  const { data: rows, error } = await query
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Planned date per job, so the queue answers "yeh kab ka plan hai" without
+  // anyone opening the Planning page. Earliest live (non-cancelled) plan wins
+  // — a job normally has one; if it was re-planned, the nearest date is the
+  // one the floor cares about.
+  const jobIds = Array.from(new Set(((rows ?? []) as any[]).map(r => r.job_id)))
+  const plannedDateByJob = new Map<string, string>()
+  if (jobIds.length > 0) {
+    const { data: plans } = await supabase.from('job_plans' as any)
+      .select('job_id, planned_date, status')
+      .eq('company_id', companyId)
+      .in('job_id', jobIds)
+      .is('deleted_at', null)
+      .neq('status', 'cancelled')
+      .order('planned_date')
+    for (const p of ((plans ?? []) as any[])) {
+      if (!plannedDateByJob.has(p.job_id)) plannedDateByJob.set(p.job_id, p.planned_date)
+    }
+  }
 
   const ready: any[] = []
   const blocked: any[] = []
@@ -63,6 +93,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
       required_date: row.jobs.required_date,
       stage_name: row.workflow_stages?.name || 'Stage',
       started_at: row.started_at,
+      planned_date: plannedDateByJob.get(row.job_id) ?? null,
+      department_name: row.workflow_stages?.departments?.name ?? null,
     }
 
     if (row.status === 'in_progress') {
@@ -78,5 +110,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ data: { department_id: departmentId, ready, blocked, in_progress: inProgress } })
+  return NextResponse.json({
+    data: {
+      department_id: allDepartments ? 'all' : departmentId,
+      ready, blocked, in_progress: inProgress,
+    },
+  })
 })

@@ -8,6 +8,7 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobWorkflowActionSchema } from '@/lib/schemas/jobActions'
 import { checkStageGate } from '@/lib/utils/jobStageGate'
+import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 import { notifyDepartment } from '@/lib/utils/notifyDepartment'
 
 // After a stage completes, some previously-blocked stages may now be
@@ -243,14 +244,20 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     actor_id: userTableId,
   }, supabase)
 
-  // If completing: update job status to in_progress if it was 'new'
+  // First activity on the job takes it out of 'new'.
   if (action === 'start') {
     await supabase.from('jobs' as any)
-      .update({ status: 'in_progress', current_stage_id: stage_progress_id })
+      .update({ status: 'in_progress' })
       .eq('id', params.id)
       .eq('company_id', companyId)
       .eq('status', 'new')
   }
+
+  // Keep "which stage is this job on" true after every transition, not just
+  // the first start — start, complete and skip all move it. Bookkeeping only:
+  // the stage change itself is already committed above, so this never fails
+  // the request.
+  await syncJobCurrentStage(supabase, companyId, jobId).catch(() => null)
 
   // Auto-notify whichever department owns the next stage(s) that just
   // became startable — best-effort, never blocks the response.

@@ -69,6 +69,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Finance',                                href: '/dashboard/finance',                  icon: CreditCard,      color: '#ca8a04', module: 'finance' },
 
   { divider: true, label: 'Production' },
+  // Stage-driven work list — every job currently sitting at a stage this
+  // department owns, with Start / Complete right there. Was only reachable as
+  // a mobile home tile until migration 091 made stage→department mapping real;
+  // it belongs at the top of Production now that it actually returns rows.
+  { label: 'My Queue',                               href: '/dashboard/production/queue',         icon: ListChecks,      color: '#38bdf8', module: 'jobs' },
   { label: 'Printing',                               href: '/dashboard/production/printing',      icon: Printer,         color: '#f43f5e', module: 'printing' },
   { label: 'Lamination',      shortLabel: 'Lam.',    href: '/dashboard/production/lamination',    icon: Film,            color: '#fb923c', module: 'lamination' },
   { label: 'Die Cutting',     shortLabel: 'Die Cut', href: '/dashboard/production/die-cutting',   icon: Scissors,        color: '#facc15', module: 'die_cutting' },

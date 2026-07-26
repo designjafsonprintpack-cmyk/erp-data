@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { EventType } from '../types/job.types'
+import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 
 interface RecordEventPayload {
   company_id: string
@@ -71,4 +72,10 @@ export async function initializeJobWorkflow(
 
   await supabase.from('job_stage_progress' as any)
     .upsert(progressRows, { onConflict: 'company_id,job_id,workflow_stage_id' })
+
+  // A brand-new job is already standing on its first stage — stamp it now so
+  // "kis stage par hai" is answerable from the moment the job exists, not
+  // only after someone presses Start. Covers every caller of this function
+  // (New Job, Repeat, and both QC reprint paths).
+  await syncJobCurrentStage(supabase, companyId, jobId).catch(() => null)
 }
