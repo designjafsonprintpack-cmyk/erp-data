@@ -37,7 +37,7 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
     sheet_width_in: job.sheet_width_in != null ? String(job.sheet_width_in) : '',
     sheet_height_in: job.sheet_height_in != null ? String(job.sheet_height_in) : '',
     box_type_id: job.box_type_id || '', quantity: String(job.quantity ?? ''), no_of_colors: String(job.no_of_colors ?? '4'),
-    die_number: job.die_number || '', grain_direction: job.grain_direction || '', ups: String(job.ups ?? ''),
+    die_number: job.die_number || '', ups: String(job.ups ?? ''),
     gsm: job.gsm != null ? String(job.gsm) : '',
     board_type_id: job.board_type_id || '', paper_type_id: job.paper_type_id || '',
     lamination_type_id: job.lamination_type_id || '', uv_coating: job.uv_coating || '',

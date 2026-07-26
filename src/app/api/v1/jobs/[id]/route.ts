@@ -59,8 +59,17 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (body.size_h !== undefined) updateData.size_h = body.size_h ? parseFloat(String(body.size_h)) : null
   if (body.sheet_width_in !== undefined) updateData.sheet_width_in = body.sheet_width_in ? parseFloat(String(body.sheet_width_in)) : null
   if (body.sheet_height_in !== undefined) updateData.sheet_height_in = body.sheet_height_in ? parseFloat(String(body.sheet_height_in)) : null
-  if (body.quantity !== undefined) updateData.quantity = parseFloat(String(body.quantity ?? '0'))
-  if (body.no_of_colors !== undefined) updateData.no_of_colors = parseInt(String(body.no_of_colors))
+  // Guard against NaN: parseFloat('') / parseInt('') return NaN, and NaN sent
+  // to a NUMERIC or INTEGER column is rejected by Postgres. quantity is
+  // NOT NULL DEFAULT 0 so it falls back to 0; no_of_colors is nullable.
+  if (body.quantity !== undefined) {
+    const q = parseFloat(String(body.quantity ?? '0'))
+    updateData.quantity = Number.isFinite(q) ? q : 0
+  }
+  if (body.no_of_colors !== undefined) {
+    const c = parseInt(String(body.no_of_colors))
+    updateData.no_of_colors = Number.isFinite(c) ? c : null
+  }
   if (body.quoted_amount !== undefined) updateData.quoted_amount = body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null
   if (body.ups !== undefined) updateData.ups = body.ups ? parseInt(String(body.ups)) : null
   if (body.gsm !== undefined) updateData.gsm = body.gsm ? parseFloat(String(body.gsm)) : null

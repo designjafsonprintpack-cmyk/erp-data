@@ -87,7 +87,7 @@ export interface JobFormData {
   sales_order_id: string; sales_order_item_id: string
   size_l: string; size_w: string; size_h: string
   sheet_width_in: string; sheet_height_in: string; box_type_id: string
-  quantity: string; no_of_colors: string; die_number: string; grain_direction: string; gsm: string
+  quantity: string; no_of_colors: string; die_number: string; gsm: string
   ups: string
   board_type_id: string; paper_type_id: string
   lamination_type_id: string; uv_coating: string
@@ -99,7 +99,7 @@ export interface JobFormData {
 export const EMPTY_JOB_FORM: JobFormData = {
   customer_id: '', job_title: '', description: '', sales_order_id: '', sales_order_item_id: '',
   size_l: '', size_w: '', size_h: '', sheet_width_in: '', sheet_height_in: '', box_type_id: '', quantity: '1000',
-  no_of_colors: '4', die_number: '', grain_direction: '', gsm: '', ups: '', board_type_id: '', paper_type_id: '',
+  no_of_colors: '4', die_number: '', gsm: '', ups: '', board_type_id: '', paper_type_id: '',
   lamination_type_id: '', uv_coating: '', foil_type_id: '',
   special_finishing: '', pasting: '', workflow_template_id: '',
   priority: 'normal', required_date: '', quoted_amount: '', internal_remarks: '',

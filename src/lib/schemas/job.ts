@@ -1,5 +1,28 @@
 import { z } from 'zod'
 
+/**
+ * A blank select or an untouched input sends '', which is NOT a value — it
+ * means "not set". Postgres does not agree: '' fails the DATE cast on
+ * required_date and the UUID cast on every FK. (It was this same problem on
+ * the now-removed grain_direction field, whose CHECK constraint rejected '',
+ * that surfaced the whole class.)
+ *
+ * For a NULLABLE column, '' becomes NULL. That fixes the crash and also makes
+ * clearing a field work: previously the uuid fields mapped '' to undefined,
+ * which dropped them from the update entirely, so once a board type was set
+ * it could never be removed.
+ */
+const blankToNull = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(v => (v === '' ? null : v), schema)
+
+/**
+ * For a NOT NULL column, a blank must DROP OUT of the update instead — NULL
+ * would violate the constraint, so the existing value is left alone.
+ */
+const blankToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(v => (v === '' ? undefined : v), schema)
+
+
 // Mirrors the fields already read from the request body in
 // jobs/route.ts (POST) and jobs/[id]/route.ts (PATCH). Only customer_id
 // and job_title are required — matching the NOT NULL constraints on the
@@ -12,39 +35,38 @@ import { z } from 'zod'
 // uses in the future without this schema being updated in lockstep.
 export const jobSchema = z.object({
   customer_id: z.string().uuid('customer_id must be a valid id'),
-  sales_order_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  sales_order_item_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
+  sales_order_id: blankToNull(z.string().uuid().optional().nullable()),
+  sales_order_item_id: blankToNull(z.string().uuid().optional().nullable()),
   job_title: z.string().trim().min(1, 'Job title is required'),
-  description: z.string().optional().nullable(),
-  size_l: z.union([z.string(), z.number()]).optional().nullable(),
-  size_w: z.union([z.string(), z.number()]).optional().nullable(),
-  size_h: z.union([z.string(), z.number()]).optional().nullable(),
-  sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
-  sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
-  box_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  quantity: z.union([z.string(), z.number()]).optional(),
-  no_of_colors: z.union([z.string(), z.number()]).optional().nullable(),
-  die_number: z.string().optional().nullable(),
-  grain_direction: z.string().optional().nullable(),
-  gsm: z.union([z.string(), z.number()]).optional().nullable(),
-  ups: z.union([z.string(), z.number()]).optional().nullable(),
-  board_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  paper_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  lamination_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  uv_coating: z.string().optional().nullable(),
-  foil_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  special_finishing: z.string().optional().nullable(),
-  pasting: z.string().optional().nullable(),
-  workflow_template_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
-  priority: z.string().optional().nullable(),
-  required_date: z.string().optional().nullable(),
-  quoted_amount: z.union([z.string(), z.number()]).optional().nullable(),
-  internal_remarks: z.string().optional().nullable(),
+  description: blankToNull(z.string().optional().nullable()),
+  size_l: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  size_w: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  size_h: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  sheet_width_in: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  sheet_height_in: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  box_type_id: blankToNull(z.string().uuid().optional().nullable()),
+  quantity: blankToUndefined(z.union([z.string(), z.number()]).optional()),
+  no_of_colors: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  die_number: blankToNull(z.string().optional().nullable()),
+  gsm: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  ups: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  board_type_id: blankToNull(z.string().uuid().optional().nullable()),
+  paper_type_id: blankToNull(z.string().uuid().optional().nullable()),
+  lamination_type_id: blankToNull(z.string().uuid().optional().nullable()),
+  uv_coating: blankToNull(z.string().optional().nullable()),
+  foil_type_id: blankToNull(z.string().uuid().optional().nullable()),
+  special_finishing: blankToNull(z.string().optional().nullable()),
+  pasting: blankToNull(z.string().optional().nullable()),
+  workflow_template_id: blankToNull(z.string().uuid().optional().nullable()),
+  priority: blankToUndefined(z.string().optional().nullable()),
+  required_date: blankToNull(z.string().optional().nullable()),
+  quoted_amount: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
+  internal_remarks: blankToNull(z.string().optional().nullable()),
 })
 
 // PATCH accepts everything create does (all optional here) plus `status`,
 // which POST deliberately never reads (new jobs are always created with
 // status 'new' server-side).
 export const jobUpdateSchema = jobSchema.partial().extend({
-  status: z.string().optional(),
+  status: blankToUndefined(z.string().optional()),
 })

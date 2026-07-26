@@ -1,11 +1,7 @@
-JAFSON PRINT ERP — GSM + TOPBAR EDGE FIX (v5)        Jul 26, 2026
+JAFSON PRINT ERP — EDIT JOB CRASH FIX (v6)           Jul 26, 2026
 Built against GitHub commit 5c4844f.
 
-*** REPLACES ALL EARLIER ZIPS ***
-  jafson-erp-ui-order-batch.zip       (v1)
-  jafson-erp-ui-order-batch-v2.zip    (v2)
-  jafson-erp-gsm-v3.zip               (v3)
-  jafson-erp-gsm-topbar-v4.zip        (v4)
+*** REPLACES ALL EARLIER ZIPS (v1 through v5) ***
 Extract THIS one only.
 
 >>> RUN BOTH MIGRATIONS FIRST, IN ORDER <<<
@@ -13,77 +9,84 @@ Extract THIS one only.
     2. supabase/migrations/088_sales_order_items_gsm.sql
 
 ===========================================================================
-NEW IN v5 — THE EDGE PROBLEM (logo left, avatar right)
+THE BUG YOU HIT
 ===========================================================================
-One root cause for both. The header carried:
+  new row for relation "jobs" violates check constraint
+  "jobs_grain_direction_check"
 
-    px-4 pl-safe pr-safe
+You were right — grain direction was supposed to be gone. The input was
+removed from the screen, but the field was still sitting in the Edit Job
+form's state, so every save quietly posted grain_direction: "".
 
-.pl-safe and .pr-safe are custom utilities in globals.css and they SET
-padding rather than adding to it:
+Migration 027 put this on the column:
+  CHECK (grain_direction IN ('long_grain', 'short_grain'))
+NULL passes that check. "" does not. Creating a job worked because the
+create route mapped "" to null on the way in; editing did not, so only Edit
+failed — exactly what you saw.
 
-    .pl-safe { padding-left: var(--safe-left); }
+FIX: grain_direction is now removed from the job form type, the empty form,
+the Edit Job form state, the create payload, and the request schema. The API
+will not accept it from a browser at all any more, so a stale cached page
+cannot bring the crash back.
 
-They are declared after Tailwind's own utilities, so they win the cascade
-and overwrite px-4. And --safe-left / --safe-right resolve to 0px on
-desktop and on any phone held in portrait — there is no notch on the sides.
-
-So the header's 16px side gutter was being set to zero at BOTH ends. On
-desktop you saw it on the left (the logo), on the phone you saw it on the
-right (the avatar) — same bug, different end, because those are the items
-that sit hard against each edge on each layout.
-
-Fix — padding that ADDS the inset instead of being replaced by it:
-
-    pl-[calc(1rem+var(--safe-left))]
-    pr-[calc(1rem+var(--safe-right))]
-
-16px everywhere, plus the notch inset when a phone is actually rotated into
-a notch. Confirmed in the compiled CSS, not just the source.
-
-Also added a warning comment above the utility definitions in globals.css.
-This same trap was already worked around once in Modal.tsx's footer; the
-header hit it again. The comment says plainly: never pair a p*-safe with a
-p*-N on the same element.
-
-FILES: src/components/layout/Header.tsx, src/app/globals.css
+The DATABASE COLUMN IS STILL THERE and still holds whatever old jobs had —
+nothing was deleted. Repeat Job and QC Reprint still carry that old value
+across, because those copy row-to-row and never touch a form. If you want
+the column properly dropped, that is a one-line migration; say the word.
 
 ===========================================================================
-ALSO IN v5 (carried from v4)
+THE SAME BUG WAS WAITING ON THREE MORE FIELDS
 ===========================================================================
-- Desktop topbar: the right-hand group (clock, theme, bell, profile) now
-  takes ml-auto and pins to the right edge. Previously the capped search box
-  was the only growable item, so all leftover width piled up to the RIGHT of
-  those controls and stranded them mid-bar on a wide screen.
-- Search may grow to max-w-lg at 1280px+; GlobalSearch's button no longer
-  carries its own duplicate max-w-md, so the wrapper is the one place the
-  width is set.
-- Company name now shows on phones (capped 120px, truncates). The logo tile
-  cannot shrink, the name can — so the controls never get pushed off-screen.
-  Still a judgment call; say the word and I'll revert just that.
+The real problem was wider: an untouched form control sends "", and Postgres
+rejects "" on several column types. Only the UUID fields were protected.
 
-And from v1-v3: GSM modelled as quoted / planned / actual, the stock-sourced
-GSM list, migration 088 carrying the quoted GSM through to the job, planned
-vs issued on Job Detail and the Job Card, the store GSM-mismatch warning
-with a reason, dashboard panel order, quotation Box Type on the line item,
-New/Edit Job field order, and the New/Repeat toggle plus the repeat
-ups/sheet_qty fix.
+  required_date   DATE      -> "" is not a valid date. Any job with no
+                               required date would have crashed on Edit.
+  no_of_colors    INTEGER   -> clearing the field gave parseInt("") = NaN.
+  quantity        NUMERIC   -> same NaN risk.
 
-STILL NOT CHANGED: the notification bell is hidden below md, so a phone has
-no way to see notifications. Say the word and I'll fit it in.
+All blank handling is now in one place, in src/lib/schemas/job.ts:
+  - nullable column  -> "" becomes NULL
+  - NOT NULL column  -> "" is dropped, leaving the existing value alone
+
+A side benefit: the UUID fields previously mapped "" to "ignore", which meant
+once you set a Board Type on a job you could never remove it — clearing the
+dropdown did nothing. Now clearing actually clears.
 
 ===========================================================================
 VERIFIED
 ===========================================================================
 npx tsc --noEmit = 0 errors. npm run build = compiled successfully.
-Header render-tested 10/10 across a top-level route and a sub-route.
-Compiled CSS grep-confirmed to contain
-  padding-left:calc(1rem + var(--safe-left))
-  padding-right:calc(1rem + var(--safe-right))
-Plus the 22 GSM assertions from v3.
+Schema unit-tested against the exact payload EditJobClient sends (the whole
+form with every untouched control blank): 13/13, including an assertion that
+NO empty string survives parsing for any field, and that real values and
+clearing both still work.
+
+FILES CHANGED FOR THIS FIX (5):
+  src/lib/schemas/job.ts
+  src/modules/jobs/types/job.types.ts
+  src/app/dashboard/jobs/[id]/edit/EditJobClient.tsx
+  src/app/api/v1/jobs/route.ts
+  src/app/api/v1/jobs/[id]/route.ts
+
+===========================================================================
+EVERYTHING ELSE (from v1-v5, unchanged)
+===========================================================================
+- GSM as three records: quoted (frozen on the quotation), planned (on the
+  job, from the quote or from real stock weights), actual (derived from the
+  MRN's board_inventory row, never typed). Planned vs issued shown on Job
+  Detail and the Job Card; store warns on a mismatch and records a reason
+  without blocking the issue.
+- Topbar: right-hand controls pinned to the right edge; side gutters now add
+  to the safe-area inset instead of being wiped by it.
+- Dashboard row 2: Recent Jobs | Machines | Alerts.
+- Quotation: Box Type on the line item, after Colors, before Board Type.
+- New/Edit Job field order: L / W / H / Ups · Sheet W / Sheet H / Board / GSM
+  · Colors / Quantity / Die Number / Box Type.
+- New / Repeat toggle on New Job; repeat now carries ups and sheet_qty.
 
 DEPLOY:
   1. Run 087 then 088 in Supabase
   2. Extract over the repo root
-  3. npm run dev — check the topbar edges on a wide screen AND a phone
+  3. npm run dev — edit a job and save; then clear a Board Type and save
   4. npm run build, then commit + push

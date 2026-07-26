@@ -95,7 +95,6 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     quantity:             parseFloat(String(body.quantity ?? '0')),
     no_of_colors:         body.no_of_colors ? parseInt(String(body.no_of_colors)) : 4,
     die_number:           body.die_number || null,
-    grain_direction:      body.grain_direction || null,
     gsm:                  body.gsm ? parseFloat(String(body.gsm)) : null,
     ups:                  body.ups ? parseInt(String(body.ups)) : null,
     sheet_qty:            body.ups && parseInt(String(body.ups)) > 0

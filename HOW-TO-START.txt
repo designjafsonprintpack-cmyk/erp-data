@@ -1,0 +1,70 @@
+CLAUDE CODE PAR SHIFT — pehla din
+=================================
+
+1 file: CLAUDE.md
+Isay project folder ki JAD mein rakho — wahan jahan package.json hai.
+src/ ke andar NAHI.
+
+    jafson-erp/
+      CLAUDE.md          <-- yahan
+      package.json
+      src/
+      supabase/
+
+
+PEHLE YEH KAR LO
+----------------
+1. v6 wali zip apply kar lo (agar abhi tak nahi ki).
+2. Migrations 087 aur 088 chal chuki hon.
+3. GitHub Desktop se sab commit + push kar do.
+   Yeh sab se ahem qadam hai. Aage se git hi tumhara safety net hai —
+   kuch ghalat lage to wapas ja sako.
+
+
+SETUP
+-----
+1. claude.com/download se Claude Desktop install karo.
+2. App kholo, upar beech mein "Code" tab par click karo.
+3. Apna project folder chuno (jafson-erp).
+4. Manual mode ON rehne do (default yehi hai).
+   Is mode mein Claude pehle dikhata hai kya badlega — tum Accept ya
+   Reject karte ho. File tab tak nahi badalti jab tak tum haan na kaho.
+   Yaani wahi review jo abhi zip khol kar karte ho, bas bina zip ke.
+
+
+PEHLA KAAM — chhota rakhna
+--------------------------
+Bara feature pehle din mat dena. Aisa kuch poocho:
+
+    "CLAUDE.md parho aur mujhe batao yeh project kya hai"
+
+Phir koi chhoti si cheez:
+
+    "notification bell mobile par nazar nahi aati, usay top bar
+     mein fit kar do"
+
+Jab bharosa ho jaye, phir bare kaam.
+
+
+ROZ KI AADAT
+------------
+- Har session se PEHLE: GitHub Desktop mein commit
+- Har session ke BAAD: npm run build chala kar dekho
+- Kuch ghalat ho jaye: GitHub Desktop mein changes discard kar do
+
+
+CLAUDE.MD KYA HAI
+-----------------
+Yeh woh sab hai jo mujhe is project ke baare mein pata hai — stack,
+architecture ke usool, printing business ke rules (sheet qty, stage
+gating, GSM ka poora model), woh saari galtiyan jo hum pehle kar chuke
+hain aur unse bachne ka tareeqa, abhi kya adhoora para hai, aur tumhare
+saath kaam karne ka tareeqa.
+
+Claude Code har session ke shuru mein isay khud parhta hai. Tumhe
+dobara kuch samjhana nahi parega.
+
+Jab bhi koi naya bara faisla ho ya koi nayi galti pakdi jaye, is file
+mein aik line barha dena — ya Claude Code ko keh dena ke barha de.
+Jitni yeh file taaza rahegi, utna hi Claude tumhare project ko
+samajhta rahega.
