@@ -145,8 +145,8 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
               <div className="space-y-2">
                 <SpecForm form={form} setForm={setForm} customers={customers} />
                 <div className="flex gap-2">
-                  <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
-                  <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+                  <button aria-label="Save" title="Save" onClick={save} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
+                  <button onClick={() => setEditingId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
                 </div>
               </div>
             ) : (

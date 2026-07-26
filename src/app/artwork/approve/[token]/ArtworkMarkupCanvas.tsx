@@ -239,7 +239,7 @@ export default function ArtworkMarkupCanvas({
                   className="h-11 px-3 rounded-lg border border-[#22252c] text-[#8a8f9c] text-xs font-medium flex items-center gap-1.5 hover:bg-[#181b22] disabled:opacity-40 transition-colors">
                   <Undo2 size={14} /> Undo
                 </button>
-                <button type="button" onClick={clearAll} disabled={drafts.length === 0 && !drawing && !pending}
+                <button aria-label="Clear all markup" title="Clear all markup" type="button" onClick={clearAll} disabled={drafts.length === 0 && !drawing && !pending}
                   className="h-11 px-3 rounded-lg border border-[#22252c] text-[#8a8f9c] text-xs font-medium flex items-center gap-1.5 hover:bg-[#181b22] disabled:opacity-40 transition-colors">
                   <Trash2 size={14} />
                 </button>
@@ -266,7 +266,7 @@ export default function ArtworkMarkupCanvas({
                   onKeyDown={e => e.key === 'Enter' && confirmPending()}
                   placeholder={pendingIsEmboss ? 'e.g. Logo' : 'e.g. Move this 2mm left'}
                   className="flex-1 h-10 px-3 rounded-lg border border-[#22252c] bg-[#12141a] text-sm text-[#e6e8ec] placeholder:text-[#565b66] focus:outline-none focus:border-[#3a3f4a]" />
-                <button type="button" onClick={confirmPending}
+                <button aria-label="Confirm this mark" title="Confirm this mark" type="button" onClick={confirmPending}
                   className="h-10 px-3 rounded-lg bg-[#2e7d46] text-white text-sm hover:bg-[#357d4a] transition-colors flex items-center gap-1.5">
                   <Check size={15} />
                 </button>
@@ -331,7 +331,7 @@ export default function ArtworkMarkupCanvas({
           </button>
           <div className="relative inline-block" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt={fileName} className="max-w-full max-h-[90vh] rounded-lg" />
+            <img src={imageUrl} alt={fileName} className="max-w-full max-h-[90dvh] rounded-lg" />
             <MarkupOverlay marks={savedMarks} size="lg" />
           </div>
         </div>

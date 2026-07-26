@@ -372,8 +372,8 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
 
             {notesFor ? (
               <div className="p-6 border-t border-[#22252c] space-y-3">
-                <label className="text-sm text-[#8a8f9c]">{notesFor === 'reject' ? 'Why are you rejecting this artwork?' : 'What changes would you like?'}</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} autoFocus
+                <label htmlFor="approveartworkclient-1" className="text-sm text-[#8a8f9c]">{notesFor === 'reject' ? 'Why are you rejecting this artwork?' : 'What changes would you like?'}</label>
+                <textarea id="approveartworkclient-1" value={notes} onChange={e => setNotes(e.target.value)} rows={3} autoFocus
                   placeholder={notesFor === 'reject' ? 'Optional — let us know why' : 'e.g. Move logo 2mm left, barcode too small…'}
                   className="w-full px-3 py-2 rounded-lg border border-[#22252c] bg-[#0e1015] text-sm text-[#e6e8ec] placeholder:text-[#565b66] focus:outline-none focus:border-[#3a3f4a]" />
                 <div className="flex gap-3">

@@ -260,22 +260,22 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className={labelCls}>Quantity</label>
-                <input type="number" className={inputCls} value={repeat.quantity} onChange={e => setRep('quantity', e.target.value)}
+                <label htmlFor="newjobclient-1" className={labelCls}>Quantity</label>
+                <input id="newjobclient-1" type="number" className={inputCls} value={repeat.quantity} onChange={e => setRep('quantity', e.target.value)}
                   placeholder={parentJob?.quantity != null ? `Same as original (${Number(parentJob.quantity).toLocaleString()})` : 'Same as original'} />
               </div>
               <div className="space-y-1.5">
-                <label className={labelCls}>Required Date</label>
-                <input type="date" className={inputCls} value={repeat.required_date} onChange={e => setRep('required_date', e.target.value)} />
+                <label htmlFor="newjobclient-2" className={labelCls}>Required Date</label>
+                <input id="newjobclient-2" type="date" className={inputCls} value={repeat.required_date} onChange={e => setRep('required_date', e.target.value)} />
               </div>
               <div className="md:col-span-2 space-y-1.5">
-                <label className={labelCls}>Notes</label>
-                <input className={inputCls} value={repeat.notes} onChange={e => setRep('notes', e.target.value)} placeholder="Optional — recorded against both jobs" />
+                <label htmlFor="newjobclient-3" className={labelCls}>Notes</label>
+                <input id="newjobclient-3" className={inputCls} value={repeat.notes} onChange={e => setRep('notes', e.target.value)} placeholder="Optional — recorded against both jobs" />
               </div>
             </div>
 
-            <label className="flex items-center gap-2.5 text-sm text-[var(--color-text-primary)] cursor-pointer">
-              <input type="checkbox" className="w-4 h-4 accent-[var(--color-accent)]" checked={repeat.same_artwork}
+            <label htmlFor="newjobclient-4" className="flex items-center gap-2.5 text-sm text-[var(--color-text-primary)] cursor-pointer">
+              <input id="newjobclient-4" type="checkbox" className="w-4 h-4 accent-[var(--color-accent)]" checked={repeat.same_artwork}
                 onChange={e => setRep('same_artwork', e.target.checked)} />
               Reuse the original artwork (no fresh artwork round needed)
             </label>
@@ -287,23 +287,23 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       <Section title="Customer & Sales Order">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className={labelCls}>Customer <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
+            <label htmlFor="newjobclient-5" className={labelCls}>Customer <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="newjobclient-5" className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
               <option value="">Select customer…</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.customer_code})</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Link to Sales Order (optional)</label>
-            <select className={inputCls} value={form.sales_order_id} onChange={e => handleSelectSO(e.target.value)}>
+            <label htmlFor="newjobclient-6" className={labelCls}>Link to Sales Order (optional)</label>
+            <select id="newjobclient-6" className={inputCls} value={form.sales_order_id} onChange={e => handleSelectSO(e.target.value)}>
               <option value="">None — standalone job</option>
               {salesOrders.map((so: any) => <option key={so.id} value={so.id}>{so.so_number} — {so.customers?.name}</option>)}
             </select>
           </div>
           {selectedSOItems.length > 1 && (
             <div className="col-span-2 space-y-1.5">
-              <label className={labelCls}>Select Product <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={form.sales_order_item_id} onChange={e => {
+              <label htmlFor="newjobclient-7" className={labelCls}>Select Product <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="newjobclient-7" className={inputCls} value={form.sales_order_item_id} onChange={e => {
                 const item = selectedSOItems.find((it: any) => it.id === e.target.value)
                 if (item) applyLineItem(item)
               }}>
@@ -319,16 +319,16 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       <Section title="Job Details">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-2 space-y-1.5">
-            <label className={labelCls}>Job Title <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={form.job_title} onChange={e => set('job_title', e.target.value)} placeholder="e.g. Lipton Tea Box 500g" />
+            <label htmlFor="newjobclient-8" className={labelCls}>Job Title <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="newjobclient-8" className={inputCls} value={form.job_title} onChange={e => set('job_title', e.target.value)} placeholder="e.g. Lipton Tea Box 500g" />
           </div>
           <div className="col-span-2 space-y-1.5">
-            <label className={labelCls}>Description</label>
-            <input className={inputCls} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Optional job description" />
+            <label htmlFor="newjobclient-9" className={labelCls}>Description</label>
+            <input id="newjobclient-9" className={inputCls} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Optional job description" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Priority</label>
-            <select className={inputCls} value={form.priority} onChange={e => set('priority', e.target.value as any)}>
+            <label htmlFor="newjobclient-10" className={labelCls}>Priority</label>
+            <select id="newjobclient-10" className={inputCls} value={form.priority} onChange={e => set('priority', e.target.value as any)}>
               <option value="low">Low</option>
               <option value="normal">Normal</option>
               <option value="high">High</option>
@@ -336,8 +336,8 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Required Date</label>
-            <input type="date" className={inputCls} value={form.required_date} onChange={e => set('required_date', e.target.value)} />
+            <label htmlFor="newjobclient-11" className={labelCls}>Required Date</label>
+            <input id="newjobclient-11" type="date" className={inputCls} value={form.required_date} onChange={e => set('required_date', e.target.value)} />
           </div>
         </div>
       </Section>
@@ -346,20 +346,20 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       <Section title="Product Specifications">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-1.5">
-            <label className={labelCls}>Length (mm)</label>
-            <input type="number" className={inputCls} value={form.size_l} onChange={e => set('size_l', e.target.value)} placeholder="L" />
+            <label htmlFor="newjobclient-12" className={labelCls}>Length (mm)</label>
+            <input id="newjobclient-12" type="number" className={inputCls} value={form.size_l} onChange={e => set('size_l', e.target.value)} placeholder="L" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Width (mm)</label>
-            <input type="number" className={inputCls} value={form.size_w} onChange={e => set('size_w', e.target.value)} placeholder="W" />
+            <label htmlFor="newjobclient-13" className={labelCls}>Width (mm)</label>
+            <input id="newjobclient-13" type="number" className={inputCls} value={form.size_w} onChange={e => set('size_w', e.target.value)} placeholder="W" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Height (mm)</label>
-            <input type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
+            <label htmlFor="newjobclient-14" className={labelCls}>Height (mm)</label>
+            <input id="newjobclient-14" type="number" className={inputCls} value={form.size_h} onChange={e => set('size_h', e.target.value)} placeholder="H" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Ups <span className="text-xs text-[var(--color-text-muted)]">(impressions/sheet)</span></label>
-            <input type="number" className={inputCls} value={form.ups} onChange={e => set('ups', e.target.value)} placeholder="e.g. 8" min="1" />
+            <label htmlFor="newjobclient-15" className={labelCls}>Ups <span className="text-xs text-[var(--color-text-muted)]">(impressions/sheet)</span></label>
+            <input id="newjobclient-15" type="number" className={inputCls} value={form.ups} onChange={e => set('ups', e.target.value)} placeholder="e.g. 8" min="1" />
             {form.ups && parseInt(form.ups) > 0 && form.quantity && (
               <p className="text-xs text-[var(--color-text-muted)]">
                 Sheet Qty: {Math.ceil(parseFloat(form.quantity) / parseInt(form.ups)).toLocaleString()}
@@ -367,16 +367,16 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Width (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
+            <label htmlFor="newjobclient-16" className={labelCls}>Sheet Width (in)</label>
+            <input id="newjobclient-16" type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="e.g. 25" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Sheet Height (in)</label>
-            <input type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
+            <label htmlFor="newjobclient-17" className={labelCls}>Sheet Height (in)</label>
+            <input id="newjobclient-17" type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="e.g. 36" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Board / Paper Type</label>
-            <select className={inputCls}
+            <label htmlFor="newjobclient-18" className={labelCls}>Board / Paper Type</label>
+            <select id="newjobclient-18" className={inputCls}
               value={form.board_type_id ? `board:${form.board_type_id}` : form.paper_type_id ? `paper:${form.paper_type_id}` : ''}
               onChange={e => selectMaterial(e.target.value)}>
               <option value="">Select…</option>
@@ -389,8 +389,8 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>GSM</label>
-            <input type="number" className={inputCls} list="job-gsm-options" value={form.gsm}
+            <label htmlFor="newjobclient-19" className={labelCls}>GSM</label>
+            <input id="newjobclient-19" type="number" className={inputCls} list="job-gsm-options" value={form.gsm}
               onChange={e => set('gsm', e.target.value)} placeholder="e.g. 300" min="1" />
             <datalist id="job-gsm-options">
               {gsmOptions.map(g => <option key={g} value={g} />)}
@@ -400,20 +400,20 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>No. of Colors</label>
-            <input type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
+            <label htmlFor="newjobclient-20" className={labelCls}>No. of Colors</label>
+            <input id="newjobclient-20" type="number" className={inputCls} value={form.no_of_colors} onChange={e => set('no_of_colors', e.target.value)} min="1" max="8" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
+            <label htmlFor="newjobclient-21" className={labelCls}>Quantity <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="newjobclient-21" type="number" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1000" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Die Number</label>
-            <input className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
+            <label htmlFor="newjobclient-22" className={labelCls}>Die Number</label>
+            <input id="newjobclient-22" className={inputCls} value={form.die_number} onChange={e => set('die_number', e.target.value)} placeholder="e.g. D-1042" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Box Type</label>
-            <select className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+            <label htmlFor="newjobclient-23" className={labelCls}>Box Type</label>
+            <select id="newjobclient-23" className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
               <option value="">Not specified</option>
               {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -425,34 +425,34 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       <Section title="Finishing">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-1.5">
-            <label className={labelCls}>Lamination</label>
-            <select className={inputCls} value={form.lamination_type_id} onChange={e => set('lamination_type_id', e.target.value)}>
+            <label htmlFor="newjobclient-24" className={labelCls}>Lamination</label>
+            <select id="newjobclient-24" className={inputCls} value={form.lamination_type_id} onChange={e => set('lamination_type_id', e.target.value)}>
               <option value="">None</option>
               {laminationTypes.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Hot Foil</label>
-            <select className={inputCls} value={form.foil_type_id} onChange={e => set('foil_type_id', e.target.value)}>
+            <label htmlFor="newjobclient-25" className={labelCls}>Hot Foil</label>
+            <select id="newjobclient-25" className={inputCls} value={form.foil_type_id} onChange={e => set('foil_type_id', e.target.value)}>
               <option value="">None</option>
               {foilTypes.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Pasting</label>
-            <select className={inputCls} value={form.pasting} onChange={e => set('pasting', e.target.value)}>
+            <label htmlFor="newjobclient-26" className={labelCls}>Pasting</label>
+            <select id="newjobclient-26" className={inputCls} value={form.pasting} onChange={e => set('pasting', e.target.value)}>
               <option value="">Not specified</option>
               <option value="Side">Side</option>
               <option value="B/Side">B/Side</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Special Finishing</label>
-            <input className={inputCls} value={form.special_finishing} onChange={e => set('special_finishing', e.target.value)} placeholder="e.g. Embossing" />
+            <label htmlFor="newjobclient-27" className={labelCls}>Special Finishing</label>
+            <input id="newjobclient-27" className={inputCls} value={form.special_finishing} onChange={e => set('special_finishing', e.target.value)} placeholder="e.g. Embossing" />
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>UV Coating</label>
-            <select className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
+            <label htmlFor="newjobclient-28" className={labelCls}>UV Coating</label>
+            <select id="newjobclient-28" className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
               <option value="">None</option>
               <option value="UV">UV</option>
               <option value="Soft UV">Soft UV</option>
@@ -467,19 +467,19 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       <Section title="Workflow & Financials">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <label className={labelCls}>Production Workflow</label>
-            <select className={inputCls} value={form.workflow_template_id} onChange={e => set('workflow_template_id', e.target.value)}>
+            <label htmlFor="newjobclient-29" className={labelCls}>Production Workflow</label>
+            <select id="newjobclient-29" className={inputCls} value={form.workflow_template_id} onChange={e => set('workflow_template_id', e.target.value)}>
               <option value="">No workflow</option>
               {workflows.map((w: any) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (Default)' : ''}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Quoted Amount (PKR)</label>
-            <input type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
+            <label htmlFor="newjobclient-30" className={labelCls}>Quoted Amount (PKR)</label>
+            <input id="newjobclient-30" type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
           </div>
           <div className="col-span-3 space-y-1.5">
-            <label className={labelCls}>Internal Remarks</label>
-            <input className={inputCls} value={form.internal_remarks} onChange={e => set('internal_remarks', e.target.value)} placeholder="Internal notes (not on job card)" />
+            <label htmlFor="newjobclient-31" className={labelCls}>Internal Remarks</label>
+            <input id="newjobclient-31" className={inputCls} value={form.internal_remarks} onChange={e => set('internal_remarks', e.target.value)} placeholder="Internal notes (not on job card)" />
           </div>
         </div>
       </Section>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
-import { Modal } from '@/components/ui/Modal'
+import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatTimeAgo, formatDateTime, planLabel } from '@/lib/utils/format'
@@ -234,13 +234,22 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
     }
   }
 
-  const deletePlate = async (plate: Plate) => {
-    if (!confirm(`Delete this ${plate.color} plate?`)) return
+  // Native confirm() can't be themed, ignores the app's dark palette and on a
+  // phone reads as a browser warning rather than part of the app — the rest of
+  // the codebase uses ConfirmDialog for exactly this.
+  const [deleteTarget, setDeleteTarget] = useState<Plate | null>(null)
+  const [deletingPlate, setDeletingPlate] = useState(false)
+
+  const deletePlate = async () => {
+    if (!deleteTarget) return
+    setDeletingPlate(true)
     try {
-      await fetch(`/api/v1/plates/${plate.id}`, { method: 'DELETE' })
-      setPlates(prev => prev.filter(p => p.id !== plate.id))
+      await fetch(`/api/v1/plates/${deleteTarget.id}`, { method: 'DELETE' })
+      setPlates(prev => prev.filter(p => p.id !== deleteTarget.id))
       toast.success('Plate deleted')
+      setDeleteTarget(null)
     } catch { toast.error('Failed') }
+    finally { setDeletingPlate(false) }
   }
 
   return (
@@ -400,7 +409,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                               className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
                               <History size={13} />
                             </button>
-                            <button onClick={() => deletePlate(plate)} title="Delete"
+                            <button onClick={() => setDeleteTarget(plate)} title="Delete"
                               className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
                               <Trash2 size={13} />
                             </button>
@@ -419,7 +428,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
       {/* Add Plates Modal */}
       <Modal open={addModal} onClose={() => { setAddModal(false); resetAddForm() }} title="Add Plates" size="md"
         footer={<>
-          <button onClick={() => { setAddModal(false); resetAddForm() }} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={() => { setAddModal(false); resetAddForm() }} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={submitAdd} disabled={adding}
             className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {adding ? 'Adding…' : 'Add Plates'}
@@ -427,21 +436,21 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
         </>}>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job</label>
-            <select className={inputCls} value={addJobId} onChange={e => setAddJobId(e.target.value)}>
+            <label htmlFor="platesclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job</label>
+            <select id="platesclient-1" className={inputCls} value={addJobId} onChange={e => setAddJobId(e.target.value)}>
               <option value="">— Keep in storage (no job yet) —</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Size</label>
-            <select className={inputCls} value={addSize} onChange={e => setAddSize(e.target.value)}>
+            <label htmlFor="platesclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Size</label>
+            <select id="platesclient-2" className={inputCls} value={addSize} onChange={e => setAddSize(e.target.value)}>
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Made Date</label>
-            <input type="date" className={inputCls} value={addMadeDate} onChange={e => setAddMadeDate(e.target.value)} />
+            <label htmlFor="platesclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Made Date</label>
+            <input id="platesclient-3" type="date" className={inputCls} value={addMadeDate} onChange={e => setAddMadeDate(e.target.value)} />
           </div>
 
           <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
@@ -526,7 +535,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
       {/* Return Plate Modal */}
       <Modal open={!!returnModal} onClose={() => setReturnModal(null)} title={returnModal ? `Return ${returnModal.color} Plate` : ''} size="sm"
         footer={<>
-          <button onClick={() => setReturnModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={() => setReturnModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={submitReturn} disabled={returning}
             className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {returning ? 'Returning…' : 'Return Plate'}
@@ -537,8 +546,8 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
             {returnModal?.current_job && `This plate is currently with ${returnModal.current_job.job_number}. Returning it marks that job's assignment as finished.`}
           </p>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Condition on Return</label>
-            <select value={returnCondition} onChange={e => setReturnCondition(e.target.value as any)} className={inputCls}>
+            <label htmlFor="platesclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Condition on Return</label>
+            <select id="platesclient-4" value={returnCondition} onChange={e => setReturnCondition(e.target.value as any)} className={inputCls}>
               <option value="good">Good — back to storage</option>
               <option value="worn">Worn — back to storage</option>
               <option value="damaged">Damaged</option>
@@ -546,6 +555,16 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
           </div>
         </div>
       </Modal>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={deletePlate}
+        title="Delete plate?"
+        message={deleteTarget ? `The ${deleteTarget.color} plate will be removed from the registry. Its assignment history stays on the jobs it was used for.` : ''}
+        confirmLabel="Delete plate"
+        loading={deletingPlate}
+      />
+
     </div>
   )
 }

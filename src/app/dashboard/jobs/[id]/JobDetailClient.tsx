@@ -712,7 +712,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       <Modal open={holdModal} onClose={() => setHoldModal(false)} title="Put Job On Hold" size="sm"
         footer={
           <>
-            <button onClick={() => setHoldModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setHoldModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={holdJob} disabled={loading || !holdForm.hold_reason_id}
               className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Holding…' : 'Put On Hold'}
@@ -721,15 +721,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Delay Reason <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={holdForm.hold_reason_id} onChange={e => setHoldForm(p => ({ ...p, hold_reason_id: e.target.value }))}>
+            <label htmlFor="jobdetailclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Delay Reason <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="jobdetailclient-1" className={inputCls} value={holdForm.hold_reason_id} onChange={e => setHoldForm(p => ({ ...p, hold_reason_id: e.target.value }))}>
               <option value="">Select reason…</option>
               {delayReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
-            <input className={inputCls} value={holdForm.hold_notes} onChange={e => setHoldForm(p => ({ ...p, hold_notes: e.target.value }))} placeholder="Additional details…" />
+            <label htmlFor="jobdetailclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
+            <input id="jobdetailclient-2" className={inputCls} value={holdForm.hold_notes} onChange={e => setHoldForm(p => ({ ...p, hold_notes: e.target.value }))} placeholder="Additional details…" />
           </div>
         </div>
       </Modal>
@@ -738,7 +738,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       <Modal open={resumeModal} onClose={() => setResumeModal(false)} title="Resume Job" size="sm"
         footer={
           <>
-            <button onClick={() => setResumeModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setResumeModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={resumeJob} disabled={loading}
               className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Resuming…' : 'Resume Job'}
@@ -748,8 +748,8 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         <div className="space-y-3">
           <p className="text-sm text-[var(--color-text-secondary)]">Job will return to In Progress status.</p>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Resume Notes (optional)</label>
-            <input className={inputCls} value={resumeNotes} onChange={e => setResumeNotes(e.target.value)} placeholder="Why is this job resuming?" />
+            <label htmlFor="jobdetailclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Resume Notes (optional)</label>
+            <input id="jobdetailclient-3" className={inputCls} value={resumeNotes} onChange={e => setResumeNotes(e.target.value)} placeholder="Why is this job resuming?" />
           </div>
         </div>
       </Modal>
@@ -758,7 +758,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       <Modal open={repeatModal} onClose={() => setRepeatModal(false)} title="Create Repeat Job" size="md"
         footer={
           <>
-            <button onClick={() => setRepeatModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setRepeatModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createRepeat} disabled={loading}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Repeat Job'}
@@ -771,20 +771,20 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity</label>
-              <input type="number" className={inputCls} value={repeatForm.quantity} onChange={e => setRepeatForm(p => ({ ...p, quantity: e.target.value }))} />
+              <label htmlFor="jobdetailclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity</label>
+              <input id="jobdetailclient-4" type="number" className={inputCls} value={repeatForm.quantity} onChange={e => setRepeatForm(p => ({ ...p, quantity: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Required Date</label>
-              <input type="date" className={inputCls} value={repeatForm.required_date} onChange={e => setRepeatForm(p => ({ ...p, required_date: e.target.value }))} />
+              <label htmlFor="jobdetailclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Required Date</label>
+              <input id="jobdetailclient-5" type="date" className={inputCls} value={repeatForm.required_date} onChange={e => setRepeatForm(p => ({ ...p, required_date: e.target.value }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={repeatForm.notes} onChange={e => setRepeatForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes for this repeat" />
+            <label htmlFor="jobdetailclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="jobdetailclient-6" className={inputCls} value={repeatForm.notes} onChange={e => setRepeatForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes for this repeat" />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={repeatForm.same_artwork} onChange={e => setRepeatForm(p => ({ ...p, same_artwork: e.target.checked }))} className="w-4 h-4" />
+          <label htmlFor="jobdetailclient-7" className="flex items-center gap-2 cursor-pointer">
+            <input id="jobdetailclient-7" type="checkbox" checked={repeatForm.same_artwork} onChange={e => setRepeatForm(p => ({ ...p, same_artwork: e.target.checked }))} className="w-4 h-4" />
             <span className="text-sm text-[var(--color-text-primary)]">Link artwork from original job (same artwork, no new artwork needed)</span>
           </label>
         </div>
@@ -794,7 +794,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       <Modal open={wastageModal} onClose={() => setWastageModal(false)} title="Record Wastage" size="sm"
         footer={
           <>
-            <button onClick={() => setWastageModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setWastageModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={recordWastage} disabled={recordingWastage || !wastageForm.wastage_reason_id || !wastageForm.quantity}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {recordingWastage ? 'Saving…' : 'Record Wastage'}
@@ -803,28 +803,28 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reason <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={wastageForm.wastage_reason_id} onChange={e => setWastageForm(p => ({ ...p, wastage_reason_id: e.target.value }))}>
+            <label htmlFor="jobdetailclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Reason <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="jobdetailclient-8" className={inputCls} value={wastageForm.wastage_reason_id} onChange={e => setWastageForm(p => ({ ...p, wastage_reason_id: e.target.value }))}>
               <option value="">Select reason…</option>
               {wastageReasons.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Wasted <span className="text-[var(--color-danger)]">*</span></label>
-              <input type="number" className={inputCls} value={wastageForm.quantity} onChange={e => setWastageForm(p => ({ ...p, quantity: e.target.value }))} placeholder="0" />
+              <label htmlFor="jobdetailclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Wasted <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="jobdetailclient-9" type="number" className={inputCls} value={wastageForm.quantity} onChange={e => setWastageForm(p => ({ ...p, quantity: e.target.value }))} placeholder="0" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine (optional)</label>
-              <select className={inputCls} value={wastageForm.machine_id} onChange={e => setWastageForm(p => ({ ...p, machine_id: e.target.value }))}>
+              <label htmlFor="jobdetailclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Machine (optional)</label>
+              <select id="jobdetailclient-10" className={inputCls} value={wastageForm.machine_id} onChange={e => setWastageForm(p => ({ ...p, machine_id: e.target.value }))}>
                 <option value="">Not specified</option>
                 {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
-            <input className={inputCls} value={wastageForm.notes} onChange={e => setWastageForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional details…" />
+            <label htmlFor="jobdetailclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
+            <input id="jobdetailclient-11" className={inputCls} value={wastageForm.notes} onChange={e => setWastageForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional details…" />
           </div>
         </div>
       </Modal>

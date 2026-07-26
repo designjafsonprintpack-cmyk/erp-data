@@ -256,7 +256,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
         size="md"
         footer={
           <>
-            <button onClick={() => setModalOpen(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setModalOpen(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={save} disabled={loading || !form.name || !form.code}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Saving…' : editingMachine ? 'Save Changes' : 'Add Machine'}
@@ -267,35 +267,35 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Name <span className="text-[var(--color-danger)]">*</span></label>
-              <input className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. MP-1 (5 Color)" />
+              <label htmlFor="machinesclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Machine Name <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="machinesclient-1" className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. MP-1 (5 Color)" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Code <span className="text-[var(--color-danger)]">*</span></label>
-              <input className={inputCls} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. MP-1" />
+              <label htmlFor="machinesclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Machine Code <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="machinesclient-2" className={inputCls} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. MP-1" />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Type <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={form.machine_type} onChange={e => setForm(p => ({ ...p, machine_type: e.target.value }))}>
+              <label htmlFor="machinesclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Machine Type <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="machinesclient-3" className={inputCls} value={form.machine_type} onChange={e => setForm(p => ({ ...p, machine_type: e.target.value }))}>
                 {MACHINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
-              <select className={inputCls} value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+              <label htmlFor="machinesclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <select id="machinesclient-4" className={inputCls} value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                 {Object.entries(STATUS_CONFIG).map(([v, c]) => <option key={v} value={v}>{c.label}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Capacity / Hour</label>
-            <input className={inputCls} type="number" value={form.capacity_per_hour} onChange={e => setForm(p => ({ ...p, capacity_per_hour: e.target.value }))} placeholder="e.g. 3000 sheets/hr" />
+            <label htmlFor="machinesclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Capacity / Hour</label>
+            <input id="machinesclient-5" className={inputCls} type="number" value={form.capacity_per_hour} onChange={e => setForm(p => ({ ...p, capacity_per_hour: e.target.value }))} placeholder="e.g. 3000 sheets/hr" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes about this machine" />
+            <label htmlFor="machinesclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="machinesclient-6" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes about this machine" />
           </div>
         </div>
       </Modal>

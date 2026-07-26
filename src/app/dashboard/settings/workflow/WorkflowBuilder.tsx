@@ -248,13 +248,13 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
 
                     {editingStageId === stage.id ? (
                       <>
-                        <input className="flex-1 h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
+                        <input className="flex-1 h-11 md:h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
                           value={editStageForm.name} onChange={e => setEditStageForm(p => ({ ...p, name: e.target.value }))} />
                         <input type="number" min={1}
                           title="Two stages sharing the same order number run in parallel — neither waits for the other, only for earlier-numbered stages."
                           className="w-16 h-8 px-2 rounded border text-xs text-center bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
                           value={editStageForm.sequence_order} onChange={e => setEditStageForm(p => ({ ...p, sequence_order: e.target.value }))} />
-                        <select className="w-36 h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
+                        <select className="w-36 h-11 md:h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
                           value={editStageForm.department_id} onChange={e => setEditStageForm(p => ({ ...p, department_id: e.target.value }))}>
                           <option value="">No dept</option>
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -263,8 +263,8 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                           <input type="checkbox" checked={editStageForm.is_optional} onChange={e => setEditStageForm(p => ({ ...p, is_optional: e.target.checked }))} />
                           Optional
                         </label>
-                        <button onClick={() => updateStage(stage)} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)]"><Check size={12} /></button>
-                        <button onClick={() => setEditingStageId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]"><X size={12} /></button>
+                        <button onClick={() => updateStage(stage)} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)]"><Check size={12} /></button>
+                        <button onClick={() => setEditingStageId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]"><X size={12} /></button>
                       </>
                     ) : (
                       <>
@@ -315,15 +315,15 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                   <div className="w-6 h-6 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center flex-shrink-0">
                     <span className="text-xs font-mono text-[var(--color-accent)]">{selectedStages.length + 1}</span>
                   </div>
-                  <input autoFocus className="flex-1 h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
+                  <input autoFocus className="flex-1 h-11 md:h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
                     value={stageForm.name} onChange={e => setStageForm(p => ({ ...p, name: e.target.value }))} placeholder="Stage name *" />
-                  <select className="w-36 h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
+                  <select className="w-36 h-11 md:h-8 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
                     value={stageForm.department_id} onChange={e => setStageForm(p => ({ ...p, department_id: e.target.value }))}>
                     <option value="">No department</option>
                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
-                  <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer whitespace-nowrap">
-                    <input type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} />
+                  <label htmlFor="workflowbuilder-1" className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer whitespace-nowrap">
+                    <input id="workflowbuilder-1" type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} />
                     Optional
                   </label>
                   <button onClick={addStage} disabled={loading || !stageForm.name}
@@ -352,7 +352,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
       <Modal open={addTemplateOpen} onClose={() => setAddTemplateOpen(false)} title="New Workflow Template" size="sm"
         footer={
           <>
-            <button onClick={() => setAddTemplateOpen(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setAddTemplateOpen(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={saveTemplate} disabled={loading || !templateForm.name}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Template'}
@@ -361,12 +361,12 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Template Name *</label>
-            <input className={inputCls} value={templateForm.name} onChange={e => setTemplateForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Premium Rigid Box Workflow" />
+            <label htmlFor="workflowbuilder-2" className="text-sm font-medium text-[var(--color-text-primary)]">Template Name *</label>
+            <input id="workflowbuilder-2" className={inputCls} value={templateForm.name} onChange={e => setTemplateForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Premium Rigid Box Workflow" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
-            <input className={inputCls} value={templateForm.description} onChange={e => setTemplateForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
+            <label htmlFor="workflowbuilder-3" className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
+            <input id="workflowbuilder-3" className={inputCls} value={templateForm.description} onChange={e => setTemplateForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
           </div>
         </div>
       </Modal>

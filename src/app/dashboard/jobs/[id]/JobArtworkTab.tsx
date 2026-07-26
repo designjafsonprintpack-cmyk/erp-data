@@ -349,15 +349,15 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         </>}>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="file" accept=".jpg,.jpeg,image/jpeg" onChange={e => pickFile(e.target.files?.[0] || null)}
+            <label htmlFor="jobartworktab-1" className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="jobartworktab-1" type="file" accept=".jpg,.jpeg,image/jpeg" onChange={e => pickFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
             <p className="text-xs text-[var(--color-text-muted)]">JPG only.</p>
             {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
-            <input className={inputCls} value={designerNotes} onChange={e => setDesignerNotes(e.target.value)} placeholder="Changes made in this version…" />
+            <label htmlFor="jobartworktab-2" className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
+            <input id="jobartworktab-2" className={inputCls} value={designerNotes} onChange={e => setDesignerNotes(e.target.value)} placeholder="Changes made in this version…" />
           </div>
         </div>
       </Modal>
@@ -368,8 +368,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           {!generatedLink ? (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Link Expiry</label>
-                <select className={inputCls} value={linkExpiry} onChange={e => setLinkExpiry(e.target.value)}>
+                <label htmlFor="jobartworktab-3" className="text-sm font-medium text-[var(--color-text-primary)]">Link Expiry</label>
+                <select id="jobartworktab-3" className={inputCls} value={linkExpiry} onChange={e => setLinkExpiry(e.target.value)}>
                   <option value="7d">7 Days</option>
                   <option value="14d">14 Days</option>
                   <option value="30d">30 Days</option>
@@ -385,10 +385,10 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           ) : (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
+                <label htmlFor="jobartworktab-4" className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                  <input id="jobartworktab-4" readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
+                  <button aria-label="Copy approval link" title="Copy approval link" onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                     <Copy size={14} />
                   </button>
                 </div>
@@ -537,7 +537,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           </button>
           <div className="relative inline-block" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90vh] rounded-lg" />
+            <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90dvh] rounded-lg" />
             <MarkupOverlay marks={comments[commentsModal.id] || []} size="lg" />
           </div>
         </div>

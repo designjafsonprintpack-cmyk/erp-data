@@ -328,34 +328,34 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
         </div>
         <div className="p-5 grid grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
+            <label htmlFor="quotationformclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="quotationformclient-1" className={inputCls} value={form.customer_id} onChange={e => set('customer_id', e.target.value)}>
               <option value="">Select customer…</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.customer_code})</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Valid Until</label>
-            <input type="date" className={inputCls} value={form.valid_until} onChange={e => set('valid_until', e.target.value)} />
+            <label htmlFor="quotationformclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Valid Until</label>
+            <input id="quotationformclient-2" type="date" className={inputCls} value={form.valid_until} onChange={e => set('valid_until', e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Discount %</label>
-            <input type="number" className={inputCls} value={form.discount_percent} onChange={e => set('discount_percent', e.target.value)} min="0" max="100" step="0.5" />
+            <label htmlFor="quotationformclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Discount %</label>
+            <input id="quotationformclient-3" type="number" className={inputCls} value={form.discount_percent} onChange={e => set('discount_percent', e.target.value)} min="0" max="100" step="0.5" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Sales Tax</label>
-            <select className={inputCls} value={form.tax_id} onChange={e => set('tax_id', e.target.value)}>
+            <label htmlFor="quotationformclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Sales Tax</label>
+            <select id="quotationformclient-4" className={inputCls} value={form.tax_id} onChange={e => set('tax_id', e.target.value)}>
               <option value="">No tax</option>
               {taxes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rate_percent}%)</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Customer-visible notes" />
+            <label htmlFor="quotationformclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="quotationformclient-5" className={inputCls} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Customer-visible notes" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Terms & Conditions</label>
-            <input className={inputCls} value={form.terms_conditions} onChange={e => set('terms_conditions', e.target.value)} placeholder="Payment terms, delivery conditions, etc." />
+            <label htmlFor="quotationformclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Terms & Conditions</label>
+            <input id="quotationformclient-6" className={inputCls} value={form.terms_conditions} onChange={e => set('terms_conditions', e.target.value)} placeholder="Payment terms, delivery conditions, etc." />
           </div>
         </div>
       </div>
@@ -364,7 +364,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</h2>
-          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors">
+          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors">
             <Plus size={14} /> Add Line
           </button>
         </div>
@@ -433,7 +433,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                       <Calculator size={12} /> Cost {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
                     {items.length > 1 && (
-                      <button onClick={() => removeLine(idx)} className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
+                      <button onClick={() => removeLine(idx)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -446,41 +446,41 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                     <div className="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)] p-4 space-y-3">
                       <div className="grid grid-cols-4 gap-3">
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Ups (per sheet)</label>
-                          <input type="number" className={smallInputCls} value={item.ups} onChange={e => setItem(idx, 'ups', e.target.value)} placeholder="e.g. 8" />
+                          <label htmlFor="quotationformclient-7" className="text-xs text-[var(--color-text-muted)]">Ups (per sheet)</label>
+                          <input id="quotationformclient-7" type="number" className={smallInputCls} value={item.ups} onChange={e => setItem(idx, 'ups', e.target.value)} placeholder="e.g. 8" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Wastage %</label>
-                          <input type="number" className={smallInputCls} value={item.wastage_percent} onChange={e => setItem(idx, 'wastage_percent', e.target.value)} />
+                          <label htmlFor="quotationformclient-8" className="text-xs text-[var(--color-text-muted)]">Wastage %</label>
+                          <input id="quotationformclient-8" type="number" className={smallInputCls} value={item.wastage_percent} onChange={e => setItem(idx, 'wastage_percent', e.target.value)} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Sheet Width (in)</label>
-                          <input type="number" className={smallInputCls} value={item.sheet_width_in} onChange={e => setItem(idx, 'sheet_width_in', e.target.value)} placeholder="e.g. 20" />
+                          <label htmlFor="quotationformclient-9" className="text-xs text-[var(--color-text-muted)]">Sheet Width (in)</label>
+                          <input id="quotationformclient-9" type="number" className={smallInputCls} value={item.sheet_width_in} onChange={e => setItem(idx, 'sheet_width_in', e.target.value)} placeholder="e.g. 20" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Sheet Height (in)</label>
-                          <input type="number" className={smallInputCls} value={item.sheet_height_in} onChange={e => setItem(idx, 'sheet_height_in', e.target.value)} placeholder="e.g. 30" />
+                          <label htmlFor="quotationformclient-10" className="text-xs text-[var(--color-text-muted)]">Sheet Height (in)</label>
+                          <input id="quotationformclient-10" type="number" className={smallInputCls} value={item.sheet_height_in} onChange={e => setItem(idx, 'sheet_height_in', e.target.value)} placeholder="e.g. 30" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Board GSM</label>
-                          <input type="number" className={smallInputCls} value={item.board_gsm} onChange={e => setItem(idx, 'board_gsm', e.target.value)} placeholder="e.g. 300" />
+                          <label htmlFor="quotationformclient-11" className="text-xs text-[var(--color-text-muted)]">Board GSM</label>
+                          <input id="quotationformclient-11" type="number" className={smallInputCls} value={item.board_gsm} onChange={e => setItem(idx, 'board_gsm', e.target.value)} placeholder="e.g. 300" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-[var(--color-text-muted)]">Board Costing</label>
-                          <select className={smallInputCls} value={item.board_costing_method} onChange={e => setItem(idx, 'board_costing_method', e.target.value as 'per_sheet' | 'per_kg')}>
+                          <label htmlFor="quotationformclient-12" className="text-xs text-[var(--color-text-muted)]">Board Costing</label>
+                          <select id="quotationformclient-12" className={smallInputCls} value={item.board_costing_method} onChange={e => setItem(idx, 'board_costing_method', e.target.value as 'per_sheet' | 'per_kg')}>
                             <option value="per_sheet">Per Sheet</option>
                             <option value="per_kg">Per KG (weight)</option>
                           </select>
                         </div>
                         {item.board_costing_method === 'per_kg' ? (
                           <div className="space-y-1">
-                            <label className="text-xs text-[var(--color-text-muted)]">Board Rate / KG</label>
-                            <input type="number" className={smallInputCls} value={item.board_rate_per_kg} onChange={e => setItem(idx, 'board_rate_per_kg', e.target.value)} placeholder="PKR" />
+                            <label htmlFor="quotationformclient-13" className="text-xs text-[var(--color-text-muted)]">Board Rate / KG</label>
+                            <input id="quotationformclient-13" type="number" className={smallInputCls} value={item.board_rate_per_kg} onChange={e => setItem(idx, 'board_rate_per_kg', e.target.value)} placeholder="PKR" />
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <label className="text-xs text-[var(--color-text-muted)]">Board Rate / Sheet</label>
-                            <input type="number" className={smallInputCls} value={item.board_rate_per_sheet} onChange={e => setItem(idx, 'board_rate_per_sheet', e.target.value)} placeholder="PKR" />
+                            <label htmlFor="quotationformclient-14" className="text-xs text-[var(--color-text-muted)]">Board Rate / Sheet</label>
+                            <input id="quotationformclient-14" type="number" className={smallInputCls} value={item.board_rate_per_sheet} onChange={e => setItem(idx, 'board_rate_per_sheet', e.target.value)} placeholder="PKR" />
                           </div>
                         )}
                       </div>
@@ -492,16 +492,16 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                         <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Packet Size <span className="font-normal text-[var(--color-text-muted)]">(record-keeping only — doesn&apos;t change cost)</span></p>
                         <div className="grid grid-cols-4 gap-3">
                           <div className="space-y-1">
-                            <label className="text-xs text-[var(--color-text-muted)]">Packet Length (in)</label>
-                            <input type="number" className={smallInputCls} value={item.packet_length_in} onChange={e => setItem(idx, 'packet_length_in', e.target.value)} placeholder="e.g. 20" />
+                            <label htmlFor="quotationformclient-15" className="text-xs text-[var(--color-text-muted)]">Packet Length (in)</label>
+                            <input id="quotationformclient-15" type="number" className={smallInputCls} value={item.packet_length_in} onChange={e => setItem(idx, 'packet_length_in', e.target.value)} placeholder="e.g. 20" />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs text-[var(--color-text-muted)]">Packet Width (in)</label>
-                            <input type="number" className={smallInputCls} value={item.packet_width_in} onChange={e => setItem(idx, 'packet_width_in', e.target.value)} placeholder="e.g. 30" />
+                            <label htmlFor="quotationformclient-16" className="text-xs text-[var(--color-text-muted)]">Packet Width (in)</label>
+                            <input id="quotationformclient-16" type="number" className={smallInputCls} value={item.packet_width_in} onChange={e => setItem(idx, 'packet_width_in', e.target.value)} placeholder="e.g. 30" />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs text-[var(--color-text-muted)]">Div</label>
-                            <input type="number" className={smallInputCls} value={item.packet_div} onChange={e => setItem(idx, 'packet_div', e.target.value)} placeholder="1" />
+                            <label htmlFor="quotationformclient-17" className="text-xs text-[var(--color-text-muted)]">Div</label>
+                            <input id="quotationformclient-17" type="number" className={smallInputCls} value={item.packet_div} onChange={e => setItem(idx, 'packet_div', e.target.value)} placeholder="1" />
                           </div>
                           {result && (
                             <div className="space-y-1">
@@ -588,8 +588,8 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                               <p className="h-8 flex items-center text-sm font-mono text-[var(--color-text-primary)]">PKR {result.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                             </div>
                             <div className="space-y-1">
-                              <label className="text-xs text-[var(--color-text-muted)]">Profit Margin %</label>
-                              <input type="number" className={smallInputCls} value={item.profit_margin_percent} onChange={e => setItem(idx, 'profit_margin_percent', e.target.value)} placeholder="e.g. 20" />
+                              <label htmlFor="quotationformclient-18" className="text-xs text-[var(--color-text-muted)]">Profit Margin %</label>
+                              <input id="quotationformclient-18" type="number" className={smallInputCls} value={item.profit_margin_percent} onChange={e => setItem(idx, 'profit_margin_percent', e.target.value)} placeholder="e.g. 20" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-xs text-[var(--color-text-muted)]">Agreed Rate (order total)</label>

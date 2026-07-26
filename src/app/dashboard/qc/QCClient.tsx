@@ -2,13 +2,16 @@
 import { useState, useEffect } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, ClipboardList, RefreshCw,
-  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp, Sparkles
+  Plus, Shield, Pen, ThumbsUp, ThumbsDown, Camera, TrendingUp, Sparkles,
+  Check, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import type { JobAwaitingQC } from '@/lib/utils/jobsAwaitingQC'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatTimeAgo, planLabel } from '@/lib/utils/format'
+import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 import Link from 'next/link'
@@ -59,9 +62,10 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 interface BoardInventoryItem { id: string; description: string; current_stock: number }
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
-export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId }: {
+export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId, awaitingQC = [] }: {
   initialInspections: Inspection[]; openDefects: Defect[]; reprintRequests: ReprintReq[]
   templates: Template[]; jobs: Job[]; boardInventory: BoardInventoryItem[]; companyId: string
+  awaitingQC?: JobAwaitingQC[]
 }) {
   const [inspections, setInspections] = useState(initialInspections)
   const [defects,     setDefects]     = useState(openDefects)
@@ -272,6 +276,54 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           </div>
         ))}
       </div>
+
+      {/* QC — Action Needed. Jobs standing at the QC stage with no passing
+          inspection. Migration 092 made QC a real workflow stage and the
+          workflow route now blocks completing it without a pass, so this is the
+          list that shows the gate coming instead of hitting it at Dispatch. */}
+      {awaitingQC.length > 0 && (
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_6%,transparent)] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] flex items-center gap-2">
+            <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">QC — Action Needed</h2>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {awaitingQC.length} job{awaitingQC.length > 1 ? 's' : ''} waiting on inspection
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--color-border-subtle)]">
+            {awaitingQC.map(job => {
+              const pcfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG]
+              return (
+                <div key={job.job_id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/dashboard/jobs/${job.job_id}`}
+                        className="text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate">
+                        {job.job_number} — {job.job_title}
+                      </Link>
+                      {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
+                      {job.last_result === 'fail' && (
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)] flex-shrink-0">
+                          Last inspection failed
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                      {job.customer_name && <span>{job.customer_name}</span>}
+                      {job.quantity != null && <span>· {job.quantity.toLocaleString()} pcs</span>}
+                      {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => { setInspJob(job.job_id); setInspectModal(true) }}
+                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                    <ClipboardList size={14} /> Inspect
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
@@ -496,7 +548,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       <Modal open={inspectModal} onClose={() => setInspectModal(false)} title="New QC Inspection" size="xl"
         footer={
           <>
-            <button onClick={() => setInspectModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setInspectModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitInspection} disabled={loading || !inspJob}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <ClipboardList size={14} /> {loading ? 'Saving…' : 'Submit Inspection'}
@@ -506,59 +558,75 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={inspJob} onChange={e => setInspJob(e.target.value)}>
+              <label htmlFor="qcclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="qcclient-1" className={inputCls} value={inspJob} onChange={e => setInspJob(e.target.value)}>
                 <option value="">Select job…</option>
                 {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">QC Template</label>
-              <select className={inputCls} value={inspTemplate} onChange={e => { setInspTemplate(e.target.value); setResponses({}) }}>
+              <label htmlFor="qcclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">QC Template</label>
+              <select id="qcclient-2" className={inputCls} value={inspTemplate} onChange={e => { setInspTemplate(e.target.value); setResponses({}) }}>
                 <option value="">No template</option>
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Sample Size</label>
-              <input type="number" className={inputCls} value={sampleSize} onChange={e => setSampleSize(e.target.value)} placeholder="e.g. 50" />
+              <label htmlFor="qcclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Sample Size</label>
+              <input id="qcclient-3" type="number" className={inputCls} value={sampleSize} onChange={e => setSampleSize(e.target.value)} placeholder="e.g. 50" />
             </div>
           </div>
 
-          {/* Checklist */}
+          {/* Checklist — one row per check point.
+              Rebuilt because the previous version was a 12-column grid forced to
+              min-w-[720px] inside the modal: the Notes column fell off the right
+              edge behind a horizontal scrollbar, and the Pass/Fail labels wrapped
+              onto a second line that spilled out below the 28px-high button.
+              Now it fits: stacked on mobile, two columns from md, and the result
+              buttons never wrap. */}
           {items.length > 0 && (
-            <div className="rounded-xl border border-[var(--color-border)] overflow-x-auto">
-              <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider min-w-[720px]">
-                <div className="col-span-5">Check Point</div>
-                <div className="col-span-1 text-center">Critical</div>
-                <div className="col-span-3 text-center">Result</div>
-                <div className="col-span-3">Notes</div>
+            <div className="rounded-xl border border-[var(--color-border)]">
+              <div className="hidden md:flex px-4 py-2.5 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider rounded-t-xl">
+                <span className="flex-1 min-w-0">Check Point</span>
+                <span className="w-[300px] flex-shrink-0">Result &amp; Notes</span>
               </div>
-              <div className="divide-y divide-[var(--color-border-subtle)] max-h-72 overflow-y-auto">
+              <div className="divide-y divide-[var(--color-border-subtle)] max-h-[22rem] overflow-y-auto">
                 {items.map(item => {
                   const resp = responses[item.id]?.response || 'pass'
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center min-w-[720px]">
-                      <div className="col-span-5 text-sm text-[var(--color-text-primary)]">{item.question}</div>
-                      <div className="col-span-1 text-center">
-                        {item.is_critical && <span className="text-xs text-[var(--color-danger)] font-bold">●</span>}
+                    <div key={item.id} className="flex flex-col md:flex-row md:items-start gap-2 md:gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0 flex items-start gap-2">
+                        <span className="text-sm text-[var(--color-text-primary)]">{item.question}</span>
+                        {/* Critical was a bare red dot — meaning carried by colour
+                            alone, invisible to a colour-blind inspector and to a
+                            screen reader. Now it says so. */}
+                        {item.is_critical && (
+                          <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]"
+                            title="Critical check point — a failure here fails the whole inspection">
+                            Critical
+                          </span>
+                        )}
                       </div>
-                      <div className="col-span-3 flex items-center justify-center gap-1.5">
-                        {(['pass','fail','na'] as const).map(v => (
-                          <button key={v} onClick={() => setResponse(item.id, 'response', v)}
-                            className={cn('px-2.5 h-7 rounded-md text-xs font-medium border transition-all',
-                              resp === v
-                                ? v === 'pass' ? 'bg-[var(--color-success)] text-[var(--color-on-success)] border-transparent'
-                                  : v === 'fail' ? 'bg-[var(--color-danger)] text-[var(--color-on-danger)] border-transparent'
-                                  : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)]'
-                                : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
-                            {v === 'pass' ? '✓ Pass' : v === 'fail' ? '✗ Fail' : 'N/A'}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="col-span-3">
-                        <input className="w-full h-7 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none transition-colors"
-                          value={responses[item.id]?.notes || ''} onChange={e => setResponse(item.id, 'notes', e.target.value)} placeholder="Note…" />
+                      <div className="w-full md:w-[300px] flex-shrink-0 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          {(['pass','fail','na'] as const).map(v => (
+                            <button key={v} onClick={() => setResponse(item.id, 'response', v)}
+                              aria-pressed={resp === v}
+                              className={cn('flex-1 inline-flex items-center justify-center gap-1 whitespace-nowrap h-11 md:h-7 px-2 rounded-md text-xs font-medium border transition-all',
+                                resp === v
+                                  ? v === 'pass' ? 'bg-[var(--color-success)] text-[var(--color-on-success)] border-transparent'
+                                    : v === 'fail' ? 'bg-[var(--color-danger)] text-[var(--color-on-danger)] border-transparent'
+                                    : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)]'
+                                  : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
+                              {v === 'pass' && <Check size={12} className="flex-shrink-0" />}
+                              {v === 'fail' && <X size={12} className="flex-shrink-0" />}
+                              {v === 'pass' ? 'Pass' : v === 'fail' ? 'Fail' : 'N/A'}
+                            </button>
+                          ))}
+                        </div>
+                        <input className="w-full h-11 md:h-7 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                          value={responses[item.id]?.notes || ''} onChange={e => setResponse(item.id, 'notes', e.target.value)}
+                          aria-label={`Note for: ${item.question}`} placeholder="Note…" />
                       </div>
                     </div>
                   )
@@ -568,8 +636,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Inspector Notes</label>
-            <input className={inputCls} value={inspNotes} onChange={e => setInspNotes(e.target.value)} placeholder="Overall observations…" />
+            <label htmlFor="qcclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Inspector Notes</label>
+            <input id="qcclient-4" className={inputCls} value={inspNotes} onChange={e => setInspNotes(e.target.value)} placeholder="Overall observations…" />
           </div>
         </div>
       </Modal>
@@ -578,7 +646,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       <Modal open={defectModal} onClose={() => setDefectModal(false)} title="Log Defect" size="md"
         footer={
           <>
-            <button onClick={() => setDefectModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setDefectModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitDefect} disabled={loading || !defectForm.job_id || !defectForm.defect_type}
               className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Logging…' : 'Log Defect'}
@@ -587,23 +655,23 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         }>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={defectForm.job_id} onChange={e => setDefectForm(p => ({ ...p, job_id: e.target.value }))}>
+            <label htmlFor="qcclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="qcclient-5" className={inputCls} value={defectForm.job_id} onChange={e => setDefectForm(p => ({ ...p, job_id: e.target.value }))}>
               <option value="">Select job…</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Defect Type <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={defectForm.defect_type} onChange={e => setDefectForm(p => ({ ...p, defect_type: e.target.value }))}>
+              <label htmlFor="qcclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Defect Type <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="qcclient-6" className={inputCls} value={defectForm.defect_type} onChange={e => setDefectForm(p => ({ ...p, defect_type: e.target.value }))}>
                 <option value="">Select…</option>
                 {DEFECT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t.replace(/_/g, ' ')}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Severity</label>
-              <select className={inputCls} value={defectForm.severity} onChange={e => setDefectForm(p => ({ ...p, severity: e.target.value }))}>
+              <label htmlFor="qcclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Severity</label>
+              <select id="qcclient-7" className={inputCls} value={defectForm.severity} onChange={e => setDefectForm(p => ({ ...p, severity: e.target.value }))}>
                 <option value="minor">Minor</option>
                 <option value="major">Major</option>
                 <option value="critical">Critical</option>
@@ -611,16 +679,16 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Affected</label>
-            <input type="number" className={inputCls} value={defectForm.quantity_affected} onChange={e => setDefectForm(p => ({ ...p, quantity_affected: e.target.value }))} placeholder="Number of pieces" />
+            <label htmlFor="qcclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Affected</label>
+            <input id="qcclient-8" type="number" className={inputCls} value={defectForm.quantity_affected} onChange={e => setDefectForm(p => ({ ...p, quantity_affected: e.target.value }))} placeholder="Number of pieces" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
-            <input className={inputCls} value={defectForm.description} onChange={e => setDefectForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe the defect in detail…" />
+            <label htmlFor="qcclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
+            <input id="qcclient-9" className={inputCls} value={defectForm.description} onChange={e => setDefectForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe the defect in detail…" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Photos (optional)</label>
-            <input type="file" accept="image/*" multiple
+            <label htmlFor="qcclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Photos (optional)</label>
+            <input id="qcclient-10" type="file" accept="image/*" multiple
               onChange={e => setDefectPhotos(Array.from(e.target.files || []))}
               className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
             {defectPhotos.length > 0 && <p className="text-xs text-[var(--color-text-muted)]">{defectPhotos.length} photo(s) selected</p>}
@@ -632,7 +700,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       <Modal open={reprintModal} onClose={() => setReprintModal(false)} title="Request Re-print" size="md"
         footer={
           <>
-            <button onClick={() => setReprintModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setReprintModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitReprint} disabled={loading || !reprintForm.original_job_id || !reprintForm.reason || !reprintForm.quantity}
               className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Submitting…' : 'Submit Request'}
@@ -641,20 +709,20 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         }>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Original Job <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={reprintForm.original_job_id} onChange={e => setReprintForm(p => ({ ...p, original_job_id: e.target.value }))}>
+            <label htmlFor="qcclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Original Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="qcclient-11" className={inputCls} value={reprintForm.original_job_id} onChange={e => setReprintForm(p => ({ ...p, original_job_id: e.target.value }))}>
               <option value="">Select job…</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Re-print Quantity <span className="text-[var(--color-danger)]">*</span></label>
-              <input type="number" className={inputCls} value={reprintForm.quantity} onChange={e => setReprintForm(p => ({ ...p, quantity: e.target.value }))} placeholder="Pieces to reprint" />
+              <label htmlFor="qcclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Re-print Quantity <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="qcclient-12" type="number" className={inputCls} value={reprintForm.quantity} onChange={e => setReprintForm(p => ({ ...p, quantity: e.target.value }))} placeholder="Pieces to reprint" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Priority</label>
-              <select className={inputCls} value={reprintForm.priority} onChange={e => setReprintForm(p => ({ ...p, priority: e.target.value }))}>
+              <label htmlFor="qcclient-13" className="text-sm font-medium text-[var(--color-text-primary)]">Priority</label>
+              <select id="qcclient-13" className={inputCls} value={reprintForm.priority} onChange={e => setReprintForm(p => ({ ...p, priority: e.target.value }))}>
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
                 <option value="high">High</option>
@@ -663,12 +731,12 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reason <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={reprintForm.reason} onChange={e => setReprintForm(p => ({ ...p, reason: e.target.value }))} placeholder="Why is a re-print needed?" />
+            <label htmlFor="qcclient-14" className="text-sm font-medium text-[var(--color-text-primary)]">Reason <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="qcclient-14" className={inputCls} value={reprintForm.reason} onChange={e => setReprintForm(p => ({ ...p, reason: e.target.value }))} placeholder="Why is a re-print needed?" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={reprintForm.notes} onChange={e => setReprintForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional information…" />
+            <label htmlFor="qcclient-15" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="qcclient-15" className={inputCls} value={reprintForm.notes} onChange={e => setReprintForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional information…" />
           </div>
         </div>
       </Modal>
@@ -678,7 +746,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         <Modal open={true} onClose={() => setSignoffModal(null)} title={`QC Sign-off — ${signoffModal.jobs?.job_number}`} size="sm"
           footer={
             <>
-              <button onClick={() => setSignoffModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setSignoffModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={submitSignoff} disabled={loading}
                 className={cn('flex items-center gap-2 px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
                   signoffResult === 'pass' ? 'bg-[var(--color-success)] hover:opacity-90' :
@@ -709,12 +777,12 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Sign-off Notes</label>
-              <input className={inputCls} value={signoffNotes} onChange={e => setSignoffNotes(e.target.value)} placeholder="Final observations…" />
+              <label htmlFor="qcclient-16" className="text-sm font-medium text-[var(--color-text-primary)]">Sign-off Notes</label>
+              <input id="qcclient-16" className={inputCls} value={signoffNotes} onChange={e => setSignoffNotes(e.target.value)} placeholder="Final observations…" />
             </div>
             {signoffResult === 'pass' && (
               <div className="rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] p-3 text-xs text-[var(--color-success)]">
-                ✓ Job status will automatically change to <strong>Completed</strong> after sign-off.
+                Job status will automatically change to <strong>Completed</strong> after sign-off.
               </div>
             )}
           </div>
@@ -726,7 +794,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         <Modal open={true} onClose={() => setResolveModal(null)} title="Resolve Defect" size="sm"
           footer={
             <>
-              <button onClick={() => setResolveModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setResolveModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={resolveDefect} disabled={loading}
                 className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Resolving…' : 'Mark Resolved'}
@@ -739,8 +807,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{resolveModal.quantity_affected} pcs affected</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Resolution Notes</label>
-              <input className={inputCls} value={resolveNotes} onChange={e => setResolveNotes(e.target.value)} placeholder="How was this defect resolved?" />
+              <label htmlFor="qcclient-17" className="text-sm font-medium text-[var(--color-text-primary)]">Resolution Notes</label>
+              <input id="qcclient-17" className={inputCls} value={resolveNotes} onChange={e => setResolveNotes(e.target.value)} placeholder="How was this defect resolved?" />
             </div>
           </div>
         </Modal>
@@ -752,7 +820,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           title={reprintAction.action === 'approve' ? '✅ Approve Re-print' : '❌ Reject Re-print'} size="sm"
           footer={
             <>
-              <button onClick={() => setReprintAction(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setReprintAction(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={handleReprintAction} disabled={loading}
                 className={cn('px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
                   reprintAction.action === 'approve' ? 'bg-[var(--color-success)] hover:opacity-90' : 'bg-[var(--color-danger)] hover:opacity-90')}>
@@ -780,14 +848,14 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                     <option value="">Not tracked in inventory</option>
                     {boardInventory.map(b => <option key={b.id} value={b.id}>{b.description} ({b.current_stock} in stock)</option>)}
                   </select>
-                  <input type="number" className="w-24 h-9 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none flex-shrink-0"
+                  <input type="number" className="w-24 h-11 md:h-9 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none flex-shrink-0"
                     value={reprintMaterialQty} onChange={e => setReprintMaterialQty(e.target.value)} placeholder="Qty" />
                 </div>
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
-              <input className={inputCls} value={reprintActionNotes} onChange={e => setReprintActionNotes(e.target.value)}
+              <label htmlFor="qcclient-18" className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
+              <input id="qcclient-18" className={inputCls} value={reprintActionNotes} onChange={e => setReprintActionNotes(e.target.value)}
                 placeholder={reprintAction.action === 'approve' ? 'Special instructions…' : 'Reason for rejection…'} />
             </div>
           </div>

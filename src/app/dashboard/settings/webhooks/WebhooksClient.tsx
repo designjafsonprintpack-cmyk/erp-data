@@ -166,7 +166,7 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
       {/* Add Webhook Modal */}
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Webhook" size="md"
         footer={<>
-          <button onClick={() => setAddModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+          <button onClick={() => setAddModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={create} disabled={loading}
             className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {loading ? 'Creating…' : 'Create'}
@@ -174,19 +174,19 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
         </>}>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Name</label>
-            <input className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Our Accounting System" />
+            <label htmlFor="webhooksclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Name</label>
+            <input id="webhooksclient-1" className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Our Accounting System" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">URL</label>
-            <input className={inputCls} value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} placeholder="https://your-system.com/webhook" />
+            <label htmlFor="webhooksclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">URL</label>
+            <input id="webhooksclient-2" className={inputCls} value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} placeholder="https://your-system.com/webhook" />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Events</label>
             <div className="space-y-2">
               {EVENT_OPTIONS.map(opt => (
-                <label key={opt.value} className="flex items-start gap-2.5 p-2.5 rounded-md border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-bg-elevated)] transition-colors">
-                  <input type="checkbox" checked={form.event_types.includes(opt.value)} onChange={() => toggleEvent(opt.value)} className="mt-0.5" />
+                <label htmlFor="webhooksclient-3" key={opt.value} className="flex items-start gap-2.5 p-2.5 rounded-md border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-bg-elevated)] transition-colors">
+                  <input id="webhooksclient-3" type="checkbox" checked={form.event_types.includes(opt.value)} onChange={() => toggleEvent(opt.value)} className="mt-0.5" />
                   <div>
                     <p className="text-sm text-[var(--color-text-primary)]">{opt.label}</p>
                     <p className="text-xs text-[var(--color-text-muted)]">{opt.desc}</p>
@@ -206,7 +206,7 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md px-3 py-2 break-all">{newSecret?.secret}</code>
-            <button onClick={copySecret} className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <button onClick={copySecret} className="w-11 md:w-9 h-11 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
               {copied ? <Check size={14} className="text-[var(--color-success)]" /> : <Copy size={14} />}
             </button>
           </div>

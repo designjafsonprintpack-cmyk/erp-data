@@ -268,7 +268,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
       <Modal open={planModal} onClose={() => setPlanModal(false)} title="Plan a Job" size="lg"
         footer={
           <>
-            <button onClick={() => setPlanModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setPlanModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createPlan} disabled={loading || !form.job_id || !form.planned_date}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Calendar size={14} /> {loading ? 'Creating…' : 'Create Plan'}
@@ -278,15 +278,15 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
+              <label htmlFor="planningclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="planningclient-1" className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
                 <option value="">Select job…</option>
                 {unplannedJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Planned Date <span className="text-[var(--color-danger)]">*</span></label>
-              <input type="date" className={inputCls} value={form.planned_date} onChange={e => setForm(p => ({ ...p, planned_date: e.target.value }))} />
+              <label htmlFor="planningclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Planned Date <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="planningclient-2" type="date" className={inputCls} value={form.planned_date} onChange={e => setForm(p => ({ ...p, planned_date: e.target.value }))} />
             </div>
           </div>
 
@@ -308,7 +308,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                       <option value="">Select machine…</option>
                       {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
                     </select>
-                    <input type="number" className="w-28 h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                    <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
                       value={m.estimated_hours} onChange={e => setMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
                     <button onClick={() => removeMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
                   </div>
@@ -318,8 +318,8 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional planning notes" />
+            <label htmlFor="planningclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="planningclient-3" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional planning notes" />
           </div>
         </div>
       </Modal>

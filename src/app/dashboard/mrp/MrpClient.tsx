@@ -164,7 +164,7 @@ export default function MrpClient() {
       <Modal open={!!poRow} onClose={() => setPoRow(null)} title={poRow ? `Create PO — ${poRow.board_type_name}` : ''} size="sm"
         footer={
           <>
-            <button onClick={() => setPoRow(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setPoRow(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createPO} disabled={poLoading || !poForm.vendor_id}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {poLoading ? 'Creating…' : 'Create Purchase Order'}
@@ -173,20 +173,20 @@ export default function MrpClient() {
         }>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={poForm.vendor_id} onChange={e => setPoForm(p => ({ ...p, vendor_id: e.target.value }))}>
+            <label htmlFor="mrpclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="mrpclient-1" className={inputCls} value={poForm.vendor_id} onChange={e => setPoForm(p => ({ ...p, vendor_id: e.target.value }))}>
               <option value="">Select vendor</option>
               {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.vendor_code})</option>)}
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity (sheets)</label>
-              <input type="number" className={inputCls} value={poForm.quantity} onChange={e => setPoForm(p => ({ ...p, quantity: e.target.value }))} />
+              <label htmlFor="mrpclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity (sheets)</label>
+              <input id="mrpclient-2" type="number" className={inputCls} value={poForm.quantity} onChange={e => setPoForm(p => ({ ...p, quantity: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Unit Price (PKR)</label>
-              <input type="number" className={inputCls} value={poForm.unit_price} onChange={e => setPoForm(p => ({ ...p, unit_price: e.target.value }))} placeholder="0" />
+              <label htmlFor="mrpclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Unit Price (PKR)</label>
+              <input id="mrpclient-3" type="number" className={inputCls} value={poForm.unit_price} onChange={e => setPoForm(p => ({ ...p, unit_price: e.target.value }))} placeholder="0" />
             </div>
           </div>
           {poRow && (

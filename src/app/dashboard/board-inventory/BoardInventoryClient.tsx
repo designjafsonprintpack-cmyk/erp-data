@@ -239,7 +239,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Inventory Item" size="md"
         footer={
           <>
-            <button onClick={() => setAddModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setAddModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={addItem} disabled={loading || !addForm.description}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Adding…' : 'Add Item'}
@@ -248,43 +248,43 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
         }>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Description <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={addForm.description} onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))} placeholder="e.g. 300 GSM Duplex Board 25×36" />
+            <label htmlFor="boardinventoryclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Description <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="boardinventoryclient-1" className={inputCls} value={addForm.description} onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))} placeholder="e.g. 300 GSM Duplex Board 25×36" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Board Type</label>
-            <select className={inputCls} value={addForm.board_type_id} onChange={e => setAddForm(p => ({ ...p, board_type_id: e.target.value }))}>
+            <label htmlFor="boardinventoryclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Board Type</label>
+            <select id="boardinventoryclient-2" className={inputCls} value={addForm.board_type_id} onChange={e => setAddForm(p => ({ ...p, board_type_id: e.target.value }))}>
               <option value="">Select…</option>
               {boardTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">GSM</label>
-            <input type="number" className={inputCls} value={addForm.gsm} onChange={e => setAddForm(p => ({ ...p, gsm: e.target.value }))} placeholder="300" />
+            <label htmlFor="boardinventoryclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">GSM</label>
+            <input id="boardinventoryclient-3" type="number" className={inputCls} value={addForm.gsm} onChange={e => setAddForm(p => ({ ...p, gsm: e.target.value }))} placeholder="300" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Width (in)</label>
-            <input type="number" className={inputCls} value={addForm.sheet_width_in} onChange={e => setAddForm(p => ({ ...p, sheet_width_in: e.target.value }))} placeholder="25" />
+            <label htmlFor="boardinventoryclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Width (in)</label>
+            <input id="boardinventoryclient-4" type="number" className={inputCls} value={addForm.sheet_width_in} onChange={e => setAddForm(p => ({ ...p, sheet_width_in: e.target.value }))} placeholder="25" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Height (in)</label>
-            <input type="number" className={inputCls} value={addForm.sheet_height_in} onChange={e => setAddForm(p => ({ ...p, sheet_height_in: e.target.value }))} placeholder="36" />
+            <label htmlFor="boardinventoryclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Height (in)</label>
+            <input id="boardinventoryclient-5" type="number" className={inputCls} value={addForm.sheet_height_in} onChange={e => setAddForm(p => ({ ...p, sheet_height_in: e.target.value }))} placeholder="36" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock</label>
-            <input type="number" className={inputCls} value={addForm.current_stock} onChange={e => setAddForm(p => ({ ...p, current_stock: e.target.value }))} placeholder="0" />
+            <label htmlFor="boardinventoryclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock</label>
+            <input id="boardinventoryclient-6" type="number" className={inputCls} value={addForm.current_stock} onChange={e => setAddForm(p => ({ ...p, current_stock: e.target.value }))} placeholder="0" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level</label>
-            <input type="number" className={inputCls} value={addForm.reorder_level} onChange={e => setAddForm(p => ({ ...p, reorder_level: e.target.value }))} placeholder="100" />
+            <label htmlFor="boardinventoryclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level</label>
+            <input id="boardinventoryclient-7" type="number" className={inputCls} value={addForm.reorder_level} onChange={e => setAddForm(p => ({ ...p, reorder_level: e.target.value }))} placeholder="100" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR)</label>
-            <input type="number" className={inputCls} value={addForm.unit_cost} onChange={e => setAddForm(p => ({ ...p, unit_cost: e.target.value }))} placeholder="0.00" />
+            <label htmlFor="boardinventoryclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR)</label>
+            <input id="boardinventoryclient-8" type="number" className={inputCls} value={addForm.unit_cost} onChange={e => setAddForm(p => ({ ...p, unit_cost: e.target.value }))} placeholder="0.00" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>
-            <input className={inputCls} value={addForm.location} onChange={e => setAddForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Rack A-3" />
+            <label htmlFor="boardinventoryclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>
+            <input id="boardinventoryclient-9" className={inputCls} value={addForm.location} onChange={e => setAddForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Rack A-3" />
           </div>
         </div>
       </Modal>
@@ -296,7 +296,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
           size="sm"
           footer={
             <>
-              <button onClick={() => setMovementModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setMovementModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={applyMovement} disabled={loading}
                 className={cn('px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
                   movementModal.action === 'in' ? 'bg-[var(--color-success)] hover:opacity-90' :
@@ -312,22 +312,22 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Current stock: <strong>{movementModal.item.current_stock.toLocaleString()}</strong></p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label htmlFor="boardinventoryclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">
                 {movementModal.action === 'adjustment' ? 'New Stock Quantity' : 'Quantity'}
                 <span className="text-[var(--color-danger)]"> *</span>
               </label>
-              <input type="number" className={inputCls} value={moveForm.quantity} onChange={e => setMoveForm(p => ({ ...p, quantity: e.target.value }))}
+              <input id="boardinventoryclient-10" type="number" className={inputCls} value={moveForm.quantity} onChange={e => setMoveForm(p => ({ ...p, quantity: e.target.value }))}
                 placeholder={movementModal.action === 'adjustment' ? 'Enter exact stock count' : 'Enter quantity'} />
             </div>
             {movementModal.action === 'in' && (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
-                <input className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
+                <label htmlFor="boardinventoryclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
+                <input id="boardinventoryclient-11" className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-              <input className={inputCls} value={moveForm.notes} onChange={e => setMoveForm(p => ({ ...p, notes: e.target.value }))} placeholder="Reason for movement" />
+              <label htmlFor="boardinventoryclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+              <input id="boardinventoryclient-12" className={inputCls} value={moveForm.notes} onChange={e => setMoveForm(p => ({ ...p, notes: e.target.value }))} placeholder="Reason for movement" />
             </div>
           </div>
         </Modal>

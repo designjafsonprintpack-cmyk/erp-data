@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import QCClient from './QCClient'
+import { loadJobsAwaitingQC } from '@/lib/utils/jobsAwaitingQC'
 
 export default async function QCPage() {
   const supabase = createSupabaseServerClient()
@@ -36,6 +37,10 @@ export default async function QCPage() {
   const passCount = (inspectionsRes.data ?? []).filter((i: any) => i.result === 'pass').length
   const failCount = (inspectionsRes.data ?? []).filter((i: any) => i.result === 'fail').length
 
+  // Jobs standing at the QC stage with no passing inspection — the work QC
+  // owns right now. Migration 092 made QC a real stage; this surfaces it.
+  const awaitingQC = await loadJobsAwaitingQC(supabase, companyId)
+
   return (
     <div className="space-y-5">
       <div>
@@ -50,6 +55,7 @@ export default async function QCPage() {
         reprintRequests={(reprintsRes.data ?? []) as any[]}
         templates={(templatesRes.data ?? []) as any[]}
         jobs={(jobsRes.data ?? []) as any[]}
+        awaitingQC={awaitingQC}
         boardInventory={(boardInventoryRes.data ?? []) as any[]}
         companyId={companyId}
       />

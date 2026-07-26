@@ -31,10 +31,10 @@ export default function SessionTimeoutClient({ initialValue }: { initialValue: S
       <div className="px-5 py-4 flex items-center gap-3">
         <Clock size={16} className="text-[var(--color-text-secondary)] flex-shrink-0" />
         <div className="flex-1">
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+          <label htmlFor="sessiontimeoutclient-1" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
             Sign out after
           </label>
-          <select
+          <select id="sessiontimeoutclient-1"
             value={value}
             onChange={e => setValue(e.target.value as SessionTimeoutValue)}
             className={selectCls}

@@ -504,23 +504,23 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
+            <label htmlFor="artworkclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="artworkclient-1" className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
               <option value="">Select job…</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="file" accept=".jpg,.jpeg,image/jpeg"
+            <label htmlFor="artworkclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="artworkclient-2" type="file" accept=".jpg,.jpeg,image/jpeg"
               onChange={e => pickFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
             <p className="text-xs text-[var(--color-text-muted)]">JPG only.</p>
             {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
-            <input className={inputCls} value={form.designer_notes} onChange={e => setForm(p => ({ ...p, designer_notes: e.target.value }))} placeholder="Changes made in this version…" />
+            <label htmlFor="artworkclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
+            <input id="artworkclient-3" className={inputCls} value={form.designer_notes} onChange={e => setForm(p => ({ ...p, designer_notes: e.target.value }))} placeholder="Changes made in this version…" />
           </div>
         </div>
       </Modal>
@@ -531,8 +531,8 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
           {!generatedLink ? (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Link Expiry</label>
-                <select className={inputCls} value={linkExpiry} onChange={e => setLinkExpiry(e.target.value)}>
+                <label htmlFor="artworkclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Link Expiry</label>
+                <select id="artworkclient-4" className={inputCls} value={linkExpiry} onChange={e => setLinkExpiry(e.target.value)}>
                   <option value="7d">7 Days</option>
                   <option value="14d">14 Days</option>
                   <option value="30d">30 Days</option>
@@ -548,10 +548,10 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
           ) : (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
+                <label htmlFor="artworkclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
+                  <input id="artworkclient-5" readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
+                  <button aria-label="Copy approval link" title="Copy approval link" onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
                     <Copy size={14} />
                   </button>
                 </div>
@@ -702,7 +702,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
           </button>
           <div className="relative inline-block" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90vh] rounded-lg" />
+            <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90dvh] rounded-lg" />
             <MarkupOverlay marks={comments[commentsModal.id] || []} size="lg" />
           </div>
         </div>

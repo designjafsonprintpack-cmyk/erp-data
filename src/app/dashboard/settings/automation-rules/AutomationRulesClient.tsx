@@ -130,8 +130,8 @@ export default function AutomationRulesClient({ initialRules }: { initialRules: 
                 )}
                 {def.hasThreshold && (
                   <div className="flex items-center gap-2 mt-2.5">
-                    <label className="text-xs text-[var(--color-text-secondary)]">Threshold:</label>
-                    <input type="number" min={1} className={cn(inputCls, 'w-20 h-8')}
+                    <label htmlFor="automationrulesclient-1" className="text-xs text-[var(--color-text-secondary)]">Threshold:</label>
+                    <input id="automationrulesclient-1" type="number" min={1} className={cn(inputCls, 'w-20 h-8')}
                       value={thresholdDraft[def.type] ?? rule?.config?.threshold_days ?? 2}
                       onChange={e => setThresholdDraft(p => ({ ...p, [def.type]: e.target.value }))} />
                     <span className="text-xs text-[var(--color-text-muted)]">days</span>

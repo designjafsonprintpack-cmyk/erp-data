@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **088**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **092**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -171,6 +171,12 @@ deliberately left empty. Never read from it.
   what mainstream products ship. Closing it properly means separate darker
   *fill* tokens (Primer's `bgColor-accent-emphasis` pattern), not a label swap.
   Don't "fix" it by flipping those labels to ink.
+- **Hardcoded hex is deliberate on the four customer-facing pages only** —
+  `artwork/approve/[token]/*`, `portal/[token]/*`, `approve/[token]/*` (242
+  values). A customer opening a token link must not inherit whichever internal
+  theme the shop happens to be running, so those pages carry their own fixed
+  palette and `text-white` on their own fills is correct there. Everywhere else
+  the rule stands: CSS variables only.
 - **`cn()` is tailwind-merge.** Class order matters — a class passed in later
   silently cancels an earlier conflicting one. Caught only by render assertions.
 - **Empty string vs Postgres.** A blank form control sends `''`, and Postgres
@@ -247,6 +253,30 @@ clean and matches, the following are live:
 
 **Migrations 087 and 088 must have been run** (`jobs.gsm`,
 `sales_order_items.gsm`). If job save or edit 500s, check these first.
+
+### Workflow automation batch (migrations 091 + 092)
+The "job apne aap agli stage par dikhe" work — a job now surfaces wherever it is
+without anyone re-adding it:
+
+- **091** filled `workflow_stages.department_id` for every stage (it had existed
+  since 010 and was never populated, which is why Department Queue and stage
+  notifications were silently empty for everyone), flipped `job_auto_assign` to
+  `true`, and backfilled `jobs.current_stage_id`.
+- **092** made **QC a real workflow stage** (`stage_type = 'qc'`, inserted before
+  Dispatch in every template, owned by a new Quality Control department) and gave
+  `job_costings` a `deleted_at`. The workflow route now refuses to complete a QC
+  stage without a passing inspection — `pass` or `conditional_pass`; a `fail` or
+  no inspection blocks it. **In-flight jobs do not get a QC row** (only jobs
+  created after 092), the same precedent 086 set.
+- `jobs.current_stage_id` is kept true by `syncJobCurrentStage()` on every
+  start/complete/skip, and `closeJobIfWorkflowDone()` closes the job (status +
+  `completed_date`) when the last stage finishes. Nothing else moves a job out of
+  `in_progress`.
+- Work queues: `loadStageQueue()` powers both `/api/v1/production/department-queue`
+  and `/api/v1/production/stage-queue`; the six shop-floor pages (Printing …
+  Packing) render `StageQueueClient`. Plates / Store / Dispatch / QC each carry an
+  "action needed" panel fed by `jobsNeedingPlates` / `jobsAwaitingBoardIssue` /
+  `jobsAwaitingDispatch` / `jobsAwaitingQC`.
 
 ### Open threads
 - **Grain Direction**: input, form state and request schema all removed. The

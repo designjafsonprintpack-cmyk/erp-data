@@ -107,27 +107,27 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={form.customer_id} onChange={e => setF('customer_id', e.target.value)}>
+            <label htmlFor="soformclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="soformclient-1" className={inputCls} value={form.customer_id} onChange={e => setF('customer_id', e.target.value)}>
               <option value="">Select customer…</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.customer_code})</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Order Date</label>
-            <input type="date" className={inputCls} value={form.order_date} onChange={e => setF('order_date', e.target.value)} />
+            <label htmlFor="soformclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Order Date</label>
+            <input id="soformclient-2" type="date" className={inputCls} value={form.order_date} onChange={e => setF('order_date', e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Required By Date</label>
-            <input type="date" className={inputCls} value={form.required_date} onChange={e => setF('required_date', e.target.value)} />
+            <label htmlFor="soformclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Required By Date</label>
+            <input id="soformclient-3" type="date" className={inputCls} value={form.required_date} onChange={e => setF('required_date', e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Discount %</label>
-            <input type="number" min="0" max="100" className={inputCls} value={form.discount_percent} onChange={e => setF('discount_percent', e.target.value)} placeholder="0" />
+            <label htmlFor="soformclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Discount %</label>
+            <input id="soformclient-4" type="number" min="0" max="100" className={inputCls} value={form.discount_percent} onChange={e => setF('discount_percent', e.target.value)} placeholder="0" />
           </div>
           <div className="col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Special Instructions</label>
-            <input className={inputCls} value={form.special_instructions} onChange={e => setF('special_instructions', e.target.value)} placeholder="Any special requirements for this order…" />
+            <label htmlFor="soformclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Special Instructions</label>
+            <input id="soformclient-5" className={inputCls} value={form.special_instructions} onChange={e => setF('special_instructions', e.target.value)} placeholder="Any special requirements for this order…" />
           </div>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</h2>
-          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-11 md:h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={12} /> Add Line
           </button>
         </div>
@@ -161,7 +161,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
                 <div className="h-8 flex items-center justify-end">
                   <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                 </div>
-                <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
+                <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>

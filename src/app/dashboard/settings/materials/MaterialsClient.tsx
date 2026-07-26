@@ -82,8 +82,8 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
                   <input key={f.key} className={cn(inputCls, 'flex-1')} value={form[f.key] ?? ''} type={f.type || 'text'}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} />
                 ))}
-                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
-                <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+                <button aria-label="Save" title="Save" onClick={save} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
+                <button onClick={() => setEditingId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
               </>
             ) : (
               <>
@@ -205,8 +205,8 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
                   {UNIT_BASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <input type="number" className={cn(inputCls, 'w-28')} value={form.default_rate} onChange={e => setForm(p => ({ ...p, default_rate: e.target.value }))} placeholder="Rate" />
-                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
-                <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+                <button aria-label="Save" title="Save" onClick={save} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
+                <button onClick={() => setEditingId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
               </>
             ) : (
               <>

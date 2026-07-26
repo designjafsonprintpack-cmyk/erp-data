@@ -83,8 +83,8 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
                 <input className={cn(inputCls, 'col-span-2')} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="CODE" />
                 <input className={cn(inputCls, 'col-span-3')} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Description" />
                 <div className="col-span-3 flex justify-end gap-1">
-                  <button onClick={save} disabled={loading} className="w-8 h-8 flex items-center justify-center rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90 disabled:opacity-50"><Check size={13} /></button>
-                  <button onClick={() => setEditingId(null)} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
+                  <button aria-label="Save" title="Save" onClick={save} disabled={loading} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90 disabled:opacity-50"><Check size={13} /></button>
+                  <button onClick={() => setEditingId(null)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
                 </div>
               </>
             ) : (
@@ -114,8 +114,8 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
             <input className={cn(inputCls, 'col-span-2')} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="CODE *" />
             <input className={cn(inputCls, 'col-span-3')} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Description" />
             <div className="col-span-3 flex justify-end gap-1">
-              <button onClick={save} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
-              <button onClick={() => setEditingId(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={save} disabled={loading} className="px-3 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              <button onClick={() => setEditingId(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             </div>
           </div>
         )}

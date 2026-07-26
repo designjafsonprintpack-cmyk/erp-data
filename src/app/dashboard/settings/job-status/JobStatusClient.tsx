@@ -28,8 +28,8 @@ function StatusRow({ status, onEdit, onDelete }: { status: JobStatus; onEdit: ()
         <span className="text-xs font-mono text-[var(--color-text-muted)] w-16">{status.color_hex}</span>
       </div>
       <div className="flex items-center gap-1">
-        <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-        {!status.is_system && <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>}
+        <button aria-label="Edit" title="Edit" onClick={onEdit} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
+        {!status.is_system && <button aria-label="Delete" title="Delete" onClick={onDelete} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>}
       </div>
     </div>
   )
@@ -130,9 +130,9 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                 <div key={status.id} className="flex items-center gap-3 px-5 py-3">
                   <input className={cn(inputCls, 'flex-1')} value={statusForm.name} onChange={e => setStatusForm(p => ({ ...p, name: e.target.value }))} placeholder="Status name" />
                   <input className={cn(inputCls, 'w-32')} value={statusForm.slug} onChange={e => setStatusForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/\s+/g, '_') }))} placeholder="slug" />
-                  <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-8 rounded border border-[var(--color-border)] cursor-pointer" />
-                  <button onClick={saveStatus} disabled={loading} className="w-8 h-8 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={13} /></button>
-                  <button onClick={() => setEditingStatusId(null)} className="w-8 h-8 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
+                  <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-11 md:h-8 rounded border border-[var(--color-border)] cursor-pointer" />
+                  <button aria-label="Save status" title="Save status" onClick={saveStatus} disabled={loading} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={13} /></button>
+                  <button onClick={() => setEditingStatusId(null)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
                 </div>
               ) : (
                 <StatusRow key={status.id} status={status}
@@ -144,9 +144,9 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
               <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
                 <input autoFocus className={cn(inputCls, 'flex-1')} value={statusForm.name} onChange={e => setStatusForm(p => ({ ...p, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '_') }))} placeholder="Status name *" />
                 <input className={cn(inputCls, 'w-32')} value={statusForm.slug} onChange={e => setStatusForm(p => ({ ...p, slug: e.target.value }))} placeholder="slug *" />
-                <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-8 rounded border border-[var(--color-border)] cursor-pointer" />
-                <button onClick={saveStatus} disabled={loading || !statusForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-                <button onClick={() => setEditingStatusId(null)} className="px-2.5 h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+                <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-11 md:h-8 rounded border border-[var(--color-border)] cursor-pointer" />
+                <button onClick={saveStatus} disabled={loading || !statusForm.name} className="px-3 h-11 md:h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+                <button onClick={() => setEditingStatusId(null)} className="px-2.5 h-11 md:h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
               </div>
             )}
           </div>
@@ -168,8 +168,8 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
               <select className={cn(inputCls, 'w-36 capitalize')} value={delayForm.category} onChange={e => setDelayForm(p => ({ ...p, category: e.target.value }))}>
                 {DELAY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button onClick={saveDelay} disabled={loading || !delayForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-              <button onClick={() => setEditingDelayId(null)} className="px-2.5 h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+              <button onClick={saveDelay} disabled={loading || !delayForm.name} className="px-3 h-11 md:h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+              <button onClick={() => setEditingDelayId(null)} className="px-2.5 h-11 md:h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
             </div>
           )}
 
@@ -187,15 +187,15 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                         <select className={cn(inputCls, 'w-32 capitalize')} value={delayForm.category} onChange={e => setDelayForm(p => ({ ...p, category: e.target.value }))}>
                           {DELAY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <button onClick={saveDelay} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
-                        <button onClick={() => setEditingDelayId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+                        <button aria-label="Save delay reason" title="Save delay reason" onClick={saveDelay} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
+                        <button onClick={() => setEditingDelayId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
                       </>
                     ) : (
                       <>
                         <span className="flex-1 text-sm text-[var(--color-text-primary)]">{d.name}</span>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { setDelayForm({ name: d.name, category: d.category }); setEditingDelayId(d.id) }} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-                          <button onClick={() => setDeleteTarget({ type: 'delay', id: d.id, name: d.name })} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
+                          <button onClick={() => { setDelayForm({ name: d.name, category: d.category }); setEditingDelayId(d.id) }} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
+                          <button onClick={() => setDeleteTarget({ type: 'delay', id: d.id, name: d.name })} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
                         </div>
                       </>
                     )}

@@ -151,7 +151,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
           {editingCompany ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Logo</label>
+                <label htmlFor="companysettingsclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Logo</label>
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex items-center justify-center overflow-hidden flex-shrink-0">
                     {company?.logo_url ? (
@@ -161,7 +161,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                       <ImageOff size={18} className="text-[var(--color-text-muted)]" />
                     )}
                   </div>
-                  <input ref={logoInputRef} type="file" accept=".png,.jpg,.jpeg,.svg,.webp" className="hidden"
+                  <input id="companysettingsclient-1" ref={logoInputRef} type="file" accept=".png,.jpg,.jpeg,.svg,.webp" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }} />
                   <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
                     className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors">
@@ -176,16 +176,16 @@ export default function CompanySettingsClient({ company: initialCompany, branche
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Company Name <span className="text-[var(--color-danger)]">*</span></label>
-                  <input className={inputCls} value={companyForm.name} onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))} placeholder="Jafson Print Pack" />
+                  <label htmlFor="companysettingsclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Company Name <span className="text-[var(--color-danger)]">*</span></label>
+                  <input id="companysettingsclient-2" className={inputCls} value={companyForm.name} onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))} placeholder="Jafson Print Pack" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">NTN Number</label>
-                  <input className={inputCls} value={companyForm.ntn} onChange={e => setCompanyForm(p => ({ ...p, ntn: e.target.value }))} placeholder="1234567-8" />
+                  <label htmlFor="companysettingsclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">NTN Number</label>
+                  <input id="companysettingsclient-3" className={inputCls} value={companyForm.ntn} onChange={e => setCompanyForm(p => ({ ...p, ntn: e.target.value }))} placeholder="1234567-8" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
-                  <input className={inputCls} value={companyForm.address} onChange={e => setCompanyForm(p => ({ ...p, address: e.target.value }))} placeholder="Lahore, Pakistan" />
+                  <label htmlFor="companysettingsclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
+                  <input id="companysettingsclient-4" className={inputCls} value={companyForm.address} onChange={e => setCompanyForm(p => ({ ...p, address: e.target.value }))} placeholder="Lahore, Pakistan" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -248,8 +248,8 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                 <div className="flex-1 flex items-center gap-3">
                   <input className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name" />
                   <input className={cn(inputCls, 'flex-1')} value={form.address ?? ''} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Address" />
-                  <button onClick={saveBranch} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50"><Check size={14} /></button>
-                  <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
+                  <button aria-label="Save branch" title="Save branch" onClick={saveBranch} disabled={loading} className="px-3 h-11 md:h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50"><Check size={14} /></button>
+                  <button onClick={() => setEditing(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
                 </div>
               ) : (
                 <>
@@ -286,8 +286,8 @@ export default function CompanySettingsClient({ company: initialCompany, branche
             <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
               <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name *" />
               <input className={cn(inputCls, 'flex-1')} value={form.address ?? ''} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Address (optional)" />
-              <button onClick={saveBranch} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
-              <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={saveBranch} disabled={loading || !form.name} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              <button onClick={() => setEditing(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             </div>
           )}
 
@@ -327,8 +327,8 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                       <option value="">No Branch</option>
                       {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
-                    <button onClick={saveWarehouse} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90"><Check size={14} /></button>
-                    <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
+                    <button aria-label="Save warehouse" title="Save warehouse" onClick={saveWarehouse} disabled={loading} className="px-3 h-11 md:h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90"><Check size={14} /></button>
+                    <button onClick={() => setEditing(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
                   </div>
                 ) : (
                   <>
@@ -363,8 +363,8 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                 <option value="">No Branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              <button onClick={saveWarehouse} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
-              <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={saveWarehouse} disabled={loading || !form.name} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              <button onClick={() => setEditing(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             </div>
           )}
 

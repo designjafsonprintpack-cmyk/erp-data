@@ -6,7 +6,7 @@ import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
-import { Modal } from '@/components/ui/Modal'
+import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 
 interface Vendor {
   id: string; vendor_code: string; name: string; contact_person: string | null
@@ -61,16 +61,16 @@ const VENDOR_COLUMNS = (
     key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
     render: v => (
       <span className="inline-flex items-center gap-1 justify-end">
-        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
+        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Receipt size={12} />
         </button>
-        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
+        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
           <Wallet size={12} />
         </button>
-        <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
+        <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Edit2 size={12} />
         </button>
-        <button onClick={() => onDelete(v)} title="Delete" aria-label="Delete vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
+        <button onClick={() => onDelete(v)} title="Delete" aria-label="Delete vendor" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
           <Trash2 size={12} />
         </button>
       </span>
@@ -126,13 +126,21 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
     finally { setLoading(false) }
   }
 
-  const deleteVendor = async (v: Vendor) => {
-    if (!confirm(`Delete ${v.name}?`)) return
+  // ConfirmDialog rather than native confirm() — matches the rest of the app
+  // and stays inside the theme instead of showing a browser-chrome alert.
+  const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null)
+  const [deletingVendor, setDeletingVendor] = useState(false)
+
+  const deleteVendor = async () => {
+    if (!deleteTarget) return
+    setDeletingVendor(true)
     try {
-      await fetch(`/api/v1/vendors/${v.id}`, { method: 'DELETE' })
-      setVendors(prev => prev.filter(x => x.id !== v.id))
+      await fetch(`/api/v1/vendors/${deleteTarget.id}`, { method: 'DELETE' })
+      setVendors(prev => prev.filter(x => x.id !== deleteTarget.id))
       toast.success('Vendor deleted')
+      setDeleteTarget(null)
     } catch { toast.error('Failed') }
+    finally { setDeletingVendor(false) }
   }
 
   const [ledgerVendor, setLedgerVendor] = useState<Vendor | null>(null)
@@ -188,7 +196,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       {/* Table */}
       <DataList<Vendor>
         rows={filtered}
-        columns={VENDOR_COLUMNS(setLedgerVendor, setPayVendor, openEdit, deleteVendor)}
+        columns={VENDOR_COLUMNS(setLedgerVendor, setPayVendor, openEdit, setDeleteTarget)}
         getRowId={v => v.id}
         stickyHeader
         empty={
@@ -203,7 +211,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       <Modal open={modal} onClose={() => setModal(false)} title={editVendor ? `Edit — ${editVendor.name}` : 'New Vendor'} size="md"
         footer={
           <>
-            <button onClick={() => setModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={save} disabled={loading || !form.name}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Saving…' : editVendor ? 'Save Changes' : 'Create Vendor'}
@@ -212,36 +220,36 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
         }>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
+            <label htmlFor="vendorsclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="vendorsclient-1" className={inputCls} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Contact Person</label>
-            <input className={inputCls} value={form.contact_person} onChange={e => setForm(p => ({ ...p, contact_person: e.target.value }))} placeholder="Mr. Ahmed" />
+            <label htmlFor="vendorsclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Contact Person</label>
+            <input id="vendorsclient-2" className={inputCls} value={form.contact_person} onChange={e => setForm(p => ({ ...p, contact_person: e.target.value }))} placeholder="Mr. Ahmed" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
-            <input className={inputCls} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+92 300 0000000" />
+            <label htmlFor="vendorsclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
+            <input id="vendorsclient-3" className={inputCls} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+92 300 0000000" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone</label>
-            <input className={inputCls} value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+92 42 0000000" />
+            <label htmlFor="vendorsclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Phone</label>
+            <input id="vendorsclient-4" className={inputCls} value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+92 42 0000000" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email</label>
-            <input type="email" className={inputCls} value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="vendor@email.com" />
+            <label htmlFor="vendorsclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Email</label>
+            <input id="vendorsclient-5" type="email" className={inputCls} value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="vendor@email.com" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">NTN</label>
-            <input className={inputCls} value={form.ntn} onChange={e => setForm(p => ({ ...p, ntn: e.target.value }))} placeholder="1234567-8" />
+            <label htmlFor="vendorsclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">NTN</label>
+            <input id="vendorsclient-6" className={inputCls} value={form.ntn} onChange={e => setForm(p => ({ ...p, ntn: e.target.value }))} placeholder="1234567-8" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
-            <input type="number" className={inputCls} value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: e.target.value }))} />
+            <label htmlFor="vendorsclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
+            <input id="vendorsclient-7" type="number" className={inputCls} value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: e.target.value }))} />
           </div>
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
-            <input className={inputCls} value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Vendor address" />
+            <label htmlFor="vendorsclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
+            <input id="vendorsclient-8" className={inputCls} value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Vendor address" />
           </div>
         </div>
       </Modal>
@@ -250,7 +258,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       <Modal open={!!payVendor} onClose={() => setPayVendor(null)} title={payVendor ? `Record Payment — ${payVendor.name}` : ''} size="sm"
         footer={
           <>
-            <button onClick={() => setPayVendor(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setPayVendor(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={recordPayment} disabled={payLoading || !payForm.amount}
               className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {payLoading ? 'Recording…' : 'Record Payment'}
@@ -259,16 +267,16 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
         }>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Amount (PKR) <span className="text-[var(--color-danger)]">*</span></label>
-            <input type="number" autoFocus className={inputCls} value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+            <label htmlFor="vendorsclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Amount (PKR) <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="vendorsclient-9" type="number" autoFocus className={inputCls} value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Date</label>
-            <input type="date" className={inputCls} value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} />
+            <label htmlFor="vendorsclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Date</label>
+            <input id="vendorsclient-10" type="date" className={inputCls} value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Method</label>
-            <select className={inputCls} value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}>
+            <label htmlFor="vendorsclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Method</label>
+            <select id="vendorsclient-11" className={inputCls} value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}>
               <option value="bank_transfer">Bank Transfer</option>
               <option value="cash">Cash</option>
               <option value="cheque">Cheque</option>
@@ -277,12 +285,12 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
             </select>
           </div>
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Reference (cheque #, bank ref…)</label>
-            <input className={inputCls} value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Optional" />
+            <label htmlFor="vendorsclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Reference (cheque #, bank ref…)</label>
+            <input id="vendorsclient-12" className={inputCls} value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Optional" />
           </div>
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional" />
+            <label htmlFor="vendorsclient-13" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="vendorsclient-13" className={inputCls} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional" />
           </div>
         </div>
       </Modal>
@@ -291,6 +299,16 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       <Modal open={!!ledgerVendor} onClose={() => setLedgerVendor(null)} title={ledgerVendor ? `Ledger — ${ledgerVendor.name}` : ''} size="lg">
         {ledgerVendor && <VendorLedgerView vendorId={ledgerVendor.id} />}
       </Modal>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={deleteVendor}
+        title="Delete vendor?"
+        message={deleteTarget ? `${deleteTarget.name} will be removed from the vendor list. Existing purchase orders and payments stay on record.` : ''}
+        confirmLabel="Delete vendor"
+        loading={deletingVendor}
+      />
+
     </div>
   )
 }
@@ -320,7 +338,7 @@ function VendorLedgerView({ vendorId }: { vendorId: string }) {
       ) : entries.length === 0 ? (
         <div className="py-10 text-center text-sm text-[var(--color-text-muted)]">No ledger activity yet. Purchase orders and payments for this vendor will appear here.</div>
       ) : (
-        <div className="max-h-96 overflow-y-auto overflow-x-auto">
+        <div className="max-h-96 overflow-y-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead className="sticky top-0 bg-[var(--color-bg-secondary)]">
               <tr className="text-left text-xs text-[var(--color-text-muted)] uppercase border-b border-[var(--color-border-subtle)]">
@@ -345,6 +363,7 @@ function VendorLedgerView({ vendorId }: { vendorId: string }) {
           </table>
         </div>
       )}
+
     </div>
   )
 }

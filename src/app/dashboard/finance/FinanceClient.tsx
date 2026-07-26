@@ -2,8 +2,7 @@
 import { useState } from 'react'
 import {
   FileText, Plus, DollarSign, TrendingUp, AlertTriangle, CheckCircle2,
-  ChevronDown, ChevronRight, Send, Trash2, CreditCard, Calculator, Sparkles
-} from 'lucide-react'
+  ChevronDown, ChevronRight, Send, Trash2, CreditCard, Calculator, Sparkles, Check} from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
@@ -371,7 +370,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                             <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Payments</p>
                             {(inv.payments || []).map(pay => (
                               <div key={pay.id} className="flex items-center justify-between text-xs">
-                                <span className="text-[var(--color-success)]">✓ {formatDate(pay.payment_date)} · {pay.payment_method.replace('_',' ')}</span>
+                                <span className="text-[var(--color-success)] inline-flex items-center gap-1"><Check size={11} className="flex-shrink-0" /> {formatDate(pay.payment_date)} · {pay.payment_method.replace('_',' ')}</span>
                                 <span className="font-semibold text-[var(--color-success)]">{PKR(pay.amount)}</span>
                               </div>
                             ))}
@@ -391,7 +390,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       <Modal open={invModal} onClose={() => setInvModal(false)} title="New Invoice" size="xl"
         footer={
           <>
-            <button onClick={() => setInvModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setInvModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createInvoice} disabled={loading || !invForm.customer_id}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <FileText size={14} /> {loading ? 'Creating…' : 'Create Invoice'}
@@ -401,19 +400,19 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={invForm.customer_id} onChange={e => setInvForm(p => ({ ...p, customer_id: e.target.value }))}>
+              <label htmlFor="financeclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="financeclient-1" className={inputCls} value={invForm.customer_id} onChange={e => setInvForm(p => ({ ...p, customer_id: e.target.value }))}>
                 <option value="">Select…</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.customer_code})</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Invoice Date</label>
-              <input type="date" className={inputCls} value={invForm.invoice_date} onChange={e => setInvForm(p => ({ ...p, invoice_date: e.target.value }))} />
+              <label htmlFor="financeclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Invoice Date</label>
+              <input id="financeclient-2" type="date" className={inputCls} value={invForm.invoice_date} onChange={e => setInvForm(p => ({ ...p, invoice_date: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (days)</label>
-              <input type="number" className={inputCls} value={invForm.payment_terms} onChange={e => setInvForm(p => ({ ...p, payment_terms: e.target.value }))} />
+              <label htmlFor="financeclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (days)</label>
+              <input id="financeclient-3" type="number" className={inputCls} value={invForm.payment_terms} onChange={e => setInvForm(p => ({ ...p, payment_terms: e.target.value }))} />
             </div>
           </div>
 
@@ -463,7 +462,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                 <div className="flex justify-between text-[var(--color-text-secondary)]"><span>Subtotal</span><span>{PKR(invSubtotal)}</span></div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-[var(--color-text-secondary)] flex-shrink-0">Discount %</span>
-                  <input type="number" className="w-20 h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none" value={invForm.discount_pct} onChange={e => setInvForm(p => ({ ...p, discount_pct: e.target.value }))} />
+                  <input type="number" className="w-20 h-11 md:h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none" value={invForm.discount_pct} onChange={e => setInvForm(p => ({ ...p, discount_pct: e.target.value }))} />
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-[var(--color-text-secondary)] flex-shrink-0">Tax</span>
@@ -478,7 +477,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                       <option value="">Custom %</option>
                       {taxes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.rate_percent}%)</option>)}
                     </select>
-                    <input type="number" className="w-16 h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none"
+                    <input type="number" className="w-16 h-11 md:h-8 px-2 rounded border text-sm text-right bg-[var(--color-bg-elevated)] border-[var(--color-border)] focus:outline-none"
                       value={invForm.tax_pct}
                       onChange={e => setInvForm(p => ({ ...p, tax_pct: e.target.value, tax_id: '' }))} />
                   </div>
@@ -490,12 +489,12 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-              <input className={inputCls} value={invForm.notes} onChange={e => setInvForm(p => ({ ...p, notes: e.target.value }))} placeholder="Invoice notes…" />
+              <label htmlFor="financeclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+              <input id="financeclient-4" className={inputCls} value={invForm.notes} onChange={e => setInvForm(p => ({ ...p, notes: e.target.value }))} placeholder="Invoice notes…" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms Text</label>
-              <input className={inputCls} value={invForm.terms} onChange={e => setInvForm(p => ({ ...p, terms: e.target.value }))} />
+              <label htmlFor="financeclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms Text</label>
+              <input id="financeclient-5" className={inputCls} value={invForm.terms} onChange={e => setInvForm(p => ({ ...p, terms: e.target.value }))} />
             </div>
           </div>
         </div>
@@ -506,7 +505,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
         <Modal open={true} onClose={() => setPayModal(null)} title={`Record Payment — ${payModal.invoice_number}`} size="md"
           footer={
             <>
-              <button onClick={() => setPayModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setPayModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={recordPayment} disabled={loading}
                 className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 <CreditCard size={14} /> {loading ? 'Saving…' : 'Record Payment'}
@@ -523,12 +522,12 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Amount (PKR) <span className="text-[var(--color-danger)]">*</span></label>
-                <input type="number" className={inputCls} value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+                <label htmlFor="financeclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Amount (PKR) <span className="text-[var(--color-danger)]">*</span></label>
+                <input id="financeclient-6" type="number" className={inputCls} value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Date</label>
-                <input type="date" className={inputCls} value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} />
+                <label htmlFor="financeclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Date</label>
+                <input id="financeclient-7" type="date" className={inputCls} value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -545,17 +544,17 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Reference / Cheque No.</label>
-                <input className={inputCls} value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Ref / TID / Cheque#" />
+                <label htmlFor="financeclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Reference / Cheque No.</label>
+                <input id="financeclient-8" className={inputCls} value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Ref / TID / Cheque#" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Bank Name</label>
-                <input className={inputCls} value={payForm.bank_name} onChange={e => setPayForm(p => ({ ...p, bank_name: e.target.value }))} placeholder="HBL / UBL / MCB…" />
+                <label htmlFor="financeclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Bank Name</label>
+                <input id="financeclient-9" className={inputCls} value={payForm.bank_name} onChange={e => setPayForm(p => ({ ...p, bank_name: e.target.value }))} placeholder="HBL / UBL / MCB…" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-              <input className={inputCls} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional payment notes" />
+              <label htmlFor="financeclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+              <input id="financeclient-10" className={inputCls} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional payment notes" />
             </div>
           </div>
         </Modal>
@@ -565,7 +564,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       <Modal open={costModal} onClose={() => setCostModal(false)} title="Job Costing Sheet" size="xl"
         footer={
           <>
-            <button onClick={() => setCostModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setCostModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={runAiCostSuggestion} disabled={aiCostLoading || !costJobId}
               className="flex items-center gap-2 px-4 h-9 rounded-md border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50 transition-colors">
               <Sparkles size={14} /> {aiCostLoading ? 'Checking…' : 'AI Suggest'}
@@ -578,8 +577,8 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={costJobId} onChange={e => {
+            <label htmlFor="financeclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="financeclient-11" className={inputCls} value={costJobId} onChange={e => {
               setCostJobId(e.target.value)
               const job = completedJobs.find(j => j.id === e.target.value)
               if (job?.quoted_amount) setCostForm(p => ({ ...p, quoted_amount: String(job.quoted_amount) }))
@@ -606,8 +605,8 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               { key: 'overhead_pct',    label: 'Overhead %' },
             ].map(f => (
               <div key={f.key} className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}</label>
-                <input type="number" className={inputCls} value={(costForm as any)[f.key]}
+                <label htmlFor="financeclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}</label>
+                <input id="financeclient-12" type="number" className={inputCls} value={(costForm as any)[f.key]}
                   onChange={e => setCostForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder="0" />
               </div>
             ))}
@@ -622,7 +621,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
             {costLines.map((l, i) => (
               <div key={i} className="flex gap-2 mb-1.5">
                 <input className={inputCls} value={l.description} onChange={e => setCostLines(p => p.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Description" />
-                <input type="number" className="w-32 h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors flex-shrink-0" value={l.amount} onChange={e => setCostLines(p => p.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} placeholder="PKR" />
+                <input type="number" className="w-32 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors flex-shrink-0" value={l.amount} onChange={e => setCostLines(p => p.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} placeholder="PKR" />
                 <button onClick={() => setCostLines(p => p.filter((_, j) => j !== i))} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] flex-shrink-0">✕</button>
               </div>
             ))}
@@ -689,8 +688,8 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Costing Notes</label>
-            <input className={inputCls} value={costForm.costing_notes} onChange={e => setCostForm(p => ({ ...p, costing_notes: e.target.value }))} placeholder="Notes about this costing…" />
+            <label htmlFor="financeclient-13" className="text-sm font-medium text-[var(--color-text-primary)]">Costing Notes</label>
+            <input id="financeclient-13" className={inputCls} value={costForm.costing_notes} onChange={e => setCostForm(p => ({ ...p, costing_notes: e.target.value }))} placeholder="Notes about this costing…" />
           </div>
         </div>
       </Modal>

@@ -181,12 +181,12 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
                   <div className="flex-1 flex items-center gap-3">
                     <input autoFocus className={cn(inputCls, 'flex-1')} value={stageForm.name} onChange={e => setStageForm(p => ({ ...p, name: e.target.value }))} placeholder="Stage name" />
                     <input className={cn(inputCls, 'w-28')} type="number" value={stageForm.estimated_hours} onChange={e => setStageForm(p => ({ ...p, estimated_hours: e.target.value }))} placeholder="Est. hours" />
-                    <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] cursor-pointer flex-shrink-0">
-                      <input type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} className="w-4 h-4" />
+                    <label htmlFor="workflowclient-1" className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] cursor-pointer flex-shrink-0">
+                      <input id="workflowclient-1" type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} className="w-4 h-4" />
                       Optional
                     </label>
-                    <button onClick={saveStage} disabled={loading} className="w-8 h-8 flex items-center justify-center rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={13} /></button>
-                    <button onClick={() => setEditingStageId(null)} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
+                    <button aria-label="Save stage" title="Save stage" onClick={saveStage} disabled={loading} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={13} /></button>
+                    <button onClick={() => setEditingStageId(null)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
                   </div>
                 ) : (
                   <>
@@ -222,12 +222,12 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
                 <div className="w-6 h-6 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-xs font-bold text-[var(--color-on-accent)] flex-shrink-0">{selected.workflow_stages.length + 1}</div>
                 <input autoFocus className={cn(inputCls, 'flex-1')} value={stageForm.name} onChange={e => setStageForm(p => ({ ...p, name: e.target.value }))} placeholder="Stage name *" />
                 <input className={cn(inputCls, 'w-28')} type="number" value={stageForm.estimated_hours} onChange={e => setStageForm(p => ({ ...p, estimated_hours: e.target.value }))} placeholder="Est. hours" />
-                <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] cursor-pointer flex-shrink-0">
-                  <input type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} className="w-4 h-4" />
+                <label htmlFor="workflowclient-2" className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)] cursor-pointer flex-shrink-0">
+                  <input id="workflowclient-2" type="checkbox" checked={stageForm.is_optional} onChange={e => setStageForm(p => ({ ...p, is_optional: e.target.checked }))} className="w-4 h-4" />
                   Optional
                 </label>
-                <button onClick={saveStage} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-                <button onClick={() => setEditingStageId(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+                <button onClick={saveStage} disabled={loading} className="px-3 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+                <button onClick={() => setEditingStageId(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
               </div>
             )}
 
@@ -249,18 +249,18 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
       <Modal open={tplModal} onClose={() => setTplModal(false)} title="New Workflow Template" size="sm"
         footer={
           <>
-            <button onClick={() => setTplModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
-            <button onClick={createTemplate} disabled={loading || !tplForm.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Create</button>
+            <button onClick={() => setTplModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={createTemplate} disabled={loading || !tplForm.name} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Create</button>
           </>
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Template Name *</label>
-            <input className={inputCls} value={tplForm.name} onChange={e => setTplForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Corrugated Box Workflow" />
+            <label htmlFor="workflowclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Template Name *</label>
+            <input id="workflowclient-3" className={inputCls} value={tplForm.name} onChange={e => setTplForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Corrugated Box Workflow" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
-            <input className={inputCls} value={tplForm.description} onChange={e => setTplForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
+            <label htmlFor="workflowclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Description</label>
+            <input id="workflowclient-4" className={inputCls} value={tplForm.description} onChange={e => setTplForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
           </div>
         </div>
       </Modal>

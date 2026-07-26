@@ -70,7 +70,7 @@ export function JobsKanban({ jobs, onStatusChange, thumbnails }: { jobs: Job[]; 
               <span className="text-xs text-[var(--color-text-muted)]">{colJobs.length}</span>
             </div>
 
-            <div className="p-2 space-y-2 min-h-24 max-h-[70vh] overflow-y-auto">
+            <div className="p-2 space-y-2 min-h-24 max-h-[70dvh] overflow-y-auto">
               {colJobs.map(job => {
                 const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
                 const days = daysLabel(job.required_date, job.status)

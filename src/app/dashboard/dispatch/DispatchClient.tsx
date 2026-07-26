@@ -495,7 +495,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                       {/* POD info */}
                       {hasPOD && pod && (
                         <div className="rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] p-3">
-                          <p className="text-xs font-semibold text-[var(--color-success)] mb-1">✓ Proof of Delivery</p>
+                          <p className="text-xs font-semibold text-[var(--color-success)] mb-1 flex items-center gap-1"><CheckCircle2 size={12} className="flex-shrink-0" /> Proof of Delivery</p>
                           <p className="text-xs text-[var(--color-text-secondary)]">Received by: <strong>{pod.received_by}</strong></p>
                           <p className="text-xs text-[var(--color-text-muted)]">Condition: {pod.condition} · {formatDateTime(pod.received_at)}</p>
                         </div>
@@ -520,7 +520,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
       <Modal open={newModal} onClose={() => setNewModal(false)} title="New Delivery Challan" size="xl"
         footer={
           <>
-            <button onClick={() => setNewModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setNewModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createDispatch} disabled={loading || !form.customer_id}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <FileText size={14} /> {loading ? 'Creating…' : 'Create Challan'}
@@ -531,8 +531,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           {/* Customer & Delivery */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={form.customer_id} onChange={e => {
+              <label htmlFor="dispatchclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Customer <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="dispatchclient-1" className={inputCls} value={form.customer_id} onChange={e => {
                 const c = customers.find(x => x.id === e.target.value)
                 setForm(p => ({ ...p, customer_id: e.target.value, delivery_address: c?.address || '', delivery_contact: '', delivery_phone: c?.mobile || c?.phone || '' }))
               }}>
@@ -541,24 +541,24 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Date</label>
-              <input type="date" className={inputCls} value={form.scheduled_date} onChange={e => setForm(p => ({ ...p, scheduled_date: e.target.value }))} />
+              <label htmlFor="dispatchclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Date</label>
+              <input id="dispatchclient-2" type="date" className={inputCls} value={form.scheduled_date} onChange={e => setForm(p => ({ ...p, scheduled_date: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Address</label>
-              <input className={inputCls} value={form.delivery_address} onChange={e => setForm(p => ({ ...p, delivery_address: e.target.value }))} placeholder="Full delivery address" />
+              <label htmlFor="dispatchclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Address</label>
+              <input id="dispatchclient-3" className={inputCls} value={form.delivery_address} onChange={e => setForm(p => ({ ...p, delivery_address: e.target.value }))} placeholder="Full delivery address" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
-              <input className={inputCls} value={form.delivery_city} onChange={e => setForm(p => ({ ...p, delivery_city: e.target.value }))} placeholder="Lahore" />
+              <label htmlFor="dispatchclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
+              <input id="dispatchclient-4" className={inputCls} value={form.delivery_city} onChange={e => setForm(p => ({ ...p, delivery_city: e.target.value }))} placeholder="Lahore" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Contact</label>
-              <input className={inputCls} value={form.delivery_contact} onChange={e => setForm(p => ({ ...p, delivery_contact: e.target.value }))} placeholder="Contact person name" />
+              <label htmlFor="dispatchclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Contact</label>
+              <input id="dispatchclient-5" className={inputCls} value={form.delivery_contact} onChange={e => setForm(p => ({ ...p, delivery_contact: e.target.value }))} placeholder="Contact person name" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Contact Phone</label>
-              <input className={inputCls} value={form.delivery_phone} onChange={e => setForm(p => ({ ...p, delivery_phone: e.target.value }))} placeholder="+92 300 0000000" />
+              <label htmlFor="dispatchclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Contact Phone</label>
+              <input id="dispatchclient-6" className={inputCls} value={form.delivery_phone} onChange={e => setForm(p => ({ ...p, delivery_phone: e.target.value }))} placeholder="+92 300 0000000" />
             </div>
           </div>
 
@@ -577,14 +577,14 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             {form.dispatch_method === 'own_vehicle' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Vehicle No.</label><input className={inputCls} value={form.vehicle_number} onChange={e => setForm(p => ({ ...p, vehicle_number: e.target.value }))} placeholder="LEA-0000" /></div>
-                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Driver Name</label><input className={inputCls} value={form.driver_name} onChange={e => setForm(p => ({ ...p, driver_name: e.target.value }))} placeholder="Driver name" /></div>
-                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Driver Phone</label><input className={inputCls} value={form.driver_phone} onChange={e => setForm(p => ({ ...p, driver_phone: e.target.value }))} placeholder="+92 300 0000000" /></div>
+                <div className="space-y-1.5"><label htmlFor="dispatchclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Driver Name</label><input className={inputCls} value={form.driver_name} onChange={e => setForm(p => ({ ...p, driver_name: e.target.value }))} placeholder="Driver name" /></div>
+                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Driver Phone</label><input id="dispatchclient-7" className={inputCls} value={form.driver_phone} onChange={e => setForm(p => ({ ...p, driver_phone: e.target.value }))} placeholder="+92 300 0000000" /></div>
               </div>
             )}
             {form.dispatch_method === 'courier' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Courier Name</label><input className={inputCls} value={form.courier_name} onChange={e => setForm(p => ({ ...p, courier_name: e.target.value }))} placeholder="TCS, Leopards, DHL…" /></div>
-                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Tracking Number</label><input className={inputCls} value={form.tracking_number} onChange={e => setForm(p => ({ ...p, tracking_number: e.target.value }))} placeholder="Tracking / waybill number" /></div>
+                <div className="space-y-1.5"><label htmlFor="dispatchclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Courier Name</label><input className={inputCls} value={form.courier_name} onChange={e => setForm(p => ({ ...p, courier_name: e.target.value }))} placeholder="TCS, Leopards, DHL…" /></div>
+                <div className="space-y-1.5"><label className="text-sm font-medium text-[var(--color-text-primary)]">Tracking Number</label><input id="dispatchclient-8" className={inputCls} value={form.tracking_number} onChange={e => setForm(p => ({ ...p, tracking_number: e.target.value }))} placeholder="Tracking / waybill number" /></div>
               </div>
             )}
           </div>
@@ -628,12 +628,12 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Charges (PKR)</label>
-              <input type="number" className={inputCls} value={form.delivery_charges} onChange={e => setForm(p => ({ ...p, delivery_charges: e.target.value }))} />
+              <label htmlFor="dispatchclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Charges (PKR)</label>
+              <input id="dispatchclient-9" type="number" className={inputCls} value={form.delivery_charges} onChange={e => setForm(p => ({ ...p, delivery_charges: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-              <input className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special delivery instructions" />
+              <label htmlFor="dispatchclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+              <input id="dispatchclient-10" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special delivery instructions" />
             </div>
           </div>
         </div>
@@ -646,7 +646,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           size="sm"
           footer={
             <>
-              <button onClick={() => setDispatchActionModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setDispatchActionModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={applyAction} disabled={loading}
                 className={cn('flex items-center gap-2 px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
                   dispatchActionModal.action === 'dispatch' ? 'bg-[var(--color-warning)] hover:opacity-90' :
@@ -665,8 +665,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               <p className="text-sm text-[var(--color-text-secondary)]">Driver: <strong>{dispatchActionModal.dispatch.driver_name}</strong> · {dispatchActionModal.dispatch.vehicle_number}</p>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
-              <input className={inputCls} value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Any additional notes…" />
+              <label htmlFor="dispatchclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Notes (optional)</label>
+              <input id="dispatchclient-11" className={inputCls} value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Any additional notes…" />
             </div>
           </div>
         </Modal>
@@ -677,7 +677,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
         <Modal open={true} onClose={() => setPodModal(null)} title="Record Proof of Delivery" size="md"
           footer={
             <>
-              <button onClick={() => setPodModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setPodModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={submitPOD} disabled={loading || !podForm.received_by}
                 className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 <CheckCircle2 size={14} /> {loading ? 'Saving…' : 'Confirm Delivery'}
@@ -692,8 +692,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Received By <span className="text-[var(--color-danger)]">*</span></label>
-              <input className={inputCls} value={podForm.received_by} onChange={e => setPodForm(p => ({ ...p, received_by: e.target.value }))} placeholder="Name of person who received the goods" />
+              <label htmlFor="dispatchclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Received By <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="dispatchclient-12" className={inputCls} value={podForm.received_by} onChange={e => setPodForm(p => ({ ...p, received_by: e.target.value }))} placeholder="Name of person who received the goods" />
             </div>
 
             <div className="space-y-1.5">
@@ -715,19 +715,19 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
 
             {podForm.condition !== 'good' && (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Damage Notes</label>
-                <input className={inputCls} value={podForm.damage_notes} onChange={e => setPodForm(p => ({ ...p, damage_notes: e.target.value }))} placeholder="Describe the damage or partial delivery…" />
+                <label htmlFor="dispatchclient-13" className="text-sm font-medium text-[var(--color-text-primary)]">Damage Notes</label>
+                <input id="dispatchclient-13" className={inputCls} value={podForm.damage_notes} onChange={e => setPodForm(p => ({ ...p, damage_notes: e.target.value }))} placeholder="Describe the damage or partial delivery…" />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Photo URL (optional)</label>
-              <input className={inputCls} value={podForm.photo_url} onChange={e => setPodForm(p => ({ ...p, photo_url: e.target.value }))} placeholder="Paste Supabase Storage URL of delivery photo" />
+              <label htmlFor="dispatchclient-14" className="text-sm font-medium text-[var(--color-text-primary)]">Photo URL (optional)</label>
+              <input id="dispatchclient-14" className={inputCls} value={podForm.photo_url} onChange={e => setPodForm(p => ({ ...p, photo_url: e.target.value }))} placeholder="Paste Supabase Storage URL of delivery photo" />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Additional Notes</label>
-              <input className={inputCls} value={podForm.notes} onChange={e => setPodForm(p => ({ ...p, notes: e.target.value }))} placeholder="Any remarks about delivery…" />
+              <label htmlFor="dispatchclient-15" className="text-sm font-medium text-[var(--color-text-primary)]">Additional Notes</label>
+              <input id="dispatchclient-15" className={inputCls} value={podForm.notes} onChange={e => setPodForm(p => ({ ...p, notes: e.target.value }))} placeholder="Any remarks about delivery…" />
             </div>
           </div>
         </Modal>

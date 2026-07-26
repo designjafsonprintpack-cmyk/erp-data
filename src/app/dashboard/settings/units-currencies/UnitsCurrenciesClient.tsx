@@ -70,8 +70,8 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
               <>
                 {columns.map(c => <input key={c.key} className={cn(inputCls, c.width)} value={form[c.key] ?? ''} type={c.type || 'text'} onChange={e => setForm(p => ({ ...p, [c.key]: e.target.value }))} placeholder={c.placeholder} />)}
                 <div className="w-16 flex justify-end gap-1">
-                  <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
-                  <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
+                  <button aria-label="Save" title="Save" onClick={save} disabled={loading} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
+                  <button onClick={() => setEditingId(null)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
                 </div>
               </>
             ) : (
@@ -89,8 +89,8 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
                   </div>
                 ))}
                 <div className="w-16 flex justify-end gap-1">
-                  <button onClick={() => { setForm(Object.fromEntries(columns.map(c => [c.key, String(item[c.key] ?? '')]))); setEditingId(item.id) }} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-                  <button onClick={() => setDeleteTarget(item)} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
+                  <button onClick={() => { setForm(Object.fromEntries(columns.map(c => [c.key, String(item[c.key] ?? '')]))); setEditingId(item.id) }} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
+                  <button onClick={() => setDeleteTarget(item)} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
                 </div>
               </>
             )}
@@ -100,8 +100,8 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
           <div className="flex items-center gap-3 px-5 py-2.5 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
             {columns.map((c, i) => <input key={c.key} autoFocus={i === 0} className={cn(inputCls, c.width)} value={form[c.key] ?? ''} type={c.type || 'text'} onChange={e => setForm(p => ({ ...p, [c.key]: e.target.value }))} placeholder={c.placeholder + ' *'} />)}
             <div className="w-16 flex justify-end gap-1">
-              <button onClick={save} disabled={loading} className="px-2.5 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-              <button onClick={() => setEditingId(null)} className="px-2 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+              <button onClick={save} disabled={loading} className="px-2.5 h-11 md:h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+              <button onClick={() => setEditingId(null)} className="px-2 h-11 md:h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]">Cancel</button>
             </div>
           </div>
         )}

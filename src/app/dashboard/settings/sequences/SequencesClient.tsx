@@ -61,12 +61,12 @@ export default function SequencesClient({ sequences, companyId }: { sequences: S
                   {isEditing ? (
                     <div className="flex items-center gap-3">
                       <div className="space-y-1">
-                        <label className="text-xs text-[var(--color-text-muted)]">Prefix</label>
-                        <input className={cn(inputCls, 'w-28')} value={form.prefix} onChange={e => setForm(p => ({ ...p, prefix: e.target.value.toUpperCase() }))} placeholder="PREFIX" />
+                        <label htmlFor="sequencesclient-1" className="text-xs text-[var(--color-text-muted)]">Prefix</label>
+                        <input id="sequencesclient-1" className={cn(inputCls, 'w-28')} value={form.prefix} onChange={e => setForm(p => ({ ...p, prefix: e.target.value.toUpperCase() }))} placeholder="PREFIX" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs text-[var(--color-text-muted)]">Padding (digits)</label>
-                        <input className={cn(inputCls, 'w-24')} type="number" min="3" max="8" value={form.padding} onChange={e => setForm(p => ({ ...p, padding: e.target.value }))} />
+                        <label htmlFor="sequencesclient-2" className="text-xs text-[var(--color-text-muted)]">Padding (digits)</label>
+                        <input id="sequencesclient-2" className={cn(inputCls, 'w-24')} type="number" min="3" max="8" value={form.padding} onChange={e => setForm(p => ({ ...p, padding: e.target.value }))} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-[var(--color-text-muted)]">Preview</label>
@@ -100,8 +100,8 @@ export default function SequencesClient({ sequences, companyId }: { sequences: S
                 <div className="flex items-center gap-1 mt-1">
                   {isEditing ? (
                     <>
-                      <button onClick={() => save(seq)} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50 transition-colors"><Check size={13} /> Save</button>
-                      <button onClick={() => setEditingType(null)} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors"><X size={13} /></button>
+                      <button onClick={() => save(seq)} disabled={loading} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50 transition-colors"><Check size={13} /> Save</button>
+                      <button onClick={() => setEditingType(null)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors"><X size={13} /></button>
                     </>
                   ) : (
                     <button onClick={() => { setForm({ prefix: seq.prefix, padding: String(seq.padding) }); setEditingType(seq.document_type) }}

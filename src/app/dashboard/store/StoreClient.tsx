@@ -357,7 +357,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
       <Modal open={newMRNModal} onClose={() => setNewMRNModal(false)} title="New Material Requisition" size="lg"
         footer={
           <>
-            <button onClick={() => setNewMRNModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setNewMRNModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createMRN} disabled={loading}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create MRN'}
@@ -367,15 +367,15 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Link to Job</label>
-              <select className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
+              <label htmlFor="storeclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Link to Job</label>
+              <select id="storeclient-1" className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
                 <option value="">No job (general requisition)</option>
                 {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Required By</label>
-              <input type="date" className={inputCls} value={form.required_date} onChange={e => setForm(p => ({ ...p, required_date: e.target.value }))} />
+              <label htmlFor="storeclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Required By</label>
+              <input id="storeclient-2" type="date" className={inputCls} value={form.required_date} onChange={e => setForm(p => ({ ...p, required_date: e.target.value }))} />
             </div>
           </div>
 
@@ -414,8 +414,8 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes" />
+            <label htmlFor="storeclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="storeclient-3" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes" />
           </div>
         </div>
       </Modal>
@@ -425,7 +425,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
         <Modal open={true} onClose={() => setIssueModal(null)} title={`Issue Materials — ${issueModal.mrn_number}`} size="md"
           footer={
             <>
-              <button onClick={() => setIssueModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setIssueModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={issueMaterials} disabled={loading}
                 className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Issuing…' : 'Issue Materials'}

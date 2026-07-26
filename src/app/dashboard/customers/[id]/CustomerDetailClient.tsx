@@ -168,24 +168,24 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   { key: 'payment_terms', label: 'Payment Terms (Days)', type: 'number' },
                 ].map(f => (
                   <div key={f.key} className="space-y-1.5">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}{f.req && <span className="text-[var(--color-danger)]"> *</span>}</label>
-                    <input className={inputCls} type={f.type || 'text'} value={(infoForm as any)[f.key]} onChange={e => setInfoForm(p => ({ ...p, [f.key]: e.target.value }))} />
+                    <label htmlFor="customerdetailclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}{f.req && <span className="text-[var(--color-danger)]"> *</span>}</label>
+                    <input id="customerdetailclient-1" className={inputCls} type={f.type || 'text'} value={(infoForm as any)[f.key]} onChange={e => setInfoForm(p => ({ ...p, [f.key]: e.target.value }))} />
                   </div>
                 ))}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
-                  <select className={inputCls} value={infoForm.industry} onChange={e => setInfoForm(p => ({ ...p, industry: e.target.value }))}>
+                  <label htmlFor="customerdetailclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
+                  <select id="customerdetailclient-2" className={inputCls} value={infoForm.industry} onChange={e => setInfoForm(p => ({ ...p, industry: e.target.value }))}>
                     <option value="">Select</option>
                     {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Website</label>
-                  <input className={inputCls} value={infoForm.website} onChange={e => setInfoForm(p => ({ ...p, website: e.target.value }))} />
+                  <label htmlFor="customerdetailclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Website</label>
+                  <input id="customerdetailclient-3" className={inputCls} value={infoForm.website} onChange={e => setInfoForm(p => ({ ...p, website: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Lead Source</label>
-                  <select className={inputCls} value={infoForm.lead_source} onChange={e => setInfoForm(p => ({ ...p, lead_source: e.target.value }))}>
+                  <label htmlFor="customerdetailclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Lead Source</label>
+                  <select id="customerdetailclient-4" className={inputCls} value={infoForm.lead_source} onChange={e => setInfoForm(p => ({ ...p, lead_source: e.target.value }))}>
                     <option value="">Select</option>
                     <option value="referral">Referral</option>
                     <option value="website">Website</option>
@@ -197,12 +197,12 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-                  <textarea className={cn(inputCls, 'h-20 resize-none py-2')} value={infoForm.notes} onChange={e => setInfoForm(p => ({ ...p, notes: e.target.value }))} />
+                  <label htmlFor="customerdetailclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+                  <textarea id="customerdetailclient-5" className={cn(inputCls, 'h-20 resize-none py-2')} value={infoForm.notes} onChange={e => setInfoForm(p => ({ ...p, notes: e.target.value }))} />
                 </div>
                 <div className="col-span-2 flex gap-2">
-                  <button onClick={saveInfo} disabled={loading} className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"><Check size={14} /> Save</button>
-                  <button onClick={() => setEditingInfo(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+                  <button onClick={saveInfo} disabled={loading} className="flex items-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"><Check size={14} /> Save</button>
+                  <button onClick={() => setEditingInfo(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
                 </div>
               </div>
             ) : (
@@ -273,8 +273,8 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                 {['name', 'designation', 'email', 'phone', 'mobile'].map((k, i) => (
                   <input key={k} autoFocus={i === 0} className={cn(inputCls, 'flex-1')} value={newContact[k] ?? ''} onChange={e => setNewContact(p => ({ ...p!, [k]: e.target.value }))} placeholder={k.charAt(0).toUpperCase() + k.slice(1) + (k === 'name' ? ' *' : '')} />
                 ))}
-                <button onClick={saveContact} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-                <button onClick={() => setNewContact(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+                <button onClick={saveContact} disabled={loading} className="px-3 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+                <button onClick={() => setNewContact(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
               </div>
             )}
             {contacts.length === 0 && !newContact && <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">No contacts added yet.</div>}
@@ -327,8 +327,8 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                 <input className={inputCls} value={newAddress.address_line1} onChange={e => setNewAddress(p => ({ ...p!, address_line1: e.target.value }))} placeholder="Address Line 1 *" />
                 <input className={inputCls} value={newAddress.address_line2} onChange={e => setNewAddress(p => ({ ...p!, address_line2: e.target.value }))} placeholder="Address Line 2 (optional)" />
                 <div className="flex gap-2">
-                  <button onClick={saveAddress} disabled={loading} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Address</button>
-                  <button onClick={() => setNewAddress(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+                  <button onClick={saveAddress} disabled={loading} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Address</button>
+                  <button onClick={() => setNewAddress(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
                 </div>
               </div>
             )}
@@ -444,11 +444,11 @@ function PortalAccessCard({ customerId }: { customerId: string }) {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {link && (
-            <button onClick={revoke} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)] disabled:opacity-50 transition-colors">
+            <button onClick={revoke} disabled={loading} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)] disabled:opacity-50 transition-colors">
               <ShieldOff size={13} /> Revoke
             </button>
           )}
-          <button onClick={generate} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          <button onClick={generate} disabled={loading} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <Copy size={13} /> {link ? 'Regenerate & Copy' : 'Generate & Copy Link'}
           </button>
         </div>
@@ -534,8 +534,8 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
           </div>
           <textarea className={cn(inputCls, 'h-16 resize-none py-2')} value={newActivity.notes} onChange={e => setNewActivity(p => ({ ...p!, notes: e.target.value }))} placeholder="Notes (optional)" />
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
-            <button onClick={() => setNewActivity(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+            <button onClick={save} disabled={saving} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+            <button onClick={() => setNewActivity(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
           </div>
         </div>
       )}

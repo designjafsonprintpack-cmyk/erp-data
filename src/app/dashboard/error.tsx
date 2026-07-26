@@ -19,7 +19,7 @@ export default function DashboardError({
   }, [error])
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="min-h-[60dvh] flex items-center justify-center">
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-10 text-center max-w-md">
         <AlertTriangle size={36} className="text-[var(--color-danger)] mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Something went wrong</h2>

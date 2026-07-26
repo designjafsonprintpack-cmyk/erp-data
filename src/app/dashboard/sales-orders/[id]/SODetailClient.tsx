@@ -71,7 +71,7 @@ export default function SODetailClient({ so }: { so: SO }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <Printer size={14} /> Print
           </button>
           {!['cancelled', 'dispatched'].includes(so.status) && (
@@ -80,7 +80,7 @@ export default function SODetailClient({ so }: { so: SO }) {
             </Link>
           )}
           {!['cancelled', 'dispatched', 'completed'].includes(so.status) && (
-            <button onClick={() => setCancelOpen(true)} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
+            <button onClick={() => setCancelOpen(true)} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
               <XCircle size={14} /> Cancel
             </button>
           )}

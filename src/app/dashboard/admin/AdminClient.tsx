@@ -100,7 +100,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
                     <label className="text-sm font-medium text-[var(--color-text-primary)] capitalize">
                       {item.key.replace(/_/g, ' ')}
                       {dirty[item.key] !== undefined && (
-                        <span className="ml-1.5 text-xs text-[var(--color-warning)]">●</span>
+                        <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] align-middle" aria-hidden="true" />
                       )}
                     </label>
                     {['true','false'].includes(item.value) ? (

@@ -306,7 +306,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
       <Modal open={newPOModal} onClose={() => setNewPOModal(false)} title="New Purchase Order" size="xl"
         footer={
           <>
-            <button onClick={() => setNewPOModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setNewPOModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createPO} disabled={loading || !poForm.vendor_id}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create PO'}
@@ -316,19 +316,19 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={poForm.vendor_id} onChange={e => setPOForm(p => ({ ...p, vendor_id: e.target.value }))}>
+              <label htmlFor="purchaseclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="purchaseclient-1" className={inputCls} value={poForm.vendor_id} onChange={e => setPOForm(p => ({ ...p, vendor_id: e.target.value }))}>
                 <option value="">Select vendor…</option>
                 {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.vendor_code})</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Order Date</label>
-              <input type="date" className={inputCls} value={poForm.order_date} onChange={e => setPOForm(p => ({ ...p, order_date: e.target.value }))} />
+              <label htmlFor="purchaseclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Order Date</label>
+              <input id="purchaseclient-2" type="date" className={inputCls} value={poForm.order_date} onChange={e => setPOForm(p => ({ ...p, order_date: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Expected Date</label>
-              <input type="date" className={inputCls} value={poForm.expected_date} onChange={e => setPOForm(p => ({ ...p, expected_date: e.target.value }))} />
+              <label htmlFor="purchaseclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Expected Date</label>
+              <input id="purchaseclient-3" type="date" className={inputCls} value={poForm.expected_date} onChange={e => setPOForm(p => ({ ...p, expected_date: e.target.value }))} />
             </div>
           </div>
 
@@ -369,7 +369,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                 <div className="flex justify-between text-[var(--color-text-secondary)]"><span>Subtotal</span><span>PKR {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-[var(--color-text-secondary)] flex-shrink-0">Tax %</span>
-                  <input type="number" className="w-20 h-8 px-2.5 rounded border text-sm text-right bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none transition-colors" value={poForm.tax_rate} onChange={e => setPOForm(p => ({ ...p, tax_rate: e.target.value }))} />
+                  <input type="number" className="w-20 h-11 md:h-8 px-2.5 rounded border text-sm text-right bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none transition-colors" value={poForm.tax_rate} onChange={e => setPOForm(p => ({ ...p, tax_rate: e.target.value }))} />
                 </div>
                 <div className="flex justify-between font-bold text-[var(--color-text-primary)] pt-1 border-t border-[var(--color-border)]"><span>Total</span><span>PKR {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               </div>
@@ -378,12 +378,12 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-              <input className={inputCls} value={poForm.notes} onChange={e => setPOForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special instructions" />
+              <label htmlFor="purchaseclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+              <input id="purchaseclient-4" className={inputCls} value={poForm.notes} onChange={e => setPOForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special instructions" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Terms</label>
-              <input className={inputCls} value={poForm.terms} onChange={e => setPOForm(p => ({ ...p, terms: e.target.value }))} placeholder="Payment terms" />
+              <label htmlFor="purchaseclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Terms</label>
+              <input id="purchaseclient-5" className={inputCls} value={poForm.terms} onChange={e => setPOForm(p => ({ ...p, terms: e.target.value }))} placeholder="Payment terms" />
             </div>
           </div>
         </div>
@@ -394,7 +394,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
         <Modal open={true} onClose={() => setReceiveModal(null)} title={`Receive Goods — ${receiveModal.po_number}`} size="md"
           footer={
             <>
-              <button onClick={() => setReceiveModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setReceiveModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={receiveGoods} disabled={loading}
                 className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Processing…' : 'Receive Goods'}
@@ -424,7 +424,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
       <Modal open={newVendorModal} onClose={() => setNewVendorModal(false)} title="New Vendor" size="md"
         footer={
           <>
-            <button onClick={() => setNewVendorModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setNewVendorModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createVendor} disabled={loading || !vendorForm.name}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Vendor'}
@@ -433,8 +433,8 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
         }>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
-            <input className={inputCls} value={vendorForm.name} onChange={e => setVendorForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
+            <label htmlFor="purchaseclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor Name <span className="text-[var(--color-danger)]">*</span></label>
+            <input id="purchaseclient-6" className={inputCls} value={vendorForm.name} onChange={e => setVendorForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Paper Mart Pakistan" />
           </div>
           {[
             { key: 'contact_person', label: 'Contact Person', placeholder: 'Mr. Ahmed' },
@@ -443,21 +443,21 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             { key: 'email', label: 'Email', placeholder: 'sales@vendor.com' },
           ].map(f => (
             <div key={f.key} className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}</label>
-              <input className={inputCls} value={(vendorForm as any)[f.key]} onChange={e => setVendorForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} />
+              <label htmlFor="purchaseclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">{f.label}</label>
+              <input id="purchaseclient-7" className={inputCls} value={(vendorForm as any)[f.key]} onChange={e => setVendorForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} />
             </div>
           ))}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">NTN</label>
-            <input className={inputCls} value={vendorForm.ntn} onChange={e => setVendorForm(p => ({ ...p, ntn: e.target.value }))} placeholder="Tax number" />
+            <label htmlFor="purchaseclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">NTN</label>
+            <input id="purchaseclient-8" className={inputCls} value={vendorForm.ntn} onChange={e => setVendorForm(p => ({ ...p, ntn: e.target.value }))} placeholder="Tax number" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
-            <input type="number" className={inputCls} value={vendorForm.payment_terms} onChange={e => setVendorForm(p => ({ ...p, payment_terms: e.target.value }))} />
+            <label htmlFor="purchaseclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
+            <input id="purchaseclient-9" type="number" className={inputCls} value={vendorForm.payment_terms} onChange={e => setVendorForm(p => ({ ...p, payment_terms: e.target.value }))} />
           </div>
           <div className="col-span-2 space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
-            <input className={inputCls} value={vendorForm.address} onChange={e => setVendorForm(p => ({ ...p, address: e.target.value }))} placeholder="Vendor address" />
+            <label htmlFor="purchaseclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Address</label>
+            <input id="purchaseclient-10" className={inputCls} value={vendorForm.address} onChange={e => setVendorForm(p => ({ ...p, address: e.target.value }))} placeholder="Vendor address" />
           </div>
         </div>
       </Modal>
@@ -553,7 +553,7 @@ function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
       </div>
 
       {!billForm ? (
-        <button onClick={startBill} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+        <button onClick={startBill} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           Record Vendor Bill
         </button>
       ) : (
@@ -574,8 +574,8 @@ function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={saveBill} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Bill</button>
-            <button onClick={() => setBillForm(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
+            <button onClick={saveBill} disabled={saving} className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Bill</button>
+            <button onClick={() => setBillForm(null)} className="px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
           </div>
         </div>
       )}

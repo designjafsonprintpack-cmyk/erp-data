@@ -166,7 +166,7 @@ export default function ThemesPage() {
             </button>
             <button onClick={saveCustom}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 transition-colors">
-              <Save size={14} /> {saved ? 'Saved! ✓' : 'Save Colors'}
+              <Save size={14} /> {saved ? 'Saved!' : 'Save Colors'}
             </button>
           </>
         )}

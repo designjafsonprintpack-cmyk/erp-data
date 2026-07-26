@@ -434,7 +434,7 @@ export default function FloorDashboardClient({
       <Modal open={assignModal} onClose={() => setAssignModal(false)} title="Assign Job to Machine" size="md"
         footer={
           <>
-            <button onClick={() => setAssignModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={() => setAssignModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={assign} disabled={loading || !assignForm.job_id || !assignForm.machine_id}
               className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Cpu size={14} /> {loading ? 'Assigning…' : 'Assign to Machine'}
@@ -443,8 +443,8 @@ export default function FloorDashboardClient({
         }>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={assignForm.job_id} onChange={e => setAssignForm(p => ({ ...p, job_id: e.target.value, stage_progress_id: '' }))}>
+            <label htmlFor="floordashboardclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="floordashboardclient-1" className={inputCls} value={assignForm.job_id} onChange={e => setAssignForm(p => ({ ...p, job_id: e.target.value, stage_progress_id: '' }))}>
               <option value="">Select job…</option>
               {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title} ({j.customers?.name})</option>)}
             </select>
@@ -452,8 +452,8 @@ export default function FloorDashboardClient({
 
           {pendingStages.length > 0 && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Stage (optional)</label>
-              <select className={inputCls} value={assignForm.stage_progress_id} onChange={e => setAssignForm(p => ({ ...p, stage_progress_id: e.target.value }))}>
+              <label htmlFor="floordashboardclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Stage (optional)</label>
+              <select id="floordashboardclient-2" className={inputCls} value={assignForm.stage_progress_id} onChange={e => setAssignForm(p => ({ ...p, stage_progress_id: e.target.value }))}>
                 <option value="">No specific stage</option>
                 {pendingStages.map(s => (
                   <option key={s.id} value={s.id}>
@@ -465,8 +465,8 @@ export default function FloorDashboardClient({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine <span className="text-[var(--color-danger)]">*</span></label>
-            <select className={inputCls} value={assignForm.machine_id} onChange={e => setAssignForm(p => ({ ...p, machine_id: e.target.value }))}>
+            <label htmlFor="floordashboardclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Machine <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="floordashboardclient-3" className={inputCls} value={assignForm.machine_id} onChange={e => setAssignForm(p => ({ ...p, machine_id: e.target.value }))}>
               <option value="">Select machine…</option>
               {allMachines.filter(m => !m.assignment_status || m.assignment_status === 'queued').map(m => (
                 <option key={m.machine_id} value={m.machine_id}>
@@ -478,28 +478,28 @@ export default function FloorDashboardClient({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Operator</label>
-              <select className={inputCls} value={assignForm.operator_id} onChange={e => setAssignForm(p => ({ ...p, operator_id: e.target.value }))}>
+              <label htmlFor="floordashboardclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Operator</label>
+              <select id="floordashboardclient-4" className={inputCls} value={assignForm.operator_id} onChange={e => setAssignForm(p => ({ ...p, operator_id: e.target.value }))}>
                 <option value="">Unassigned</option>
                 {operators.map(op => <option key={op.id} value={op.id}>{op.full_name}{op.employee_code ? ` (${op.employee_code})` : ''}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Estimated Time (mins)</label>
-              <input type="number" className={inputCls} value={assignForm.estimated_minutes}
+              <label htmlFor="floordashboardclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Estimated Time (mins)</label>
+              <input id="floordashboardclient-5" type="number" className={inputCls} value={assignForm.estimated_minutes}
                 onChange={e => setAssignForm(p => ({ ...p, estimated_minutes: e.target.value }))} placeholder="e.g. 120" />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Start</label>
-            <input type="datetime-local" className={inputCls} value={assignForm.scheduled_start}
+            <label htmlFor="floordashboardclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Start</label>
+            <input id="floordashboardclient-6" type="datetime-local" className={inputCls} value={assignForm.scheduled_start}
               onChange={e => setAssignForm(p => ({ ...p, scheduled_start: e.target.value }))} />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
-            <input className={inputCls} value={assignForm.notes} onChange={e => setAssignForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special instructions…" />
+            <label htmlFor="floordashboardclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="floordashboardclient-7" className={inputCls} value={assignForm.notes} onChange={e => setAssignForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special instructions…" />
           </div>
         </div>
       </Modal>
@@ -518,7 +518,7 @@ export default function FloorDashboardClient({
           size="sm"
           footer={
             <>
-              <button onClick={() => setActionModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={() => setActionModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={applyAction} disabled={loading}
                 className={cn('px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
                   actionModal.action === 'complete' ? 'bg-[var(--color-success)] hover:opacity-90' :
@@ -538,17 +538,17 @@ export default function FloorDashboardClient({
 
             {actionModal.action === 'complete' && (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Completed</label>
-                <input type="number" className={inputCls} value={actionQty} onChange={e => setActionQty(e.target.value)}
+                <label htmlFor="floordashboardclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity Completed</label>
+                <input id="floordashboardclient-8" type="number" className={inputCls} value={actionQty} onChange={e => setActionQty(e.target.value)}
                   placeholder={String(actionModal.assignment.jobs?.quantity ?? '')} />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              <label htmlFor="floordashboardclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">
                 {actionModal.action === 'issue' ? 'Issue Description *' : 'Notes (optional)'}
               </label>
-              <input className={inputCls} value={actionNotes} onChange={e => setActionNotes(e.target.value)}
+              <input id="floordashboardclient-9" className={inputCls} value={actionNotes} onChange={e => setActionNotes(e.target.value)}
                 placeholder={
                   actionModal.action === 'pause'    ? 'Reason for pausing…' :
                   actionModal.action === 'issue'    ? 'Describe the problem…' :

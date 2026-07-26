@@ -186,8 +186,8 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
       <Modal open={convertModal} onClose={() => setConvertModal(false)} title="Convert to Sales Order" size="sm"
         footer={
           <>
-            <button onClick={() => setConvertModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
-            <button onClick={convertToSO} disabled={loading} className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+            <button onClick={() => setConvertModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={convertToSO} disabled={loading} className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               <ArrowRight size={14} /> {loading ? 'Converting…' : 'Convert to SO'}
             </button>
           </>
@@ -197,8 +197,8 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
             This will create a Sales Order from quotation <strong>{qt.quotation_number}</strong> and mark it as converted.
           </p>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Required Delivery Date</label>
-            <input type="date" value={requiredDate} onChange={e => setRequiredDate(e.target.value)}
+            <label htmlFor="quotationdetailclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Required Delivery Date</label>
+            <input id="quotationdetailclient-1" type="date" value={requiredDate} onChange={e => setRequiredDate(e.target.value)}
               className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors" />
           </div>
         </div>

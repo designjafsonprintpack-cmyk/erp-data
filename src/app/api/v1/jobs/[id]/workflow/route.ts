@@ -115,6 +115,36 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     }
   }
 
+  // ─── QC gate (migration 092) ────────────────────────────────────────────────
+  // The QC stage cannot be marked complete until this job has an inspection on
+  // record that passed. 'conditional_pass' counts — the shop legitimately
+  // releases a lot with a noted reservation — but a 'fail' or no inspection at
+  // all does not. Same shape as the artwork and MRN gates above: QC used to be
+  // a document someone had to remember, and a job could reach Dispatch with
+  // nothing inspected.
+  if (action === 'complete' && targetStageType === 'qc') {
+    const { data: inspections } = await supabase
+      .from('qc_inspections' as any)
+      .select('result')
+      .eq('job_id', jobId)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+
+    const rows = (inspections ?? []) as any[]
+    const passed = rows.some(i => i.result === 'pass' || i.result === 'conditional_pass')
+
+    if (!passed) {
+      return NextResponse.json(
+        {
+          error: rows.length === 0
+            ? `Cannot complete "${targetStageName}" — no QC inspection has been recorded for this job yet.`
+            : `Cannot complete "${targetStageName}" — this job's QC inspection did not pass. Record a passing inspection, or raise a reprint.`,
+        },
+        { status: 400 }
+      )
+    }
+  }
+
   // ─── Plates / Board checks (Feature 4) — Printing stage only, on start ─────
   // Plates: HARD block — printing genuinely cannot happen without plates
   // physically issued to the job (job_plates row with no returned_at yet).

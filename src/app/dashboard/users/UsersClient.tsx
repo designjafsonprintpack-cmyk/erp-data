@@ -249,34 +249,34 @@ export default function UsersClient({ initialUsers, departments, roles }: {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Full Name <span className="text-[var(--color-danger)]">*</span></label>
-              <input className={inputCls} value={newForm.full_name} onChange={e => setNewForm(p => ({ ...p, full_name: e.target.value }))} placeholder="Muhammad Ahmed" />
+              <label htmlFor="usersclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Full Name <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="usersclient-1" className={inputCls} value={newForm.full_name} onChange={e => setNewForm(p => ({ ...p, full_name: e.target.value }))} placeholder="Muhammad Ahmed" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Email <span className="text-[var(--color-danger)]">*</span></label>
-              <input type="email" className={inputCls} value={newForm.email} onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))} placeholder="user@jafson.com" />
+              <label htmlFor="usersclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Email <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="usersclient-2" type="email" className={inputCls} value={newForm.email} onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))} placeholder="user@jafson.com" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Password <span className="text-[var(--color-danger)]">*</span></label>
-              <input type="password" className={inputCls} value={newForm.password} onChange={e => setNewForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 8 characters" />
+              <label htmlFor="usersclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Password <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="usersclient-3" type="password" className={inputCls} value={newForm.password} onChange={e => setNewForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 8 characters" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Employee Code</label>
-              <input className={inputCls} value={newForm.employee_code} onChange={e => setNewForm(p => ({ ...p, employee_code: e.target.value }))} placeholder="EMP-001" />
+              <label htmlFor="usersclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Employee Code</label>
+              <input id="usersclient-4" className={inputCls} value={newForm.employee_code} onChange={e => setNewForm(p => ({ ...p, employee_code: e.target.value }))} placeholder="EMP-001" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
-              <input className={inputCls} value={newForm.mobile} onChange={e => setNewForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+92 300 0000000" />
+              <label htmlFor="usersclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
+              <input id="usersclient-5" className={inputCls} value={newForm.mobile} onChange={e => setNewForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+92 300 0000000" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Role <span className="text-[var(--color-danger)]">*</span></label>
-              <select className={inputCls} value={newForm.app_role} onChange={e => setNewForm(p => ({ ...p, app_role: e.target.value }))}>
+              <label htmlFor="usersclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Role <span className="text-[var(--color-danger)]">*</span></label>
+              <select id="usersclient-6" className={inputCls} value={newForm.app_role} onChange={e => setNewForm(p => ({ ...p, app_role: e.target.value }))}>
                 {APP_ROLES.map(r => <option key={r} value={r} className="capitalize">{ROLE_CFG[r]?.label || r}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
-              <select className={inputCls} value={newForm.department_id} onChange={e => setNewForm(p => ({ ...p, department_id: e.target.value }))}>
+              <label htmlFor="usersclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
+              <select id="usersclient-7" className={inputCls} value={newForm.department_id} onChange={e => setNewForm(p => ({ ...p, department_id: e.target.value }))}>
                 <option value="">No department</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
@@ -302,26 +302,26 @@ export default function UsersClient({ initialUsers, departments, roles }: {
           }>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Full Name</label>
-              <input className={inputCls} value={editForm.full_name} onChange={e => setEditForm(p => ({ ...p, full_name: e.target.value }))} />
+              <label htmlFor="usersclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Full Name</label>
+              <input id="usersclient-8" className={inputCls} value={editForm.full_name} onChange={e => setEditForm(p => ({ ...p, full_name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Employee Code</label>
-              <input className={inputCls} value={editForm.employee_code} onChange={e => setEditForm(p => ({ ...p, employee_code: e.target.value }))} />
+              <label htmlFor="usersclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Employee Code</label>
+              <input id="usersclient-9" className={inputCls} value={editForm.employee_code} onChange={e => setEditForm(p => ({ ...p, employee_code: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
-              <input className={inputCls} value={editForm.mobile} onChange={e => setEditForm(p => ({ ...p, mobile: e.target.value }))} />
+              <label htmlFor="usersclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Mobile</label>
+              <input id="usersclient-10" className={inputCls} value={editForm.mobile} onChange={e => setEditForm(p => ({ ...p, mobile: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Role</label>
-              <select className={inputCls} value={editForm.app_role} onChange={e => setEditForm(p => ({ ...p, app_role: e.target.value }))}>
+              <label htmlFor="usersclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Role</label>
+              <select id="usersclient-11" className={inputCls} value={editForm.app_role} onChange={e => setEditForm(p => ({ ...p, app_role: e.target.value }))}>
                 {APP_ROLES.map(r => <option key={r} value={r}>{ROLE_CFG[r]?.label || r}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
-              <select className={inputCls} value={editForm.department_id} onChange={e => setEditForm(p => ({ ...p, department_id: e.target.value }))}>
+              <label htmlFor="usersclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
+              <select id="usersclient-12" className={inputCls} value={editForm.department_id} onChange={e => setEditForm(p => ({ ...p, department_id: e.target.value }))}>
                 <option value="">No department</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>

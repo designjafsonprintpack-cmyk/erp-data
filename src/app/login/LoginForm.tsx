@@ -58,13 +58,13 @@ export default function LoginForm() {
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-[var(--color-text-primary)]">Email address</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" className={inputCls} />
+          <label htmlFor="loginform-1" className="text-sm font-medium text-[var(--color-text-primary)]">Email address</label>
+          <input id="loginform-1" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" className={inputCls} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-[var(--color-text-primary)]">Password</label>
+          <label htmlFor="loginform-2" className="text-sm font-medium text-[var(--color-text-primary)]">Password</label>
           <div className="relative">
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" className={cn(inputCls, 'pr-10')} />
+            <input id="loginform-2" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" className={cn(inputCls, 'pr-10')} />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
               {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>

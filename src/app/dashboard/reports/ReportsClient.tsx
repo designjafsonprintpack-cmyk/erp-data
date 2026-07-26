@@ -379,7 +379,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                       <td className="py-2.5 px-3 text-[var(--color-success)]">{PKR(c.total_paid)}</td>
                       <td className="py-2.5 px-3">
                         <span className={cn('font-semibold', c.total_outstanding > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]')}>
-                          {c.total_outstanding > 0 ? PKR(c.total_outstanding) : '✓ Clear'}
+                          {c.total_outstanding > 0 ? PKR(c.total_outstanding) : 'Clear'}
                         </span>
                       </td>
                     </tr>
@@ -726,25 +726,25 @@ function CustomReportBuilder() {
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">Report On</label>
-            <select value={entity} onChange={e => changeEntity(e.target.value)}
+            <label htmlFor="reportsclient-1" className="text-xs font-medium text-[var(--color-text-muted)]">Report On</label>
+            <select id="reportsclient-1" value={entity} onChange={e => changeEntity(e.target.value)}
               className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
               {Object.keys(entities).map(key => <option key={key} value={key}>{key.replace(/_/g, ' ')}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">From</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            <label htmlFor="reportsclient-2" className="text-xs font-medium text-[var(--color-text-muted)]">From</label>
+            <input id="reportsclient-2" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
               className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">To</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            <label htmlFor="reportsclient-3" className="text-xs font-medium text-[var(--color-text-muted)]">To</label>
+            <input id="reportsclient-3" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
               className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">Status (optional)</label>
-            <input value={status} onChange={e => setStatus(e.target.value)} placeholder="e.g. completed"
+            <label htmlFor="reportsclient-4" className="text-xs font-medium text-[var(--color-text-muted)]">Status (optional)</label>
+            <input id="reportsclient-4" value={status} onChange={e => setStatus(e.target.value)} placeholder="e.g. completed"
               className="w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]" />
           </div>
         </div>
