@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
+import { Upload, CheckCircle2, Image as ImageIcon, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -312,7 +312,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
       {/* Grouped by job */}
       {Object.entries(grouped).length === 0 ? (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-16 text-center">
-          <Image size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
+          <ImageIcon size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
           <p className="text-sm font-medium text-[var(--color-text-primary)]">No artwork yet</p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">Add artwork files for active jobs</p>
         </div>
