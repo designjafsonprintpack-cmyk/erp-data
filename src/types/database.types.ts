@@ -285,6 +285,7 @@ export type Database = {
           author_name: string | null
           author_type: string
           comment_text: string
+          comment_type: string
           company_id: string
           created_at: string
           created_by: string | null
@@ -305,6 +306,7 @@ export type Database = {
           author_name?: string | null
           author_type: string
           comment_text: string
+          comment_type?: string
           company_id: string
           created_at?: string
           created_by?: string | null
@@ -325,6 +327,7 @@ export type Database = {
           author_name?: string | null
           author_type?: string
           comment_text?: string
+          comment_type?: string
           company_id?: string
           created_at?: string
           created_by?: string | null

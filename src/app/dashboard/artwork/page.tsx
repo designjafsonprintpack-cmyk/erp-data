@@ -35,13 +35,17 @@ export default async function ArtworkPage() {
   if (artworkIds.length > 0) {
     const { data: allComments } = await supabase
       .from('artwork_comments' as any)
-      .select('artwork_id, author_type, resolved')
+      .select('artwork_id, author_type, resolved, comment_type')
       .in('artwork_id', artworkIds)
       .is('deleted_at', null)
     for (const c of (allComments ?? []) as any[]) {
       if (!commentSummary[c.artwork_id]) commentSummary[c.artwork_id] = { total: 0, unresolvedCustomer: false }
       commentSummary[c.artwork_id].total += 1
-      if (c.author_type === 'customer' && !c.resolved) commentSummary[c.artwork_id].unresolvedCustomer = true
+      // Emboss marks (migration 089) are never "resolved" — counting them here
+      // would pin the badge to its unresolved/red state forever.
+      if (c.author_type === 'customer' && !c.resolved && c.comment_type !== 'emboss') {
+        commentSummary[c.artwork_id].unresolvedCustomer = true
+      }
     }
   }
 

@@ -43,7 +43,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   // /api/v1/artwork/[id]/comments) and must never leak to this public
   // endpoint even if written about the same artwork version.
   const { data: comments } = await supabase.from('artwork_comments' as any)
-    .select('id, comment_text, position_x, position_y, resolved, created_at')
+    .select('id, comment_text, comment_type, position_x, position_y, resolved, created_at')
     .eq('artwork_id', row.id).eq('author_type', 'customer')
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
@@ -96,9 +96,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       author_type: 'customer',
       author_name: body.author_name?.trim() || null,
       comment_text: body.comment_text.trim(),
+      // Anything other than an explicit 'emboss' stays an ordinary comment —
+      // never trust the public body to widen this.
+      comment_type: body.comment_type === 'emboss' ? 'emboss' : 'comment',
       position_x: typeof body.position_x === 'number' ? body.position_x : null,
       position_y: typeof body.position_y === 'number' ? body.position_y : null,
-    }).select('id, comment_text, position_x, position_y, resolved, created_at').single()
+    }).select('id, comment_text, comment_type, position_x, position_y, resolved, created_at').single()
 
     if (commentErr) return NextResponse.json({ error: commentErr.message }, { status: 500 })
     return NextResponse.json({ data: comment })
@@ -129,7 +132,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     // only, matching what existing UI/API code already expects from it.
     decided_at: decidedAt,
     approver_name: body.approver_name!.trim(),
-    approver_email: body.approver_email!.trim(),
+    // Optional — blank stays NULL rather than an empty string, so the staff-side
+    // `art.approver_email && ...` guards keep working unchanged.
+    approver_email: body.approver_email?.trim() || null,
     designer_notes: body.notes ? `${body.notes}` : undefined,
   }).eq('id', art.id)
 

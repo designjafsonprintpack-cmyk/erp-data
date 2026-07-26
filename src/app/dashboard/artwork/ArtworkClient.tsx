@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid } from 'lucide-react'
+import { Upload, CheckCircle2, Image, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -13,6 +13,9 @@ import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus }
 interface ArtworkComment {
   id: string; author_type: 'staff' | 'customer'; author_name: string | null
   comment_text: string; position_x: number | null; position_y: number | null
+  // 'emboss' = the customer marked this as something to be embossed
+  // (migration 089). Optional so rows fetched before it existed still parse.
+  comment_type?: 'comment' | 'emboss'
   resolved: boolean; created_at: string
   users?: { full_name: string } | null
 }
@@ -188,7 +191,8 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     comments[artworkId] ? comments[artworkId].length : (commentSummary[artworkId]?.total || 0)
   const hasUnresolvedCustomerComment = (artworkId: string) =>
     comments[artworkId]
-      ? comments[artworkId].some(c => c.author_type === 'customer' && !c.resolved)
+      // Emboss marks are never resolved — they must not keep the badge red.
+      ? comments[artworkId].some(c => c.author_type === 'customer' && !c.resolved && c.comment_type !== 'emboss')
       : !!commentSummary[artworkId]?.unresolvedCustomer
 
   const openCommentsModal = async (art: Artwork) => {
@@ -606,9 +610,11 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-h-[400px] rounded-lg" />
                     {pinned.map(c => (
-                      <div key={c.id} title={c.comment_text}
+                      <div key={c.id} title={c.comment_type === 'emboss' ? `Emboss: ${c.comment_text}` : c.comment_text}
                         className={cn('absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 flex items-center justify-center text-[11px] font-bold text-white',
-                          c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
+                          c.comment_type === 'emboss'
+                            ? 'bg-[var(--color-warning)] border-white/60'
+                            : c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
                         style={{ left: `${c.position_x}%`, top: `${c.position_y}%` }}>
                         {pinNumber(c.id)}
                       </div>
@@ -633,13 +639,20 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                   {list.length === 0 && <p className="text-xs text-[var(--color-text-muted)] py-2">No comments yet.</p>}
                   {list.map(c => (
                     <div key={c.id} className={cn('rounded-lg border p-2.5 text-xs',
-                      c.author_type === 'customer' ? 'border-[var(--color-warning)]/25 bg-[var(--color-warning)]/5' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]')}>
+                      c.comment_type === 'emboss'
+                        ? 'border-[var(--color-warning)]/50 bg-[var(--color-warning)]/10'
+                        : c.author_type === 'customer' ? 'border-[var(--color-warning)]/25 bg-[var(--color-warning)]/5' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]')}>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5">
                           {c.position_x !== null && c.position_y !== null && (
                             <span className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0',
-                              c.resolved ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]')}>
+                              c.comment_type === 'emboss' ? 'bg-[var(--color-warning)]' : c.resolved ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]')}>
                               {pinNumber(c.id)}
+                            </span>
+                          )}
+                          {c.comment_type === 'emboss' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 bg-[var(--color-warning)]/20 text-[var(--color-warning)]">
+                              <Stamp size={10} /> EMBOSS
                             </span>
                           )}
                           <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium',
@@ -648,7 +661,9 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
                           </span>
                           <span className="text-[var(--color-text-muted)]">{formatTimeAgo(c.created_at)}</span>
                         </div>
-                        {c.author_type === 'customer' && (
+                        {/* Emboss marks are production instructions, not
+                            complaints — nothing to "resolve". */}
+                        {c.author_type === 'customer' && c.comment_type !== 'emboss' && (
                           <button onClick={() => toggleResolve(commentsModal.id, c.id, !c.resolved)}
                             className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium', c.resolved
                               ? 'border-[var(--color-success)]/30 text-[var(--color-success)] bg-[var(--color-success)]/10'
@@ -690,9 +705,11 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90vh] rounded-lg" />
             {(comments[commentsModal.id] || []).filter(c => c.position_x !== null).map((c, i) => (
-              <div key={c.id} title={c.comment_text}
+              <div key={c.id} title={c.comment_type === 'emboss' ? `Emboss: ${c.comment_text}` : c.comment_text}
                 className={cn('absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white',
-                  c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
+                  c.comment_type === 'emboss'
+                    ? 'bg-[var(--color-warning)] border-white/60'
+                    : c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
                 style={{ left: `${c.position_x}%`, top: `${c.position_y}%` }}>
                 {i + 1}
               </div>
