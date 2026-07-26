@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **092**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **094**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -186,6 +186,20 @@ deliberately left empty. Never read from it.
   key. Follow that pattern in other schemas.
 - **Removing a field from a form means removing it from the form STATE and the
   request schema**, not just the JSX. A field nobody can see is still submitted.
+- **A server component passing a function to a client one clears BOTH gates.**
+  `settings/page.tsx` passed icon *components* to `SettingsClient`: `tsc` gave 0
+  errors, `npm run build` said "Compiled successfully", and it still threw at
+  render. Grep the whole build log, not the summary line. Anything holding a
+  component or callback belongs inside the client file.
+- **A `<select>` whose value isn't in the options renders blank — and the next
+  save writes that blank back.** Hits any column storing a master-table *name*
+  as text (`jobs.uv_coating`) once that row is renamed in Settings.
+  `EditJobClient` appends the saved value back for this reason.
+- **`ALTER COLUMN … TYPE` leaves NOT NULL behind.** 068 made `jobs.uv_coating`
+  TEXT and made "no coating" mean NULL, but left the old NOT NULL — so saving a
+  job with UV Coating = "None" 500'd for two years while the column's own
+  COMMENT said NULL was fine. Fixed in **094**. Trust the constraint, never the
+  comment.
 - **`col-span-N` can't be built from a runtime number** — Tailwind scans source
   text and purges it. `DataList` solves this by publishing spans as CSS vars
   (`--sp-md`, `--sp-xl`) picked up by `.dl-cell` in globals.css.
@@ -278,7 +292,32 @@ without anyone re-adding it:
   "action needed" panel fed by `jobsNeedingPlates` / `jobsAwaitingBoardIssue` /
   `jobsAwaitingDispatch` / `jobsAwaitingQC`.
 
+### Going live (migrations 093 + 094)
+Test data purged and document counters reset to `0`, then real history loaded.
+
+- **Coating is settings-managed** — `Settings → Materials → Coating Types` drives
+  the UV Coating dropdown on New and Edit Job; no hardcoded list remains.
+  **"Soft UV" never existed** — S/UV is *Spot* UV in the trade. 093 renamed the
+  master rows to `UV`, `Spot UV`, `Water Base`, `Drip-off`.
+- **Legacy import — 48 customers + 478 jobs** from the old Excel, shaped so it
+  never pollutes live work: `JOB-OLD-0001…0478` (a **separate series**; the live
+  `JOB` counter stays at `0`), `status = 'completed'`, **no workflow template**,
+  and all dates backdated to `2025-01-01`. Customers got real `CUST-2026-…`
+  codes. `quantity = 0` — the column was dropped from the sheet.
+- **Backups: `F:\erp-data-backups\`**, one timestamped folder each, with
+  `restore.mjs` (dry-run by default, `--go` to write). Tested against the live
+  DB. **Passwords can't be backed up** — a new project needs auth accounts
+  recreated and `users.auth_user_id` re-pointed.
+
 ### Open threads
+- **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`
+  was never run, yet `src/app/api/v1/jobs/[id]/plates/generate-set/route.ts`
+  writes to it — plate-set generation will fail.
+- **Repeat Job picker is capped at 200 rows** (`jobs/new/page.tsx:23`, newest
+  first), so the backdated legacy jobs mostly don't appear in it.
+- **`document_sequences` carries duplicate lowercase rows** (`job`, `so`, `po`,
+  `quotation`, `dispatch`) beside the uppercase ones the app actually uses.
+  Harmless today, confusing forever.
 - **Grain Direction**: input, form state and request schema all removed. The
   **column still exists** and old jobs keep their values; Repeat and QC Reprint
   still copy it row-to-row. Dropping it properly is a separate, irreversible
