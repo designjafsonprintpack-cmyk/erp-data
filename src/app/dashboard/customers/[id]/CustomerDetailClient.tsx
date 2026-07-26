@@ -21,8 +21,8 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 const STAGE_CFG: Record<string, { label: string; color: string; next: string | null; nextLabel: string }> = {
   lead:     { label: 'Lead',     color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]', next: 'prospect', nextLabel: 'Mark as Prospect' },
-  prospect: { label: 'Prospect', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', next: 'customer', nextLabel: 'Mark as Customer' },
-  customer: { label: 'Customer', color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', next: null, nextLabel: '' },
+  prospect: { label: 'Prospect', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]', next: 'customer', nextLabel: 'Mark as Customer' },
+  customer: { label: 'Customer', color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]', next: null, nextLabel: '' },
 }
 
 export default function CustomerDetailClient({ customer: initial, contacts: initialContacts, addresses: initialAddresses }: Props) {
@@ -130,12 +130,12 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
         </div>
         {STAGE_CFG[customer.pipeline_stage]?.next && (
           <button onClick={() => promoteStage(STAGE_CFG[customer.pipeline_stage].next!)} disabled={loading}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-accent)]/30 text-[var(--color-accent)] text-sm hover:bg-[var(--color-accent)]/10 transition-colors disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-[var(--color-accent)] text-sm hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] transition-colors disabled:opacity-50">
             <Check size={13} /> {STAGE_CFG[customer.pipeline_stage].nextLabel}
           </button>
         )}
         <button onClick={() => setDeleteTarget({ type: 'customer', id: customer.id, name: customer.name })}
-          className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-danger)]/30 text-[var(--color-danger)] text-sm hover:bg-[var(--color-danger)]/10 transition-colors">
+          className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-[var(--color-danger)] text-sm hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
           <Trash2 size={13} /> Delete
         </button>
       </div>
@@ -247,14 +247,14 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           </div>
           <div className="divide-y divide-[var(--color-border-subtle)]">
             {contacts.map(c => (
-              <div key={c.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/40">
-                <div className="w-10 h-10 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0">
+              <div key={c.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]">
+                <div className="w-10 h-10 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center flex-shrink-0">
                   <span className="text-sm font-bold text-[var(--color-accent)]">{c.name.charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[var(--color-text-primary)]">{c.name}</span>
-                    {c.is_primary && <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 px-1.5 py-0.5 rounded-full border border-[var(--color-warning)]/20"><Star size={9} /> Primary</span>}
+                    {c.is_primary && <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-1.5 py-0.5 rounded-full border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]"><Star size={9} /> Primary</span>}
                   </div>
                   {c.designation && <p className="text-xs text-[var(--color-text-muted)]">{c.designation}</p>}
                   <div className="flex items-center gap-4 mt-1">
@@ -263,13 +263,13 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   </div>
                 </div>
                 <button onClick={() => setDeleteTarget({ type: 'contact', id: c.id, name: c.name })}
-                  className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                  className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>
             ))}
             {newContact && (
-              <div className="flex items-center gap-3 px-5 py-4 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+              <div className="flex items-center gap-3 px-5 py-4 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
                 {['name', 'designation', 'email', 'phone', 'mobile'].map((k, i) => (
                   <input key={k} autoFocus={i === 0} className={cn(inputCls, 'flex-1')} value={newContact[k] ?? ''} onChange={e => setNewContact(p => ({ ...p!, [k]: e.target.value }))} placeholder={k.charAt(0).toUpperCase() + k.slice(1) + (k === 'name' ? ' *' : '')} />
                 ))}
@@ -294,27 +294,27 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           </div>
           <div className="divide-y divide-[var(--color-border-subtle)]">
             {addresses.map(a => (
-              <div key={a.id} className="flex items-start gap-4 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/40">
-                <div className="w-8 h-8 rounded-lg bg-[var(--color-info)]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div key={a.id} className="flex items-start gap-4 px-5 py-4 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]">
+                <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
                   <MapPin size={14} className="text-[var(--color-info)]" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm font-medium text-[var(--color-text-primary)]">{a.label}</span>
-                    <span className="text-xs capitalize text-[var(--color-info)] bg-[var(--color-info)]/10 px-1.5 py-0.5 rounded border border-[var(--color-info)]/20">{a.address_type}</span>
-                    {a.is_default && <span className="text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 px-1.5 py-0.5 rounded border border-[var(--color-warning)]/20">Default</span>}
+                    <span className="text-xs capitalize text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] px-1.5 py-0.5 rounded border border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]">{a.address_type}</span>
+                    {a.is_default && <span className="text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-1.5 py-0.5 rounded border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]">Default</span>}
                   </div>
                   <p className="text-sm text-[var(--color-text-secondary)]">{a.address_line1}{a.address_line2 ? `, ${a.address_line2}` : ''}</p>
                   {(a.city || a.country) && <p className="text-xs text-[var(--color-text-muted)]">{[a.city, a.country].filter(Boolean).join(', ')}</p>}
                 </div>
                 <button onClick={() => setDeleteTarget({ type: 'address', id: a.id, name: a.label })}
-                  className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                  className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>
             ))}
             {newAddress && (
-              <div className="px-5 py-4 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20 space-y-3">
+              <div className="px-5 py-4 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <input autoFocus className={inputCls} value={newAddress.label} onChange={e => setNewAddress(p => ({ ...p!, label: e.target.value }))} placeholder="Label (e.g. Head Office) *" />
                   <select className={inputCls} value={newAddress.address_type} onChange={e => setNewAddress(p => ({ ...p!, address_type: e.target.value }))}>
@@ -389,7 +389,7 @@ function CustomerLedgerTab({ customerId }: { customerId: string }) {
           </thead>
           <tbody className="divide-y divide-[var(--color-border-subtle)]">
             {entries.map(e => (
-              <tr key={e.id} className="hover:bg-[var(--color-bg-elevated)]/40">
+              <tr key={e.id} className="hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]">
                 <td className="px-5 py-2.5 text-[var(--color-text-secondary)] whitespace-nowrap">{new Date(e.entry_date).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                 <td className="px-5 py-2.5 text-[var(--color-text-primary)]">{e.description}</td>
                 <td className="px-5 py-2.5 text-right text-[var(--color-danger)]">{e.debit > 0 ? fmt(e.debit) : '—'}</td>
@@ -444,7 +444,7 @@ function PortalAccessCard({ customerId }: { customerId: string }) {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {link && (
-            <button onClick={revoke} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/5 disabled:opacity-50 transition-colors">
+            <button onClick={revoke} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)] disabled:opacity-50 transition-colors">
               <ShieldOff size={13} /> Revoke
             </button>
           )}
@@ -520,7 +520,7 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
       </div>
 
       {newActivity && (
-        <div className="px-5 py-4 bg-[var(--color-accent)]/5 border-b border-[var(--color-accent)]/20 space-y-3">
+        <div className="px-5 py-4 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-b border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <select className={inputCls} value={newActivity.activity_type} onChange={e => setNewActivity(p => ({ ...p!, activity_type: e.target.value }))}>
               <option value="call">Call</option>
@@ -547,8 +547,8 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
       ) : (
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {activities.map(a => (
-            <div key={a.id} className="flex items-start gap-3 px-5 py-4 hover:bg-[var(--color-bg-elevated)]/40">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0 mt-0.5 text-[var(--color-accent)]">
+            <div key={a.id} className="flex items-start gap-3 px-5 py-4 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]">
+              <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5 text-[var(--color-accent)]">
                 {ACTIVITY_ICONS[a.activity_type] || ACTIVITY_ICONS.other}
               </div>
               <div className="flex-1">
@@ -562,7 +562,7 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
                 </p>
               </div>
               <button onClick={() => setDeleteId(a.id)}
-                className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors flex-shrink-0">
+                className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">
                 <Trash2 size={13} />
               </button>
             </div>

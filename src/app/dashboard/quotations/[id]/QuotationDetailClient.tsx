@@ -137,7 +137,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
         </div>
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {qt.quotation_items.map((item, idx) => (
-            <div key={item.id} className={cn('px-4 md:px-5 py-3.5 grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+            <div key={item.id} className={cn('px-4 md:px-5 py-3.5 grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 items-center', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
               <div className="hidden md:block md:col-span-1 text-xs text-[var(--color-text-muted)]">#{item.line_no}</div>
               <div className="col-span-2 md:col-span-4">
                 <p className="text-sm font-medium text-[var(--color-text-primary)]"><span className="md:hidden text-xs text-[var(--color-text-muted)]">#{item.line_no} </span>{item.product_desc}</p>
@@ -158,7 +158,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
           ))}
         </div>
         {/* Totals */}
-        <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 flex justify-end">
+        <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] flex justify-end">
           <div className="w-64 space-y-2">
             <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">
               <span>Subtotal</span><span>PKR {Number(qt.subtotal).toLocaleString()}</span>
@@ -290,7 +290,7 @@ function VersionHistoryView({ quotationId }: { quotationId: string }) {
             const changed = r && l && (r.quantity !== l.quantity || r.unit_price !== l.unit_price)
             return (
               <div key={desc} className={cn('grid grid-cols-12 gap-2 px-3 py-2 items-center text-sm',
-                added && 'bg-[var(--color-success)]/5', removed && 'bg-[var(--color-danger)]/5', changed && 'bg-[var(--color-warning)]/5')}>
+                added && 'bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)]', removed && 'bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)]', changed && 'bg-[color:color-mix(in_srgb,var(--color-warning)_5%,transparent)]')}>
                 <div className="col-span-6 text-[var(--color-text-primary)] truncate">
                   {desc} {added && <span className="text-[var(--color-success)] text-xs ml-1">(new)</span>}
                   {removed && <span className="text-[var(--color-danger)] text-xs ml-1">(removed)</span>}

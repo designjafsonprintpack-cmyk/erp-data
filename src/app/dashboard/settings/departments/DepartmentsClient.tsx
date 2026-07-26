@@ -52,7 +52,7 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center">
             <Users size={16} className="text-[var(--color-accent)]" />
           </div>
           <span className="text-base font-semibold text-[var(--color-text-primary)]">
@@ -76,7 +76,7 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
       {/* Rows */}
       <div className="divide-y divide-[var(--color-border-subtle)]">
         {departments.map((dept, idx) => (
-          <div key={dept.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+          <div key={dept.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
             {editingId === dept.id ? (
               <>
                 <input autoFocus className={cn(inputCls, 'col-span-4')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Department name" />
@@ -98,7 +98,7 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
                     <Pencil size={13} />
                   </button>
                   <button onClick={() => setDeleteTarget(dept)}
-                    className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -109,7 +109,7 @@ export default function DepartmentsClient({ initialDepartments }: { initialDepar
 
         {/* New row inline */}
         {editingId === 'new' && (
-          <div className="grid grid-cols-12 gap-3 px-5 py-3 items-center bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+          <div className="grid grid-cols-12 gap-3 px-5 py-3 items-center bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
             <input autoFocus className={cn(inputCls, 'col-span-4')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Department name *" />
             <input className={cn(inputCls, 'col-span-2')} value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="CODE *" />
             <input className={cn(inputCls, 'col-span-3')} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Description" />

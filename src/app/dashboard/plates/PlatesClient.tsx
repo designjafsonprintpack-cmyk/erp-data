@@ -249,8 +249,8 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
           without an active job_plates row, so these are the jobs about to hit
           that wall. A job leaves this list on its own once plates are issued. */}
       {needPlates.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_6%,transparent)] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] flex items-center gap-2">
             <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Plates Needed</h2>
             <span className="text-xs text-[var(--color-text-muted)]">
@@ -270,7 +270,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                       </Link>
                       {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
                       {job.printing_status === 'in_progress' && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-danger)]/15 text-[var(--color-danger)] flex-shrink-0">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)] flex-shrink-0">
                           PRESS WAITING
                         </span>
                       )}
@@ -330,7 +330,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
             const groupPlates = groupedPlates.get(key)!
             return (
               <div key={key} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
-                <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]/60 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-[760px]">
+                <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_60%,transparent)] flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-[760px]">
                   <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                     {group ? `${group.job_number} — ${group.job_title}` : 'In Storage / Not Currently Assigned'}
                   </span>
@@ -349,7 +349,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-subtle)]">
                     {groupPlates.map(plate => (
-                      <tr key={plate.id} className="hover:bg-[var(--color-bg-elevated)]/50 transition-colors">
+                      <tr key={plate.id} className="hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] transition-colors">
                         <td className="px-4 py-2.5 font-medium text-[var(--color-text-primary)]">
                           {plate.color}
                           {!plate.current_job && plate.origin_job && (
@@ -392,16 +392,16 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                           <div className="flex items-center justify-end gap-1.5">
                             {plate.current_job && (
                               <button onClick={() => openReturn(plate)} title="Return this plate (job is done with it)"
-                                className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
+                                className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
                                 <RotateCcw size={13} />
                               </button>
                             )}
                             <button onClick={() => openHistory(plate)} title="Assignment history"
-                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
                               <History size={13} />
                             </button>
                             <button onClick={() => deletePlate(plate)} title="Delete"
-                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                              className="w-9 h-9 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -455,12 +455,12 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                       list="color-specs-datalist" placeholder="e.g. Cyan" className="flex-1 min-w-0 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => updateColorRow(i, { mode: 'new' })}
                       className={cn('h-11 md:h-8 px-2.5 rounded-md border text-xs font-medium transition-colors flex-shrink-0',
-                        row.mode === 'new' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
+                        row.mode === 'new' ? 'border-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
                       New
                     </button>
                     <button onClick={() => updateColorRow(i, { mode: 'old' })}
                       className={cn('h-11 md:h-8 px-2.5 rounded-md border text-xs font-medium transition-colors flex-shrink-0',
-                        row.mode === 'old' ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
+                        row.mode === 'old' ? 'border-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
                       Old
                     </button>
                     {colorRows.length > 1 && (
@@ -507,7 +507,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                     {row.jobs ? `${row.jobs.job_number} — ${row.jobs.job_title}` : 'Unknown job'}
                   </span>
                   <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium',
-                    row.returned_at ? 'border-[var(--color-border)] text-[var(--color-text-muted)]' : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]')}>
+                    row.returned_at ? 'border-[var(--color-border)] text-[var(--color-text-muted)]' : 'border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]')}>
                     {row.returned_at ? 'Returned' : 'Currently With This Job'}
                   </span>
                 </div>

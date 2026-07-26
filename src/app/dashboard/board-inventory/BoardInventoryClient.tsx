@@ -80,11 +80,11 @@ const INV_COLUMNS = (
           <Layers size={11} />
         </button>
         <button onClick={() => { setMovementModal({ item: i, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
-          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] transition-colors">
           <TrendingUp size={11} /> In
         </button>
         <button onClick={() => { setMovementModal({ item: i, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
-          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
           <TrendingDown size={11} /> Out
         </button>
         <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(i.current_stock), notes: '', lot_number: '' }) }}
@@ -361,7 +361,7 @@ function BoardLotHistory({ itemId }: { itemId: string }) {
         <div key={l.id} className="rounded-lg border border-[var(--color-border)] px-3 py-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-mono font-medium text-[var(--color-text-primary)]">{l.lot_number}</p>
-            <span className={cn('text-xs px-2 py-0.5 rounded-full border', l.quantity_remaining > 0 ? 'text-[var(--color-success)] border-[var(--color-success)]/30' : 'text-[var(--color-text-muted)] border-[var(--color-border)]')}>
+            <span className={cn('text-xs px-2 py-0.5 rounded-full border', l.quantity_remaining > 0 ? 'text-[var(--color-success)] border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)]' : 'text-[var(--color-text-muted)] border-[var(--color-border)]')}>
               {l.quantity_remaining.toLocaleString()} / {l.quantity_received.toLocaleString()} remaining
             </span>
           </div>

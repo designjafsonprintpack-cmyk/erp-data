@@ -19,10 +19,10 @@ interface Vendor { id: string; name: string; vendor_code: string }
 
 const STATUS_CFG = {
   draft:               { label: 'Draft',               color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
-  sent:                { label: 'Sent',                 color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20' },
-  confirmed:           { label: 'Confirmed',            color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  partially_received:  { label: 'Partially Received',  color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  received:            { label: 'Received',             color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  sent:                { label: 'Sent',                 color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  confirmed:           { label: 'Confirmed',            color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  partially_received:  { label: 'Partially Received',  color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  received:            { label: 'Received',             color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   cancelled:           { label: 'Cancelled',            color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
 
@@ -178,11 +178,11 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             <>
               <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
               <button onClick={() => bulkStatus('draft', 'sent', 'marked Sent')}
-                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-info)]/40 text-sm text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[color:color-mix(in_srgb,var(--color-info)_40%,transparent)] text-sm text-[var(--color-info)] hover:bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] transition-colors">
                 <Send size={13} /> Mark Sent
               </button>
               <button onClick={() => bulkStatus('sent', 'confirmed', 'confirmed')}
-                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-accent)]/40 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent)] text-sm text-[var(--color-accent)] hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] transition-colors">
                 <Check size={13} /> Confirm
               </button>
             </>
@@ -218,7 +218,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
               const items = po.purchase_order_items || []
               return (
                 <div key={po.id}>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]">
                     <input type="checkbox" checked={selected.has(po.id)} onChange={() => toggleSelect(po.id)}
                       className="accent-[var(--color-accent)] cursor-pointer flex-shrink-0" />
                     <button onClick={() => toggle(po.id)} className="text-[var(--color-text-muted)] flex-shrink-0">
@@ -243,13 +243,13 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {po.status === 'draft' && (
                         <button onClick={() => updateStatus(po.id, 'sent')}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-info)]/30 text-xs text-[var(--color-info)] hover:bg-[var(--color-info)]/10 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)] text-xs text-[var(--color-info)] hover:bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] transition-colors">
                           <Send size={11} /> Send
                         </button>
                       )}
                       {po.status === 'sent' && (
                         <button onClick={() => updateStatus(po.id, 'confirmed')}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-xs text-[var(--color-accent)] hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] transition-colors">
                           <Check size={11} /> Confirm
                         </button>
                       )}
@@ -269,7 +269,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                   </div>
 
                   {isOpen && items.length > 0 && (
-                    <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)]/30">
+                    <div className="border-t border-[var(--color-border-subtle)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]">
                       <div className="hidden md:grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
                         <div className="col-span-4">Description</div>
                         <div className="col-span-3">Specification</div>
@@ -471,11 +471,11 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
 }
 
 const MATCH_STATUS_CFG: Record<string, { label: string; color: string }> = {
-  matched:               { label: 'Matched',           color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  matched:               { label: 'Matched',           color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   not_billed:            { label: 'Not Billed Yet',    color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
-  partially_billed:      { label: 'Partially Billed',  color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  billed_exceeds_received: { label: 'Over-Billed',     color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
-  price_mismatch:        { label: 'Price Mismatch',    color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
+  partially_billed:      { label: 'Partially Billed',  color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  billed_exceeds_received: { label: 'Over-Billed',     color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  price_mismatch:        { label: 'Price Mismatch',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
 }
 
 function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {

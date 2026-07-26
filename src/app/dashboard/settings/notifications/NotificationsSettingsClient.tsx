@@ -57,7 +57,7 @@ export default function NotificationsSettingsClient({ initialSettings }: { initi
           )
         })}
       </div>
-      <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 flex justify-end">
+      <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] flex justify-end">
         <button onClick={save} disabled={loading}
           className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Saving…' : 'Save Settings'}

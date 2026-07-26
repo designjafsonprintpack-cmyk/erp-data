@@ -22,7 +22,7 @@ export default async function CompanySettingsPage() {
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Manage company profile, branches and warehouses</p>
       </div>
       {companyRes.error && (
-        <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-4 text-sm text-[var(--color-danger)]">
+        <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] p-4 text-sm text-[var(--color-danger)]">
           Could not load company profile: {companyRes.error.message}
           {' '}(resolved company id: {companyId || 'none'})
         </div>

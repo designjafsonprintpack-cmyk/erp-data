@@ -246,7 +246,7 @@ export function ArtworkThumb({
     SIZE_BOX[size],
     'relative flex-shrink-0 rounded-lg overflow-hidden border bg-[var(--color-bg-elevated)]',
     'flex items-center justify-center',
-    approved ? 'border-[var(--color-success)]/40' : 'border-[var(--color-border)]',
+    approved ? 'border-[color:color-mix(in_srgb,var(--color-success)_40%,transparent)]' : 'border-[var(--color-border)]',
     interactive && 'transition-colors hover:border-[var(--color-accent)]',
     className
   )

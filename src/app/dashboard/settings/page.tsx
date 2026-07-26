@@ -34,8 +34,8 @@ export default function SettingsPage() {
           const Icon = section.icon
           return (
             <Link key={section.href} href={section.href}
-              className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5 hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-bg-elevated)] transition-all duration-150">
-              <div className="w-10 h-10 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center mb-3 group-hover:bg-[var(--color-accent)]/10 group-hover:border-[var(--color-accent)]/20 transition-colors">
+              className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5 hover:border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent)] hover:bg-[var(--color-bg-elevated)] transition-all duration-150">
+              <div className="w-10 h-10 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center mb-3 group-hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] group-hover:border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] transition-colors">
                 <Icon size={18} className="text-[var(--color-text-secondary)] group-hover:text-[var(--color-accent)] transition-colors" />
               </div>
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">{section.title}</h3>

@@ -128,7 +128,7 @@ export default function CommandCenterClient() {
                 <div key={i} className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase',
-                      a.type === 'overdue' ? 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]' : 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]')}>
+                      a.type === 'overdue' ? 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)]' : 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)]')}>
                       {a.type}
                     </span>
                     <span className="text-sm font-medium text-[var(--color-text-primary)]">{a.job_number}</span>

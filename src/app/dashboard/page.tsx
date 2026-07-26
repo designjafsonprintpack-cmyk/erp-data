@@ -168,17 +168,17 @@ export default async function DashboardPage() {
   const stats: StatCard[] = [
     // Blocked/overdue signals lead the row — a manager should see these
     // before anything else, not after scanning nine other counts.
-    { label: 'Delayed Jobs', value: counts.delayedJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[var(--color-danger)]/10', card: 'delayed_jobs', badge: counts.delayedJobs > 0 ? 'Alert' : undefined },
-    { label: 'Urgent Jobs', value: counts.urgentJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[var(--color-danger)]/10', card: 'urgent_jobs' },
-    { label: 'New Jobs', value: counts.newJobs, iconEl: <Briefcase size={12} className="text-[var(--color-accent)]" />, bgColor: 'bg-[var(--color-accent)]/10', card: 'new_jobs' },
-    { label: 'Artwork Pending', value: counts.artworkPending, iconEl: <Clock size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[var(--color-warning)]/10', card: 'artwork_pending', sub: oldestSubs.artwork },
-    { label: 'Planning Pending', value: counts.planningPending, iconEl: <BarChart3 size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[var(--color-info)]/10', card: 'planning_pending', sub: oldestSubs.planning },
-    { label: 'Store Pending', value: counts.storePending, iconEl: <Package size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[var(--color-warning)]/10', card: 'store_pending', sub: oldestSubs.store },
-    { label: 'Printing Running', value: counts.printingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'printing_running' },
-    { label: 'Die Cutting Running', value: counts.dieCuttingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'die_cutting_running' },
-    { label: 'Packing Running', value: counts.packingRunning, iconEl: <Package size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'packing_running' },
-    { label: 'Ready for Dispatch', value: counts.readyForDispatch, iconEl: <Truck size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[var(--color-info)]/10', card: 'ready_for_dispatch' },
-    { label: 'Dispatched', value: counts.dispatchedToday, iconEl: <CheckCircle size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[var(--color-success)]/10', card: 'dispatched_today' },
+    { label: 'Delayed Jobs', value: counts.delayedJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]', card: 'delayed_jobs', badge: counts.delayedJobs > 0 ? 'Alert' : undefined },
+    { label: 'Urgent Jobs', value: counts.urgentJobs, iconEl: <AlertTriangle size={12} className="text-[var(--color-danger)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]', card: 'urgent_jobs' },
+    { label: 'New Jobs', value: counts.newJobs, iconEl: <Briefcase size={12} className="text-[var(--color-accent)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]', card: 'new_jobs' },
+    { label: 'Artwork Pending', value: counts.artworkPending, iconEl: <Clock size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]', card: 'artwork_pending', sub: oldestSubs.artwork },
+    { label: 'Planning Pending', value: counts.planningPending, iconEl: <BarChart3 size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)]', card: 'planning_pending', sub: oldestSubs.planning },
+    { label: 'Store Pending', value: counts.storePending, iconEl: <Package size={12} className="text-[var(--color-warning)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]', card: 'store_pending', sub: oldestSubs.store },
+    { label: 'Printing Running', value: counts.printingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]', card: 'printing_running' },
+    { label: 'Die Cutting Running', value: counts.dieCuttingRunning, iconEl: <Zap size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]', card: 'die_cutting_running' },
+    { label: 'Packing Running', value: counts.packingRunning, iconEl: <Package size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]', card: 'packing_running' },
+    { label: 'Ready for Dispatch', value: counts.readyForDispatch, iconEl: <Truck size={12} className="text-[var(--color-info)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)]', card: 'ready_for_dispatch' },
+    { label: 'Dispatched', value: counts.dispatchedToday, iconEl: <CheckCircle size={12} className="text-[var(--color-success)]" />, bgColor: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]', card: 'dispatched_today' },
     { label: 'Total Customers', value: counts.totalCustomers, iconEl: <Users size={12} className="text-[var(--color-text-secondary)]" />, bgColor: 'bg-[var(--color-bg-elevated)]', card: 'total_customers' },
   ]
 
@@ -192,7 +192,7 @@ export default async function DashboardPage() {
             Production overview — {new Date().toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <span className="flex items-center gap-1.5 flex-shrink-0 text-xs text-[var(--color-success)] bg-[var(--color-success)]/10 px-2.5 py-1 rounded-full border border-[var(--color-success)]/20">
+        <span className="flex items-center gap-1.5 flex-shrink-0 text-xs text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] px-2.5 py-1 rounded-full border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
           Live
         </span>

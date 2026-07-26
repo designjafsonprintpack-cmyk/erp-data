@@ -97,7 +97,7 @@ export default function ReportSchedulesClient({ initialSchedules }: { initialSch
                   </p>
                 </div>
                 <button onClick={() => setDeleteId(s.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                  className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>

@@ -187,7 +187,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
               className={cn(
                 'w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all',
                 selectedTemplateId === t.id
-                  ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/30 text-[var(--color-accent)]'
+                  ? 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-[var(--color-accent)]'
                   : 'bg-[var(--color-bg-secondary)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border)]'
               )}>
               <div className="flex items-center gap-2">
@@ -219,13 +219,13 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                   </button>
                 )}
                 {selectedTemplate.is_default && (
-                  <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/20 px-2.5 py-1 rounded-full">
+                  <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] px-2.5 py-1 rounded-full">
                     <Star size={11} /> Default Template
                   </span>
                 )}
                 {!selectedTemplate.is_default && (
                   <button onClick={() => setDeleteTarget({ type: 'template', id: selectedTemplate.id, name: selectedTemplate.name })}
-                    className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -271,8 +271,8 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className={cn('text-sm font-medium', stage.is_active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)] line-through')}>{stage.name}</span>
-                            {isParallel && <span className="text-xs text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-1.5 py-0.5 rounded-full">Parallel</span>}
-                            {stage.is_optional && <span className="text-xs text-[var(--color-info)] bg-[var(--color-info)]/10 border border-[var(--color-info)]/20 px-1.5 py-0.5 rounded-full">Optional</span>}
+                            {isParallel && <span className="text-xs text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] px-1.5 py-0.5 rounded-full">Parallel</span>}
+                            {stage.is_optional && <span className="text-xs text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] px-1.5 py-0.5 rounded-full">Optional</span>}
                             {dept && <span className="text-xs text-[var(--color-text-muted)]">→ {dept.name}</span>}
                           </div>
                         </div>
@@ -290,7 +290,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                           <button onClick={() => toggleStageActive(stage)}
                             className={cn('text-xs px-2 h-6 rounded border transition-colors',
                               stage.is_active
-                                ? 'text-[var(--color-success)] border-[var(--color-success)]/30 bg-[var(--color-success)]/10 hover:bg-[var(--color-success)]/20'
+                                ? 'text-[var(--color-success)] border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]'
                                 : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]')}>
                             {stage.is_active ? 'Active' : 'Disabled'}
                           </button>
@@ -299,7 +299,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                             <Pencil size={12} />
                           </button>
                           <button onClick={() => setDeleteTarget({ type: 'stage', id: stage.id, name: stage.name })}
-                            className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                            className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                             <Trash2 size={12} />
                           </button>
                         </div>
@@ -311,8 +311,8 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
 
               {/* Add stage inline */}
               {addingStage ? (
-                <div className="flex items-center gap-3 px-5 py-3 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
-                  <div className="w-6 h-6 rounded-full bg-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
+                  <div className="w-6 h-6 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center flex-shrink-0">
                     <span className="text-xs font-mono text-[var(--color-accent)]">{selectedStages.length + 1}</span>
                   </div>
                   <input autoFocus className="flex-1 h-8 px-2.5 rounded border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"

@@ -256,8 +256,8 @@ export function DataList<T>({
             const classes = cn(
               'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
               gridStyle && 'dl-grid',
-              'hover:bg-[var(--color-bg-elevated)]/50',
-              striped && idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15',
+              'hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]',
+              striped && idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]',
               rowClassName?.(row, idx)
             )
             const href = rowHref?.(row)

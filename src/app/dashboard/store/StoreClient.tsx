@@ -17,10 +17,10 @@ interface Unit { id: string; name: string; symbol: string }
 interface BoardInventoryItem { id: string; description: string; current_stock: number; unit_id: string | null; gsm?: number | null; board_type_id?: string | null }
 
 const STATUS_CFG = {
-  pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  approved:          { label: 'Approved',           color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20' },
-  partially_issued:  { label: 'Partially Issued',  color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  issued:            { label: 'Issued',             color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  approved:          { label: 'Approved',           color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  partially_issued:  { label: 'Partially Issued',  color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  issued:            { label: 'Issued',             color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   cancelled:         { label: 'Cancelled',          color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
 
@@ -180,8 +180,8 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
           issuing; a job that reached Store before its stage was started gets a
           Create MRN button pre-filled from the job. */}
       {actionable.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_6%,transparent)] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] flex items-center gap-2">
             <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Board Issue — Action Needed</h2>
             <span className="text-xs text-[var(--color-text-muted)]">
@@ -224,7 +224,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                       </button>
                     ) : liveStatus === 'pending' ? (
                       <button onClick={() => approveMRN(job.mrn!.id)} disabled={approving === job.mrn.id}
-                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border border-[var(--color-success)]/30 text-sm md:text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-50 transition-colors">
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-sm md:text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] disabled:opacity-50 transition-colors">
                         <Check size={14} /> {approving === job.mrn.id ? 'Approving…' : 'Approve'}
                       </button>
                     ) : fullMrn ? (
@@ -277,7 +277,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
               return (
                 <div key={mrn.id}>
                   {/* MRN header row */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]">
                     <button onClick={() => toggle(mrn.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
                       className="w-11 h-11 md:w-auto md:h-auto -ml-2 md:ml-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex-shrink-0">
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -302,7 +302,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {mrn.status === 'pending' && (
                         <button onClick={() => approveMRN(mrn.id)} disabled={approving === mrn.id}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-50 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] disabled:opacity-50 transition-colors">
                           <Check size={11} /> {approving === mrn.id ? 'Approving…' : 'Approve'}
                         </button>
                       )}
@@ -317,7 +317,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
 
                   {/* Expanded line items */}
                   {isOpen && items.length > 0 && (
-                    <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)]/30">
+                    <div className="border-t border-[var(--color-border-subtle)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]">
                       <div className="hidden md:grid grid-cols-12 gap-3 px-10 py-2 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider border-b border-[var(--color-border-subtle)]">
                         <div className="col-span-3">Material</div>
                         <div className="col-span-2">Type</div>
@@ -466,7 +466,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                   placeholder="Qty" />
               </div>
               {gsmMismatch && (
-                <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 space-y-2">
+                <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--color-warning)_40%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] p-3 space-y-2">
                   <p className="text-xs text-[var(--color-text-primary)]">
                     Job planned <span className="font-semibold">{plannedGsm} gsm</span>, this stock is{' '}
                     <span className="font-semibold">{issuedGsm} gsm</span>. You can still issue it — please note why.

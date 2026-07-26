@@ -135,7 +135,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center">
               <Building2 size={16} className="text-[var(--color-accent)]" />
             </div>
             <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Company Profile</h2>
@@ -228,7 +228,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-info)]/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] flex items-center justify-center">
               <GitBranch size={16} className="text-[var(--color-info)]" />
             </div>
             <div>
@@ -243,7 +243,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
         </div>
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {branches.map(branch => (
-            <div key={branch.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[var(--color-bg-elevated)]/50">
+            <div key={branch.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
               {editing?.type === 'branch' && editing?.id === branch.id ? (
                 <div className="flex-1 flex items-center gap-3">
                   <input className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name" />
@@ -257,7 +257,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-[var(--color-text-primary)]">{branch.name}</span>
                       {branch.is_head_office && (
-                        <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 px-2 py-0.5 rounded-full border border-[var(--color-warning)]/20">
+                        <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-2 py-0.5 rounded-full border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]">
                           <Star size={10} /> Head Office
                         </span>
                       )}
@@ -271,7 +271,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                     </button>
                     {!branch.is_head_office && (
                       <button onClick={() => setDeleteTarget({ type: 'branch', id: branch.id, name: branch.name })}
-                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -283,7 +283,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
 
           {/* New branch inline form */}
           {editing?.type === 'branch' && editing?.id === null && (
-            <div className="flex items-center gap-3 px-5 py-3 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+            <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
               <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name *" />
               <input className={cn(inputCls, 'flex-1')} value={form.address ?? ''} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Address (optional)" />
               <button onClick={saveBranch} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
@@ -301,7 +301,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-success)]/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] flex items-center justify-center">
               <Warehouse size={16} className="text-[var(--color-success)]" />
             </div>
             <div>
@@ -318,7 +318,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
           {warehouses.map(wh => {
             const branch = branches.find(b => b.id === wh.branch_id)
             return (
-              <div key={wh.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[var(--color-bg-elevated)]/50">
+              <div key={wh.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
                 {editing?.type === 'warehouse' && editing?.id === wh.id ? (
                   <div className="flex-1 flex items-center gap-3">
                     <input className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Warehouse name" />
@@ -336,7 +336,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                       <span className="text-sm font-medium text-[var(--color-text-primary)]">{wh.name}</span>
                       <div className="flex items-center gap-3 mt-0.5">
                         {wh.location && <span className="text-xs text-[var(--color-text-muted)]">{wh.location}</span>}
-                        {branch && <span className="text-xs text-[var(--color-info)] bg-[var(--color-info)]/10 px-1.5 py-0.5 rounded">{branch.name}</span>}
+                        {branch && <span className="text-xs text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] px-1.5 py-0.5 rounded">{branch.name}</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -345,7 +345,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                         <Pencil size={13} />
                       </button>
                       <button onClick={() => setDeleteTarget({ type: 'warehouse', id: wh.id, name: wh.name })}
-                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -356,7 +356,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
           })}
 
           {editing?.type === 'warehouse' && editing?.id === null && (
-            <div className="flex items-center gap-3 px-5 py-3 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+            <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
               <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Warehouse name *" />
               <input className={cn(inputCls, 'flex-1')} value={form.location ?? ''} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Location (optional)" />
               <select className={cn(inputCls, 'w-40')} value={form.branch_id ?? ''} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}>

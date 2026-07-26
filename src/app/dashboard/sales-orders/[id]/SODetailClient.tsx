@@ -65,7 +65,7 @@ export default function SODetailClient({ so }: { so: SO }) {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-[var(--color-text-primary)] font-mono">{so.so_number}</h1>
               <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', cfg.color)}>{cfg.label}</span>
-              {isUrgent && <span className="text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 px-2 py-0.5 rounded-full">⚠️ Urgent</span>}
+              {isUrgent && <span className="text-xs text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)] px-2 py-0.5 rounded-full">⚠️ Urgent</span>}
             </div>
             <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Created {formatDateTime(so.created_at)}</p>
           </div>
@@ -80,7 +80,7 @@ export default function SODetailClient({ so }: { so: SO }) {
             </Link>
           )}
           {!['cancelled', 'dispatched', 'completed'].includes(so.status) && (
-            <button onClick={() => setCancelOpen(true)} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-danger)]/30 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+            <button onClick={() => setCancelOpen(true)} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
               <XCircle size={14} /> Cancel
             </button>
           )}
@@ -148,7 +148,7 @@ export default function SODetailClient({ so }: { so: SO }) {
 
       {/* Special instructions */}
       {so.special_instructions && (
-        <div className="rounded-xl border border-[var(--color-warning)]/20 bg-[var(--color-warning)]/5 px-5 py-3">
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_5%,transparent)] px-5 py-3">
           <p className="text-xs font-semibold text-[var(--color-warning)] uppercase tracking-wider mb-1">Special Instructions</p>
           <p className="text-sm text-[var(--color-text-primary)]">{so.special_instructions}</p>
         </div>
@@ -163,11 +163,11 @@ export default function SODetailClient({ so }: { so: SO }) {
           {/* Header */}
           <div className="contents">
             {['Description', 'Size (mm)', 'Qty', 'Colors', 'Unit Price', 'Subtotal', 'Fulfillment'].map((h, i) => (
-              <div key={i} className="px-5 py-2 bg-[var(--color-bg-elevated)]/60 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</div>
+              <div key={i} className="px-5 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_60%,transparent)] border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</div>
             ))}
           </div>
           {so.sales_order_items.map((item, idx) => (
-            <div key={item.id} className={cn('contents', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/10')}>
+            <div key={item.id} className={cn('contents', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_10%,transparent)]')}>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
                 <div>
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.product_desc}</p>

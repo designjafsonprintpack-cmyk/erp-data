@@ -29,10 +29,10 @@ const PKR = (n: number) => `PKR ${n.toLocaleString('en-PK', { minimumFractionDig
 
 const STATUS_CFG = {
   draft:    { label: 'Draft',    color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
-  sent:     { label: 'Sent',     color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  partial:  { label: 'Partial',  color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  paid:     { label: 'Paid',     color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
-  overdue:  { label: 'Overdue',  color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
+  sent:     { label: 'Sent',     color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  partial:  { label: 'Partial',  color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  paid:     { label: 'Paid',     color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  overdue:  { label: 'Overdue',  color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
   cancelled:{ label: 'Cancelled',color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
   void:     { label: 'Void',     color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
@@ -282,7 +282,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
                 return (
                   <div key={inv.id}>
-                    <div className={cn('grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 px-4 md:px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15', isOverdue && 'border-l-2 border-l-[var(--color-danger)]')}>
+                    <div className={cn('grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1.5 px-4 md:px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]', isOverdue && 'border-l-2 border-l-[var(--color-danger)]')}>
                       <div className="col-span-1 md:col-span-1">
                         <button onClick={() => toggle(inv.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
                           className="w-11 h-11 md:w-auto md:h-auto -ml-2 md:ml-0 flex items-center justify-center text-[var(--color-text-muted)]">
@@ -319,7 +319,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                       <div className="col-span-2 md:col-span-2 flex items-center gap-1.5 md:gap-1 justify-end flex-wrap">
                         {inv.status === 'draft' && (
                           <button onClick={() => sendInvoice(inv)}
-                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-xs text-[var(--color-accent)] hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] transition-colors">
                             <Send size={11} /> Send
                           </button>
                         )}
@@ -338,7 +338,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
                     {/* Expanded */}
                     {isOpen && (
-                      <div className="px-10 py-3 bg-[var(--color-bg-elevated)]/30 border-t border-[var(--color-border-subtle)] space-y-2">
+                      <div className="px-10 py-3 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)] border-t border-[var(--color-border-subtle)] space-y-2">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           {[
                             { label: 'Subtotal', value: PKR(inv.subtotal) },
@@ -661,7 +661,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           </div>
 
           {aiCostSuggestion && (
-            <div className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4 space-y-2.5">
+            <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] p-4 space-y-2.5">
               <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
                 <Sparkles size={14} /> AI Costing Suggestion
               </div>

@@ -20,10 +20,10 @@ const icons = {
 }
 
 const bgStyles: Record<ToastType, string> = {
-  success: 'border-[var(--color-success)]/30',
-  error: 'border-[var(--color-danger)]/30',
-  warning: 'border-[var(--color-warning)]/30',
-  info: 'border-[var(--color-info)]/30',
+  success: 'border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)]',
+  error: 'border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+  warning: 'border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]',
+  info: 'border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]',
 }
 
 // Global toast store (simple without external library)

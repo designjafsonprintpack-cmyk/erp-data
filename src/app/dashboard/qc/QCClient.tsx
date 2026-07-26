@@ -33,25 +33,25 @@ interface Job { id: string; job_number: string; job_title: string; quantity: num
 
 /* ─── Constants ──────────────────────────────────────────────────────────────── */
 const RESULT_CFG = {
-  pass:             { label: 'Pass',             color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', icon: CheckCircle2 },
-  fail:             { label: 'Fail',             color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20',   icon: XCircle },
-  conditional_pass: { label: 'Conditional Pass', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', icon: AlertTriangle },
+  pass:             { label: 'Pass',             color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]', icon: CheckCircle2 },
+  fail:             { label: 'Fail',             color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]',   icon: XCircle },
+  conditional_pass: { label: 'Conditional Pass', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]', icon: AlertTriangle },
 }
 const SEVERITY_CFG = {
-  minor:    { label: 'Minor',    color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20' },
-  major:    { label: 'Major',    color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  critical: { label: 'Critical', color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
+  minor:    { label: 'Minor',    color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  major:    { label: 'Major',    color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  critical: { label: 'Critical', color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
 }
 const DEFECT_TYPES = [
   'colour_shift','misregister','scumming','hickey','fold_crack','cut_short',
   'lamination_bubble','foil_skip','ink_smear','wrong_size','pasting_fault','other',
 ]
 const REPRINT_STATUS_CFG = {
-  pending:     { label: 'Pending',     color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  approved:    { label: 'Approved',    color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
-  rejected:    { label: 'Rejected',    color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
-  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  pending:     { label: 'Pending',     color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  approved:    { label: 'Approved',    color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  rejected:    { label: 'Rejected',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
 }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
@@ -331,7 +331,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                   const resultCfg = insp.result ? RESULT_CFG[insp.result as keyof typeof RESULT_CFG] : null
                   const openDef = (insp.qc_defects || []).filter(d => !d.resolved).length
                   return (
-                    <div key={insp.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={insp.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${insp.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">
                           {insp.jobs?.job_number}
@@ -354,7 +354,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                       <div className="col-span-2 flex items-center gap-1.5 justify-end">
                         {!insp.signed_off_at && (
                           <button onClick={() => { setSignoffModal(insp); setSignoffResult(insp.result as any || 'pass'); setSignoffNotes('') }}
-                            className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-accent)]/30 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors">
+                            className="flex items-center gap-1 px-2.5 h-7 rounded border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-xs text-[var(--color-accent)] hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] transition-colors">
                             <Shield size={11} /> Sign-off
                           </button>
                         )}
@@ -396,7 +396,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                 {defects.map((d, idx) => {
                   const sevCfg = SEVERITY_CFG[d.severity as keyof typeof SEVERITY_CFG] || SEVERITY_CFG.minor
                   return (
-                    <div key={d.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={d.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${d.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{d.jobs?.job_number}</Link>
                       </div>
@@ -421,7 +421,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                       <div className="col-span-2 text-xs text-[var(--color-text-muted)]">{formatTimeAgo(d.created_at)}</div>
                       <div className="col-span-1 text-right">
                         <button onClick={() => { setResolveModal(d); setResolveNotes('') }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors ml-auto">
+                          className="flex items-center gap-1 px-2.5 h-7 rounded border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] transition-colors ml-auto">
                           <CheckCircle2 size={11} /> Resolve
                         </button>
                       </div>
@@ -455,7 +455,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                 {reprints.map((rpr, idx) => {
                   const stCfg = REPRINT_STATUS_CFG[rpr.status as keyof typeof REPRINT_STATUS_CFG] || REPRINT_STATUS_CFG.pending
                   return (
-                    <div key={rpr.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={rpr.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center min-w-[860px]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <div className="col-span-2">
                         <Link href={`/dashboard/jobs/${rpr.original_job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{rpr.jobs?.job_number}</Link>
                         <p className="text-xs text-[var(--color-text-muted)]">{rpr.jobs?.customers?.name}</p>
@@ -473,7 +473,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                               <ThumbsUp size={11} /> Approve
                             </button>
                             <button onClick={() => { setReprintAction({ rpr, action: 'reject' }); setReprintActionNotes('') }}
-                              className="flex items-center gap-1 px-2.5 h-7 rounded border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+                              className="flex items-center gap-1 px-2.5 h-7 rounded border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
                               <ThumbsDown size={11} /> Reject
                             </button>
                           </>
@@ -713,7 +713,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               <input className={inputCls} value={signoffNotes} onChange={e => setSignoffNotes(e.target.value)} placeholder="Final observations…" />
             </div>
             {signoffResult === 'pass' && (
-              <div className="rounded-lg bg-[var(--color-success)]/5 border border-[var(--color-success)]/20 p-3 text-xs text-[var(--color-success)]">
+              <div className="rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] p-3 text-xs text-[var(--color-success)]">
                 ✓ Job status will automatically change to <strong>Completed</strong> after sign-off.
               </div>
             )}
@@ -767,7 +767,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
               <p className="text-xs text-[var(--color-text-muted)] mt-1">Qty: {reprintAction.rpr.quantity.toLocaleString()} pcs</p>
             </div>
             {reprintAction.action === 'approve' && (
-              <div className="rounded-lg bg-[var(--color-success)]/5 border border-[var(--color-success)]/20 p-3 text-xs text-[var(--color-success)]">
+              <div className="rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] p-3 text-xs text-[var(--color-success)]">
                 A new repeat job will be created automatically with the same specifications.
               </div>
             )}
@@ -916,7 +916,7 @@ function QcDefectTrends() {
       </div>
 
       {aiInsights && (
-        <div className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4 space-y-2.5">
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] p-4 space-y-2.5">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
             <Sparkles size={14} /> AI Defect Pattern Insights
           </div>

@@ -114,7 +114,7 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
               'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all',
               selectedRole === role.id
                 ? 'bg-[var(--color-accent)] text-white border-transparent shadow-md'
-                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-accent)]/40 hover:text-[var(--color-text-primary)]'
+                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent)] hover:text-[var(--color-text-primary)]'
             )}
           >
             <Shield size={13} />
@@ -131,7 +131,7 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
 
       {/* System role notice */}
       {isSystemRole && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 text-sm text-[var(--color-success)]">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] text-sm text-[var(--color-success)]">
           <Check size={15} />
           <strong>{selectedRoleObj?.name}</strong> has full access to all modules — permissions cannot be restricted for this role.
         </div>
@@ -168,9 +168,9 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
           return (
             <div key={mod.key} className={cn(
               'border-b border-[var(--color-border-subtle)] last:border-b-0',
-              idx % 2 === 0 ? 'bg-[var(--color-bg-secondary)]' : 'bg-[var(--color-bg-elevated)]/30'
+              idx % 2 === 0 ? 'bg-[var(--color-bg-secondary)]' : 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]'
             )}>
-              <div className="flex items-center hover:bg-[var(--color-bg-elevated)]/50 transition-colors">
+              <div className="flex items-center hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] transition-colors">
                 {/* Module label */}
                 <button
                   onClick={() => toggleModule(mod.key)}
@@ -197,7 +197,7 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
                           className={cn(
                             'w-6 h-6 rounded flex items-center justify-center transition-all duration-150',
                             granted
-                              ? 'bg-[var(--color-success)] text-white hover:bg-[var(--color-success)]/80'
+                              ? 'bg-[var(--color-success)] text-white hover:bg-[color:color-mix(in_srgb,var(--color-success)_80%,transparent)]'
                               : 'bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]',
                             isPending && 'opacity-50'
                           )}
@@ -218,14 +218,14 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
                   <button
                     onClick={() => grantAll(mod.key)}
                     title="Grant all"
-                    className="text-xs px-2 py-1 rounded bg-[var(--color-success)]/10 text-[var(--color-success)] hover:bg-[var(--color-success)]/20 border border-[var(--color-success)]/20 transition-colors"
+                    className="text-xs px-2 py-1 rounded bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] transition-colors"
                   >
                     All
                   </button>
                   <button
                     onClick={() => revokeAll(mod.key)}
                     title="Revoke all"
-                    className="text-xs px-2 py-1 rounded bg-[var(--color-danger)]/10 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 border border-[var(--color-danger)]/20 transition-colors"
+                    className="text-xs px-2 py-1 rounded bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)] border border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)] transition-colors"
                   >
                     None
                   </button>

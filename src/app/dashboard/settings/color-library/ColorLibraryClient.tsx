@@ -127,7 +127,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
       </div>
 
       {editingId === 'new' && (
-        <div className="px-4 py-3 bg-[var(--color-accent)]/5 border-b border-[var(--color-accent)]/20 space-y-2">
+        <div className="px-4 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-b border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] space-y-2">
           <SpecForm form={form} setForm={setForm} customers={customers} />
           <div className="flex gap-2">
             <button onClick={save} disabled={loading || !form.name.trim()}
@@ -140,7 +140,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
 
       <div className="divide-y divide-[var(--color-border-subtle)]">
         {filtered.map((s, idx) => (
-          <div key={s.id} className={cn('px-4 py-2.5', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+          <div key={s.id} className={cn('px-4 py-2.5', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
             {editingId === s.id ? (
               <div className="space-y-2">
                 <SpecForm form={form} setForm={setForm} customers={customers} />
@@ -172,7 +172,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
                     <Pencil size={12} />
                   </button>
                   <button onClick={() => setDeleteTarget(s)}
-                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={12} />
                   </button>
                 </div>

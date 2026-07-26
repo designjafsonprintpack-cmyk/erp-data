@@ -104,7 +104,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
                   'max-lg:min-h-11 max-lg:py-2.5',
                   'hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)]',
                   isActive
-                    ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20'
+                    ? 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]'
                     : 'text-[var(--color-text-secondary)]',
                   collapsed && 'lg:justify-center lg:px-0'
                 )}

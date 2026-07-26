@@ -85,7 +85,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
   const maxSheets = Math.max(1, ...trend.map(t => t.sheets))
 
   const jobRow = (href: string, primary: string, secondary: string, right: string) => (
-    <Link key={href + primary} href={href} className="flex items-center justify-between px-3 py-1.5 hover:bg-[var(--color-bg-elevated)]/50 transition-colors">
+    <Link key={href + primary} href={href} className="flex items-center justify-between px-3 py-1.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] transition-colors">
       <div className="min-w-0">
         <span className="text-xs font-medium text-[var(--color-accent)]">{primary}</span>
         <p className="text-[11px] text-[var(--color-text-muted)] truncate">{secondary}</p>
@@ -109,7 +109,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
                   className={cn(
                     'text-left p-2.5 transition-colors relative',
                     isSelected
-                      ? 'bg-[var(--color-accent)]/10'
+                      ? 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
                       : 'bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-elevated)]'
                   )}
                 >
@@ -213,7 +213,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
                   className={cn(
                     'text-left rounded-md border px-2 py-1.5 transition-colors flex items-center justify-between gap-1.5',
                     isSelected
-                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                      ? 'border-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
                       : 'border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]'
                   )}
                 >
@@ -241,7 +241,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
                 <div key={i} className="px-3 py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className={cn('text-[9px] px-1 py-px rounded font-semibold uppercase tracking-wide flex-shrink-0',
-                      a.type === 'overdue' ? 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]' : 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]')}>
+                      a.type === 'overdue' ? 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)]' : 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)]')}>
                       {a.type}
                     </span>
                     <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">{a.job_number}</span>

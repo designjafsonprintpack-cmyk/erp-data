@@ -19,9 +19,9 @@ interface Machine { id: string; name: string; machine_type: string }
 interface Job { id: string; job_number: string; job_title: string; priority: string; required_date: string | null; customers?: { name: string } | null }
 
 const PLAN_STATUS_CONFIG = {
-  scheduled:   { label: 'Scheduled',   color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  scheduled:   { label: 'Scheduled',   color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   cancelled:   { label: 'Cancelled',   color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
 
@@ -226,7 +226,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                   const isOverdue = job.required_date && new Date(job.required_date) < new Date()
                   return (
-                    <div key={job.id} className={cn('flex items-center gap-3 px-4 md:px-5 py-3', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <div key={job.id} className={cn('flex items-center gap-3 px-4 md:px-5 py-3', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <ArtworkThumb
                         size="sm"
                         interactive={false}
@@ -385,7 +385,7 @@ function PlanningCalendar({ plans }: { plans: Plan[] }) {
           return (
             <div key={dateStr} ref={isToday ? todayRef : undefined}
               className={cn('rounded-lg border min-h-[220px] min-w-[240px] lg:min-w-0 flex-shrink-0 lg:flex-shrink snap-start', isToday ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]')}>
-              <div className={cn('px-2 py-1.5 text-center border-b', isToday ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)]')}>
+              <div className={cn('px-2 py-1.5 text-center border-b', isToday ? 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)]')}>
                 <p className="text-xs font-medium text-[var(--color-text-muted)]">{d.toLocaleDateString('en-PK', { weekday: 'short' })}</p>
                 <p className={cn('text-sm font-semibold', isToday ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]')}>{d.getDate()}</p>
               </div>
@@ -396,7 +396,7 @@ function PlanningCalendar({ plans }: { plans: Plan[] }) {
                   const priorityCfg = JOB_PRIORITY_CONFIG[p.jobs?.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                   return (
                     <Link key={p.id} href={`/dashboard/jobs/${p.job_id}`}
-                      className="block px-2 py-1.5 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-accent)]/40 transition-colors">
+                      className="block px-2 py-1.5 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent)] transition-colors">
                       <p className="text-xs font-mono text-[var(--color-accent)] truncate">{p.jobs?.job_number}</p>
                       <p className="text-xs text-[var(--color-text-primary)] truncate">{p.jobs?.job_title}</p>
                       {p.job_machine_assignments && p.job_machine_assignments.length > 0 && (

@@ -14,11 +14,11 @@ export const GRAIN_DIRECTION_CONFIG: Record<GrainDirection, { label: string }> =
 }
 
 export const JOB_STATUS_CONFIG: Record<JobStatus, { label: string; color: string; dot: string }> = {
-  new:         { label: 'New',         color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/30',      dot: 'bg-[var(--color-accent)]' },
-  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/30',   dot: 'bg-[var(--color-warning)]' },
-  on_hold:     { label: 'On Hold',     color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/30',      dot: 'bg-[var(--color-danger)]' },
-  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/30',   dot: 'bg-[var(--color-success)]' },
-  dispatched:  { label: 'Dispatched',  color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/30',            dot: 'bg-[var(--color-info)]' },
+  new:         { label: 'New',         color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)]',      dot: 'bg-[var(--color-accent)]' },
+  in_progress: { label: 'In Progress', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]',   dot: 'bg-[var(--color-warning)]' },
+  on_hold:     { label: 'On Hold',     color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)]',      dot: 'bg-[var(--color-danger)]' },
+  completed:   { label: 'Completed',   color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)]',   dot: 'bg-[var(--color-success)]' },
+  dispatched:  { label: 'Dispatched',  color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]',            dot: 'bg-[var(--color-info)]' },
   cancelled:   { label: 'Cancelled',   color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',        dot: 'bg-[var(--color-muted)]' },
 }
 

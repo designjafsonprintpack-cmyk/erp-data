@@ -52,7 +52,7 @@ const MRP_COLUMNS = (openCreatePO: (r: MrpRow) => void): DataListColumn<MrpRow>[
     render: r =>
       r.shortfall_sheets > 0 ? (
         <button onClick={() => openCreatePO(r)} title="Create Purchase Order"
-          className="flex items-center gap-1.5 px-3 md:px-0 h-9 md:h-8 md:w-8 justify-center rounded-md border md:border-0 border-[var(--color-accent)]/30 text-xs md:text-sm text-[var(--color-accent)] md:text-[var(--color-text-muted)] hover:bg-[var(--color-accent)]/10 hover:text-[var(--color-accent)] transition-colors">
+          className="flex items-center gap-1.5 px-3 md:px-0 h-9 md:h-8 md:w-8 justify-center rounded-md border md:border-0 border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] text-xs md:text-sm text-[var(--color-accent)] md:text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] hover:text-[var(--color-accent)] transition-colors">
           <ShoppingCart size={14} /> <span className="md:hidden">Create PO</span>
         </button>
       ) : null,
@@ -136,7 +136,7 @@ export default function MrpClient() {
       </div>
 
       {shortfallCount > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 text-sm text-[var(--color-danger)]">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)] text-sm text-[var(--color-danger)]">
           <AlertTriangle size={16} className="flex-shrink-0" />
           {shortfallCount} board type{shortfallCount !== 1 ? 's' : ''} short of what&apos;s needed for open jobs.
         </div>
@@ -149,7 +149,7 @@ export default function MrpClient() {
           rows={rows}
           columns={MRP_COLUMNS(openCreatePO)}
           getRowId={r => r.board_type_id}
-          rowClassName={r => (r.shortfall_sheets > 0 ? 'bg-[var(--color-danger)]/5' : undefined)}
+          rowClassName={r => (r.shortfall_sheets > 0 ? 'bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)]' : undefined)}
           striped={false}
           empty={
             <div className="p-10 text-center">

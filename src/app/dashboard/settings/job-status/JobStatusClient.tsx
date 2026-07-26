@@ -12,7 +12,7 @@ const DELAY_CATEGORIES = ['material', 'machine', 'manpower', 'artwork', 'custome
 
 function StatusRow({ status, onEdit, onDelete }: { status: JobStatus; onEdit: () => void; onDelete: () => void }) {
   return (
-    <div className="flex items-center gap-4 px-5 py-3 hover:bg-[var(--color-bg-elevated)]/40">
+    <div className="flex items-center gap-4 px-5 py-3 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]">
       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: status.color_hex + '20', border: `2px solid ${status.color_hex}40` }}>
         <Circle size={12} style={{ fill: status.color_hex, color: status.color_hex }} />
       </div>
@@ -20,7 +20,7 @@ function StatusRow({ status, onEdit, onDelete }: { status: JobStatus; onEdit: ()
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[var(--color-text-primary)]">{status.name}</span>
           <code className="text-xs font-mono bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded text-[var(--color-text-muted)]">{status.slug}</code>
-          {status.is_system && <span className="text-xs text-[var(--color-info)] bg-[var(--color-info)]/10 border border-[var(--color-info)]/20 px-1.5 py-0.5 rounded">System</span>}
+          {status.is_system && <span className="text-xs text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] px-1.5 py-0.5 rounded">System</span>}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ function StatusRow({ status, onEdit, onDelete }: { status: JobStatus; onEdit: ()
       </div>
       <div className="flex items-center gap-1">
         <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-        {!status.is_system && <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>}
+        {!status.is_system && <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>}
       </div>
     </div>
   )
@@ -141,7 +141,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
               )
             ))}
             {editingStatusId === 'new' && (
-              <div className="flex items-center gap-3 px-5 py-3 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+              <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
                 <input autoFocus className={cn(inputCls, 'flex-1')} value={statusForm.name} onChange={e => setStatusForm(p => ({ ...p, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '_') }))} placeholder="Status name *" />
                 <input className={cn(inputCls, 'w-32')} value={statusForm.slug} onChange={e => setStatusForm(p => ({ ...p, slug: e.target.value }))} placeholder="slug *" />
                 <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-8 rounded border border-[var(--color-border)] cursor-pointer" />
@@ -163,7 +163,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
           </div>
 
           {editingDelayId === 'new' && (
-            <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/5">
+            <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)]">
               <input autoFocus className={cn(inputCls, 'flex-1')} value={delayForm.name} onChange={e => setDelayForm(p => ({ ...p, name: e.target.value }))} placeholder="Reason name *" />
               <select className={cn(inputCls, 'w-36 capitalize')} value={delayForm.category} onChange={e => setDelayForm(p => ({ ...p, category: e.target.value }))}>
                 {DELAY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -180,7 +180,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
               </div>
               <div className="divide-y divide-[var(--color-border-subtle)]">
                 {grouped[cat].map((d, idx) => (
-                  <div key={d.id} className={cn('flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+                  <div key={d.id} className={cn('flex items-center gap-3 px-4 py-2.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
                     {editingDelayId === d.id ? (
                       <>
                         <input autoFocus className={cn(inputCls, 'flex-1')} value={delayForm.name} onChange={e => setDelayForm(p => ({ ...p, name: e.target.value }))} />
@@ -195,7 +195,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                         <span className="flex-1 text-sm text-[var(--color-text-primary)]">{d.name}</span>
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setDelayForm({ name: d.name, category: d.category }); setEditingDelayId(d.id) }} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-                          <button onClick={() => setDeleteTarget({ type: 'delay', id: d.id, name: d.name })} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
+                          <button onClick={() => setDeleteTarget({ type: 'delay', id: d.id, name: d.name })} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
                         </div>
                       </>
                     )}

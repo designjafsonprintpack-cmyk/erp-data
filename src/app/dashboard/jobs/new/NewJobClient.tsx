@@ -170,7 +170,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   return (
     <div className="space-y-5">
       {mode === 'new' && draftAvailable && (
-        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
+        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-sm">
           <History size={15} className="text-[var(--color-accent)] flex-shrink-0" />
           <span className="text-[var(--color-text-primary)]">
             You have an unsaved job draft{draftSavedAt ? ` from ${formatTimeAgo(draftSavedAt)}` : ''}.
@@ -240,7 +240,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             </div>
 
             {parentJob && (
-              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 p-4">
+              <div className="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
                   Will be copied from {parentJob.job_number}
                 </p>

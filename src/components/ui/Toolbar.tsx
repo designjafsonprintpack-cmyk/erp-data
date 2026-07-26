@@ -88,7 +88,7 @@ export function Toolbar({
               className={cn(
                 'md:hidden flex items-center gap-1.5 px-3 h-11 rounded-md border text-sm font-medium flex-shrink-0',
                 activeFilterCount > 0
-                  ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
                   : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
               )}
             >

@@ -17,9 +17,9 @@ interface Customer {
 }
 
 const BIZ_COLORS: Record<string, string> = {
-  company: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20',
-  individual: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20',
-  government: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20',
+  company: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
+  individual: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]',
+  government: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
 }
 
 const STAGE_TABS = [
@@ -30,8 +30,8 @@ const STAGE_TABS = [
 ]
 const STAGE_BADGE: Record<string, string> = {
   lead: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',
-  prospect: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20',
-  customer: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20',
+  prospect: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
+  customer: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]',
 }
 
 
@@ -44,7 +44,7 @@ const CUSTOMER_COLUMNS: DataListColumn<Customer>[] = [
     key: 'name', header: 'Name', span: 3, role: 'identity',
     render: c => (
       <span className="flex items-center gap-2 min-w-0">
-        <span className="w-8 h-8 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0">
+        <span className="w-8 h-8 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center flex-shrink-0">
           <span className="text-xs font-bold text-[var(--color-accent)]">{c.name.charAt(0).toUpperCase()}</span>
         </span>
         <span className="min-w-0">

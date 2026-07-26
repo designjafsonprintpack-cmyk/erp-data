@@ -91,7 +91,7 @@ export function QueueBoard({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
       <Section
         title="In Progress" icon={<Clock size={13} />} entries={inProgress}
-        tone="bg-[var(--color-info)]/10 text-[var(--color-info)]"
+        tone="bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] text-[var(--color-info)]"
         renderAction={e => (
           <button onClick={() => onAct(e, 'complete')} disabled={actingOn === e.stage_progress_id}
             className="flex items-center justify-center gap-1.5 h-14 md:h-7 w-full md:w-auto px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-success)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
@@ -101,7 +101,7 @@ export function QueueBoard({
       />
       <Section
         title="Ready to Start" icon={<Play size={13} />} entries={ready}
-        tone="bg-[var(--color-success)]/10 text-[var(--color-success)]"
+        tone="bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]"
         renderAction={e => (
           <div className="flex items-center gap-2 md:gap-1.5">
             <button onClick={() => onAct(e, 'start')} disabled={actingOn === e.stage_progress_id}
@@ -122,7 +122,7 @@ export function QueueBoard({
       />
       <Section
         title="Blocked" icon={<AlertTriangle size={13} />} entries={blocked}
-        tone="bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+        tone="bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)]"
         renderAction={() => null}
       />
     </div>

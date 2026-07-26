@@ -11,9 +11,9 @@ interface Company { id: string; name: string; address: string | null; branches?:
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 const ACTION_COLOR: Record<string, string> = {
-  INSERT: 'text-[var(--color-success)] bg-[var(--color-success)]/10',
-  UPDATE: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10',
-  DELETE: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10',
+  INSERT: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]',
+  UPDATE: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]',
+  DELETE: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]',
 }
 
 type Tab = 'settings' | 'company' | 'audit'
@@ -175,7 +175,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
                     <p className="text-xs font-mono text-[var(--color-text-muted)]">{branch.id}</p>
                   </div>
                   {branch.is_default && (
-                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20">
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
                       Default
                     </span>
                   )}
@@ -223,7 +223,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
             ) : (
               <div className="divide-y divide-[var(--color-border-subtle)] max-h-[600px] overflow-y-auto">
                 {filteredAudit.map((row, idx) => (
-                  <div key={row.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center text-sm', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                  <div key={row.id} className={cn('grid grid-cols-12 gap-3 px-5 py-3 items-center text-sm', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                     <div className="col-span-2">
                       <span className={cn('text-xs px-2 py-0.5 rounded font-semibold', ACTION_COLOR[row.action] || 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)]')}>
                         {row.action}

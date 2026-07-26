@@ -127,7 +127,7 @@ export default function ThemesPage() {
             className={cn('relative rounded-xl border-2 p-3 text-left transition-all hover:scale-105',
               active === theme.key
                 ? 'border-[var(--color-accent)] shadow-lg'
-                : 'border-[var(--color-border)] hover:border-[var(--color-accent)]/50')}>
+                : 'border-[var(--color-border)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_50%,transparent)]')}>
             {/* Preview */}
             <div className="rounded-lg overflow-hidden mb-2 h-12 flex"
               style={{ background: theme.preview[0] }}>

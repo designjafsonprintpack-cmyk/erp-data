@@ -297,7 +297,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
                   {monthly.map((row, i) => (
-                    <tr key={i} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <tr key={i} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <td className="py-2.5 px-2 font-medium text-[var(--color-text-primary)]">{row.month_label}</td>
                       <td className="py-2.5 px-2 text-[var(--color-text-secondary)]">{row.jobs_created}</td>
                       <td className="py-2.5 px-2 text-[var(--color-success)]">{row.jobs_completed}</td>
@@ -370,7 +370,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
                   {customers.map((c, i) => (
-                    <tr key={c.customer_id} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <tr key={c.customer_id} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <td className="py-2.5 px-3 font-medium text-[var(--color-text-primary)]">{c.customer_name}</td>
                       <td className="py-2.5 px-3 text-xs font-mono text-[var(--color-text-muted)]">{c.customer_code}</td>
                       <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{c.total_jobs}</td>
@@ -445,7 +445,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
                   {financial.map((row, i) => (
-                    <tr key={i} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                    <tr key={i} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                       <td className="py-2.5 px-3 font-medium text-[var(--color-text-primary)]">{row.month_label}</td>
                       <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{row.invoice_count}</td>
                       <td className="py-2.5 px-3 text-[var(--color-text-primary)]">{PKR(row.total_invoiced)}</td>
@@ -517,7 +517,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-subtle)]">
                     {qc.map((row, i) => (
-                      <tr key={i} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                      <tr key={i} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                         <td className="py-2.5 px-3 font-medium text-[var(--color-text-primary)]">{row.month_label}</td>
                         <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{row.total_inspections}</td>
                         <td className="py-2.5 px-3 text-[var(--color-success)]">{row.passed}</td>
@@ -589,7 +589,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-subtle)]">
                     {costingVariance.map((row, i) => (
-                      <tr key={row.costing_id} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                      <tr key={row.costing_id} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                         <td className="py-2.5 px-3">
                           <Link href={`/dashboard/jobs/${row.job_id}`} className="font-medium text-[var(--color-accent)] hover:underline">{row.job_number}</Link>
                           <div className="text-xs text-[var(--color-text-muted)]">{row.job_title}</div>
@@ -612,9 +612,9 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                         </td>
                         <td className="py-2.5 px-3">
                           <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium',
-                            row.budget_status === 'over_budget' ? 'bg-[var(--color-danger)]/12 text-[var(--color-danger)]' :
-                            row.budget_status === 'under_budget' ? 'bg-[var(--color-success)]/12 text-[var(--color-success)]' :
-                            row.budget_status === 'on_budget' ? 'bg-[var(--color-accent)]/12 text-[var(--color-accent)]' :
+                            row.budget_status === 'over_budget' ? 'bg-[color:color-mix(in_srgb,var(--color-danger)_12%,transparent)] text-[var(--color-danger)]' :
+                            row.budget_status === 'under_budget' ? 'bg-[color:color-mix(in_srgb,var(--color-success)_12%,transparent)] text-[var(--color-success)]' :
+                            row.budget_status === 'on_budget' ? 'bg-[color:color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]' :
                             'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
                             {row.budget_status.replace('_', ' ')}
                           </span>
@@ -791,7 +791,7 @@ function CustomReportBuilder() {
               </thead>
               <tbody className="divide-y divide-[var(--color-border-subtle)]">
                 {rows.map((row, i) => (
-                  <tr key={i} className={cn('hover:bg-[var(--color-bg-elevated)]/30', i % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                  <tr key={i} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                     {columns.filter(c => selectedCols.has(c.key)).map(c => (
                       <td key={c.key} className="py-2 px-3 text-[var(--color-text-secondary)] whitespace-nowrap">{String(row[c.key] ?? '—')}</td>
                     ))}

@@ -142,7 +142,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         </div>
 
         {/* Column headers */}
-        <div className="grid gap-2 px-5 py-2 bg-[var(--color-bg-elevated)]/50 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider" style={{ gridTemplateColumns: '3fr 1fr 1fr 1fr 1.5fr 1fr 1.5fr 1.5fr auto' }}>
+        <div className="grid gap-2 px-5 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider" style={{ gridTemplateColumns: '3fr 1fr 1fr 1fr 1.5fr 1fr 1.5fr 1.5fr auto' }}>
           <div>Description</div><div>L (mm)</div><div>W (mm)</div><div>H (mm)</div><div>Qty</div><div>Colors</div><div>Unit Price</div><div className="text-right">Subtotal</div><div />
         </div>
 
@@ -161,7 +161,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
                 <div className="h-8 flex items-center justify-end">
                   <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                 </div>
-                <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
+                <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>

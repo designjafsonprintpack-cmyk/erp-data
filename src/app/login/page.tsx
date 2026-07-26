@@ -17,9 +17,9 @@ export default async function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           {company.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local asset
-            <img src={company.logo_url} alt={company.name} className="w-12 h-12 rounded-xl object-contain mb-4 shadow-lg shadow-[var(--color-accent)]/20" />
+            <img src={company.logo_url} alt={company.name} className="w-12 h-12 rounded-xl object-contain mb-4 shadow-lg shadow-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]" />
           ) : (
-            <div className="w-12 h-12 rounded-xl bg-[var(--color-accent)] flex items-center justify-center mb-4 shadow-lg shadow-[var(--color-accent)]/20">
+            <div className="w-12 h-12 rounded-xl bg-[var(--color-accent)] flex items-center justify-center mb-4 shadow-lg shadow-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
               <span className="text-white text-xl font-bold">JP</span>
             </div>
           )}

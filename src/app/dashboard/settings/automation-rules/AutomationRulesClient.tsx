@@ -114,13 +114,13 @@ export default function AutomationRulesClient({ initialRules }: { initialRules: 
           <div key={def.type} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
             <div className="flex items-start gap-3">
               <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-                isActive ? 'bg-[var(--color-success)]/10' : 'bg-[var(--color-bg-elevated)]')}>
+                isActive ? 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]' : 'bg-[var(--color-bg-elevated)]')}>
                 <def.icon size={18} className={isActive ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{def.title}</h3>
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded', isActive ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded', isActive ? 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
                     {isActive ? 'Active' : 'Paused'}
                   </span>
                 </div>
@@ -149,7 +149,7 @@ export default function AutomationRulesClient({ initialRules }: { initialRules: 
                 )}
                 <button onClick={() => toggle(def)} disabled={saving === def.type}
                   className={cn('flex items-center gap-1.5 px-3 h-8 rounded-md border text-xs font-medium transition-colors disabled:opacity-50',
-                    isActive ? 'border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10' : 'bg-[var(--color-accent)] text-white border-transparent hover:bg-[var(--color-accent-hover)]')}>
+                    isActive ? 'border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]' : 'bg-[var(--color-accent)] text-white border-transparent hover:bg-[var(--color-accent-hover)]')}>
                   <Power size={12} /> {isActive ? 'Pause' : 'Enable'}
                 </button>
               </div>

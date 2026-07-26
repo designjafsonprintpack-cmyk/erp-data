@@ -207,7 +207,7 @@ export default function FloorDashboardClient({
   return (
     <div className="space-y-4">
       {filter && (
-        <div className="flex items-center gap-2 px-4 h-10 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm text-[var(--color-accent)]">
+        <div className="flex items-center gap-2 px-4 h-10 rounded-md border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-sm text-[var(--color-accent)]">
           <Layers size={14} />
           <span className="font-medium">Showing {filter.label} only</span>
           <Link href="/dashboard/production/floor" className="ml-auto text-xs underline hover:no-underline">
@@ -289,9 +289,9 @@ export default function FloorDashboardClient({
             return (
               <div key={m.machine_id} className={cn(
                 'rounded-xl border bg-[var(--color-bg-secondary)] overflow-hidden transition-all',
-                isRunning ? 'border-[var(--color-success)]/40 shadow-sm' :
-                isPaused  ? 'border-[var(--color-warning)]/40' :
-                isQueued  ? 'border-[var(--color-accent)]/30' :
+                isRunning ? 'border-[color:color-mix(in_srgb,var(--color-success)_40%,transparent)] shadow-sm' :
+                isPaused  ? 'border-[color:color-mix(in_srgb,var(--color-warning)_40%,transparent)]' :
+                isQueued  ? 'border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)]' :
                             'border-[var(--color-border)]'
               )}>
                 {/* Machine header */}
@@ -306,9 +306,9 @@ export default function FloorDashboardClient({
                   </div>
                   {/* Status pill */}
                   <div className={cn('flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium',
-                    isRunning ? 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' :
-                    isPaused  ? 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' :
-                    isQueued  ? 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' :
+                    isRunning ? 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' :
+                    isPaused  ? 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' :
+                    isQueued  ? 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' :
                                 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]')}>
                     <span className={cn('w-1.5 h-1.5 rounded-full', isRunning ? 'bg-[var(--color-success)] animate-pulse' : isQueued ? 'bg-[var(--color-accent)]' : isPaused ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-border)]')} />
                     {isRunning ? 'Running' : isPaused ? 'Paused' : isQueued ? 'Queued' : 'Idle'}
@@ -373,7 +373,7 @@ export default function FloorDashboardClient({
                             )}
                             {asgn.status === 'running' && <>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'pause' })}
-                                className="flex items-center gap-1 px-3 h-9 rounded-md border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md border border-[color:color-mix(in_srgb,var(--color-warning)_40%,transparent)] text-xs text-[var(--color-warning)] hover:bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] transition-colors">
                                 <Pause size={11} /> Pause
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'complete' })}
@@ -381,7 +381,7 @@ export default function FloorDashboardClient({
                                 <CheckCircle2 size={11} /> Done
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'issue' })}
-                                className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-danger)]/30 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+                                className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
                                 <AlertTriangle size={11} />
                               </button>
                             </>}
@@ -601,7 +601,7 @@ function AssignmentTable({
           const isOpen = expanded.has(a.id)
           return (
             <div key={a.id}>
-              <div className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+              <div className={cn('grid grid-cols-12 gap-3 px-5 py-3.5 items-center', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                 <div className="col-span-1">
                   <button onClick={() => toggle(a.id)} className="text-[var(--color-text-muted)]">
                     {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -644,7 +644,7 @@ function AssignmentTable({
                   )}
                   {a.status === 'running' && <>
                     <button onClick={() => onAction(a, 'pause')}
-                      className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[var(--color-warning)]/40 text-xs text-[var(--color-warning)] hover:bg-[var(--color-warning)]/10 transition-colors">
+                      className="flex items-center gap-1 px-2.5 h-9 rounded-md border border-[color:color-mix(in_srgb,var(--color-warning)_40%,transparent)] text-xs text-[var(--color-warning)] hover:bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] transition-colors">
                       <Pause size={10} />
                     </button>
                     <button onClick={() => onAction(a, 'complete')}
@@ -665,7 +665,7 @@ function AssignmentTable({
                 </div>
               </div>
               {isOpen && (
-                <div className="px-10 py-2.5 bg-[var(--color-bg-elevated)]/30 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)] space-y-1">
+                <div className="px-10 py-2.5 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)] border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)] space-y-1">
                   {a.actual_start && <p>Started: {formatDateTime(a.actual_start)}</p>}
                   {a.estimated_minutes && <p>Estimated: {formatMins(a.estimated_minutes)}</p>}
                   {a.notes && <p className="italic">{a.notes}</p>}

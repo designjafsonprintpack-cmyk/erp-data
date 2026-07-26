@@ -113,13 +113,13 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className={labelCls}>Customer</label>
-            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 text-sm text-[var(--color-text-secondary)]">
+            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] text-sm text-[var(--color-text-secondary)]">
               {job.customers?.name} ({job.customers?.customer_code})
             </p>
           </div>
           <div className="space-y-1.5">
             <label className={labelCls}>Sales Order</label>
-            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50 text-sm text-[var(--color-text-secondary)]">
+            <p className="h-9 flex items-center px-3 rounded-md border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] text-sm text-[var(--color-text-secondary)]">
               {job.sales_orders?.so_number || 'None — standalone job'}
             </p>
           </div>

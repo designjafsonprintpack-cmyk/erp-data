@@ -300,7 +300,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
     >
     <div className="space-y-6">
       {draftAvailable && (
-        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-sm">
+        <div className="flex items-center gap-3 px-4 h-11 rounded-md border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-sm">
           <History size={15} className="text-[var(--color-accent)] flex-shrink-0" />
           <span className="text-[var(--color-text-primary)]">
             You have an unsaved quotation draft{draftSavedAt ? ` from ${formatTimeAgo(draftSavedAt)}` : ''}.
@@ -370,7 +370,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
         </div>
 
         {/* Column headers */}
-        <div className={cn(lineGridCls, 'px-4 py-2 bg-[var(--color-bg-elevated)]/50 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider')}>
+        <div className={cn(lineGridCls, 'px-4 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider')}>
           <div>Description</div>
           <div>L × W × H (mm)</div>
           <div>Qty</div>
@@ -429,11 +429,11 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                   <div className="flex justify-end gap-1">
                     <button onClick={() => setOpenCalc(isOpen ? null : idx)}
                       className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
-                        isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent)]/10' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
+                        isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
                       <Calculator size={12} /> Cost {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
                     {items.length > 1 && (
-                      <button onClick={() => removeLine(idx)} className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                      <button onClick={() => removeLine(idx)} className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -443,7 +443,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                 {/* Costing calculator panel */}
                 {isOpen && (
                   <div className="px-4 pb-4 -mt-1">
-                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/40 p-4 space-y-3">
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)] p-4 space-y-3">
                       <div className="grid grid-cols-4 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs text-[var(--color-text-muted)]">Ups (per sheet)</label>
@@ -530,7 +530,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                             const lineResult = result?.costLines.find((_, ri) => ri === result.costLines.findIndex(rl => rl.name === line.name && rl.unitBasis === line.unit_basis))
                             const amount = line.active ? (lineResult?.amount ?? 0) : 0
                             return (
-                              <div key={li} className={cn('grid grid-cols-12 gap-2 items-center py-1 px-1 rounded', line.active && 'bg-[var(--color-accent)]/5')}>
+                              <div key={li} className={cn('grid grid-cols-12 gap-2 items-center py-1 px-1 rounded', line.active && 'bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)]')}>
                                 <div className="col-span-1">
                                   <input type="checkbox" checked={line.active} onChange={() => toggleCostLine(idx, li)}
                                     className="w-4 h-4 rounded accent-[var(--color-accent)] cursor-pointer" />
@@ -622,7 +622,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
         </div>
 
         {/* Totals */}
-        <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50">
+        <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
           <div className="flex justify-end">
             <div className="w-72 space-y-2">
               <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">

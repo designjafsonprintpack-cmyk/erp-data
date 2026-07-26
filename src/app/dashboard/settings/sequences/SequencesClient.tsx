@@ -50,12 +50,12 @@ export default function SequencesClient({ sequences, companyId }: { sequences: S
           const preview = previewNumber(isEditing ? form.prefix : seq.prefix, isEditing ? parseInt(form.padding) : seq.padding, seq.current_value)
 
           return (
-            <div key={seq.document_type} className={cn('px-5 py-4', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+            <div key={seq.document_type} className={cn('px-5 py-4', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-sm font-semibold text-[var(--color-text-primary)]">{DOC_LABELS[seq.document_type] || seq.document_type}</span>
-                    <span className="text-xs font-mono bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20 px-2 py-0.5 rounded">{seq.document_type}</span>
+                    <span className="text-xs font-mono bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] px-2 py-0.5 rounded">{seq.document_type}</span>
                   </div>
 
                   {isEditing ? (
@@ -116,7 +116,7 @@ export default function SequencesClient({ sequences, companyId }: { sequences: S
         })}
       </div>
 
-      <div className="px-5 py-3 border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)]/50">
+      <div className="px-5 py-3 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
         <p className="text-xs text-[var(--color-text-muted)]">
           Sequence numbers are generated atomically — concurrent users will never get duplicate numbers. Changes only affect future numbers.
         </p>

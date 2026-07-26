@@ -155,7 +155,7 @@ export function GlobalSearch() {
                     <button key={result.id} onClick={() => navigate(result)}
                       className={cn('w-full flex items-center gap-3 px-4 py-3 min-h-14 md:min-h-0 text-left hover:bg-[var(--color-bg-secondary)] transition-colors',
                         selectedIndex === idx && 'bg-[var(--color-bg-secondary)]')}>
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center flex-shrink-0">
                         <Icon size={14} className="text-[var(--color-accent)]" />
                       </div>
                       <div className="flex-1 min-w-0">

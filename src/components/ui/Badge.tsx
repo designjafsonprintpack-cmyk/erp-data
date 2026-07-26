@@ -12,10 +12,10 @@ interface BadgeProps {
 
 const variantStyles: Record<BadgeVariant, string> = {
   default: 'bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border border-[var(--color-border)]',
-  success: 'bg-[var(--color-success)]/15 text-[var(--color-success)] border border-[var(--color-success)]/30',
-  warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)] border border-[var(--color-warning)]/30',
-  danger: 'bg-[var(--color-danger)]/15 text-[var(--color-danger)] border border-[var(--color-danger)]/30',
-  info: 'bg-[var(--color-info)]/15 text-[var(--color-info)] border border-[var(--color-info)]/30',
+  success: 'bg-[color:color-mix(in_srgb,var(--color-success)_15%,transparent)] text-[var(--color-success)] border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)]',
+  warning: 'bg-[color:color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)] border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]',
+  danger: 'bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)] border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+  info: 'bg-[color:color-mix(in_srgb,var(--color-info)_15%,transparent)] text-[var(--color-info)] border border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]',
   muted: 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]',
 }
 

@@ -144,9 +144,9 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
   }
 
   const PREFLIGHT_CFG: Record<string, { color: string; label: string }> = {
-    pass:    { color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', label: 'AI: Pass' },
-    warning: { color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', label: 'AI: Warnings' },
-    fail:    { color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20', label: 'AI: Issues Found' },
+    pass:    { color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]', label: 'AI: Pass' },
+    warning: { color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]', label: 'AI: Warnings' },
+    fail:    { color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]', label: 'AI: Issues Found' },
   }
 
   const openLinkModal = (art: Artwork) => {
@@ -253,7 +253,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           {artworks.map(art => (
             // Same stacking as the standalone Artwork page: below md the
             // actions get their own wrapped row, at md+ the exact desktop row.
-            <div key={art.id} className={cn('flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-3.5', art.status === 'approved' && 'bg-[var(--color-success)]/3')}>
+            <div key={art.id} className={cn('flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-3.5', art.status === 'approved' && 'bg-[color:color-mix(in_srgb,var(--color-success)_3%,transparent)]')}>
              <div className="flex items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0">
               {/* 125 × 160 preview, same component as the Artwork page */}
               <ArtworkThumb
@@ -315,7 +315,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                 <button onClick={() => openCommentsModal(art)}
                   className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap',
                     hasUnresolvedCustomerComment(art.id)
-                      ? 'border-[var(--color-danger)]/50 text-[var(--color-danger)] bg-[var(--color-danger)]/10'
+                      ? 'border-[color:color-mix(in_srgb,var(--color-danger)_50%,transparent)] text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]'
                       : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]')}>
                   <MessageCircle size={12} />
                   {commentCount(art.id) > 0 ? commentCount(art.id) : 'Comments'}
@@ -329,7 +329,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                   </select>
                 )}
                 <button onClick={() => deleteArtwork(art.id)}
-                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -474,8 +474,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                   {list.map(c => (
                     <div key={c.id} className={cn('rounded-lg border p-2.5 text-xs',
                       c.comment_type === 'emboss'
-                        ? 'border-[var(--color-warning)]/50 bg-[var(--color-warning)]/10'
-                        : c.author_type === 'customer' ? 'border-[var(--color-warning)]/25 bg-[var(--color-warning)]/5' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]')}>
+                        ? 'border-[color:color-mix(in_srgb,var(--color-warning)_50%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]'
+                        : c.author_type === 'customer' ? 'border-[color:color-mix(in_srgb,var(--color-warning)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_5%,transparent)]' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]')}>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5">
                           {onImage(c) && (
@@ -485,12 +485,12 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                             </span>
                           )}
                           {c.comment_type === 'emboss' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 bg-[var(--color-warning)]/20 text-[var(--color-warning)]">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 bg-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] text-[var(--color-warning)]">
                               <Stamp size={10} /> EMBOSS
                             </span>
                           )}
                           <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium',
-                            c.author_type === 'customer' ? 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]' : 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]')}>
+                            c.author_type === 'customer' ? 'bg-[color:color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)]' : 'bg-[color:color-mix(in_srgb,var(--color-accent)_15%,transparent)] text-[var(--color-accent)]')}>
                             {c.author_type === 'customer' ? (c.author_name || 'Customer') : (c.users?.full_name || 'Staff')}
                           </span>
                           <span className="text-[var(--color-text-muted)]">{formatTimeAgo(c.created_at)}</span>
@@ -500,8 +500,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                         {c.author_type === 'customer' && c.comment_type !== 'emboss' && (
                           <button onClick={() => toggleResolve(commentsModal.id, c.id, !c.resolved)}
                             className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium', c.resolved
-                              ? 'border-[var(--color-success)]/30 text-[var(--color-success)] bg-[var(--color-success)]/10'
-                              : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-success)]/50 hover:text-[var(--color-success)]')}>
+                              ? 'border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]'
+                              : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[color:color-mix(in_srgb,var(--color-success)_50%,transparent)] hover:text-[var(--color-success)]')}>
                             {c.resolved ? 'Resolved' : 'Mark Resolved'}
                           </button>
                         )}

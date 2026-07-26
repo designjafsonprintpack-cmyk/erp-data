@@ -48,12 +48,12 @@ export default function LoginForm() {
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-6 shadow-2xl">
       <form onSubmit={handleSubmit} className="space-y-4">
         {idleTimeout && !error && (
-          <div className="rounded-md bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 px-3 py-2">
+          <div className="rounded-md bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] px-3 py-2">
             <p className="text-sm text-[var(--color-warning)]">You were signed out due to inactivity. Please sign in again.</p>
           </div>
         )}
         {error && (
-          <div className="rounded-md bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/30 px-3 py-2">
+          <div className="rounded-md bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] px-3 py-2">
             <p className="text-sm text-[var(--color-danger)]">{error}</p>
           </div>
         )}

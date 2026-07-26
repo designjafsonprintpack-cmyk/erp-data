@@ -40,10 +40,10 @@ interface Job { id: string; job_number: string; job_title: string; quantity: num
 /* ─── Config ─────────────────────────────────────────────────────────────────── */
 const STATUS_CFG = {
   pending:    { label: 'Pending',    color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]', dot: 'bg-[var(--color-text-muted)]' },
-  ready:      { label: 'Ready',      color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20', dot: 'bg-[var(--color-accent)]' },
-  dispatched: { label: 'In Transit', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20', dot: 'bg-[var(--color-warning)] animate-pulse' },
-  delivered:  { label: 'Delivered',  color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20', dot: 'bg-[var(--color-success)]' },
-  returned:   { label: 'Returned',   color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20', dot: 'bg-[var(--color-danger)]' },
+  ready:      { label: 'Ready',      color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]', dot: 'bg-[var(--color-accent)]' },
+  dispatched: { label: 'In Transit', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]', dot: 'bg-[var(--color-warning)] animate-pulse' },
+  delivered:  { label: 'Delivered',  color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]', dot: 'bg-[var(--color-success)]' },
+  returned:   { label: 'Returned',   color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]', dot: 'bg-[var(--color-danger)]' },
   cancelled:  { label: 'Cancelled',  color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]', dot: 'bg-[var(--color-text-muted)]' },
 }
 const METHOD_LABELS: Record<string, string> = {
@@ -288,8 +288,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           aren't on any challan yet. The list below is the paperwork; this is
           the goods sitting on the floor waiting for it. */}
       {readyToDispatch.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-success)]/30 bg-[var(--color-success)]/[0.06] overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-[var(--color-success)]/20 flex items-center gap-2">
+        <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-success)_6%,transparent)] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] flex items-center gap-2">
             <Truck size={14} className="text-[var(--color-success)] flex-shrink-0" />
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Ready to Dispatch</h2>
             <span className="text-xs text-[var(--color-text-muted)]">
@@ -310,7 +310,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                       </Link>
                       {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
                       {late && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-danger)]/15 text-[var(--color-danger)] flex-shrink-0">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)] flex-shrink-0">
                           PAST DUE
                         </span>
                       )}
@@ -351,7 +351,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             <>
               <span className="text-xs text-[var(--color-text-muted)]">{selected.size} selected</span>
               <button onClick={bulkDeliver}
-                className="flex items-center gap-1.5 px-3 h-11 md:h-9 justify-center rounded-md border border-[var(--color-success)]/40 text-sm text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+                className="flex items-center gap-1.5 px-3 h-11 md:h-9 justify-center rounded-md border border-[color:color-mix(in_srgb,var(--color-success)_40%,transparent)] text-sm text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] transition-colors">
                 <CheckCircle2 size={13} /> Mark Delivered
               </button>
             </>
@@ -386,7 +386,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               return (
                 <div key={d.id} id={`dispatch-${d.id}`}>
                   {/* Main row */}
-                  <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-4 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+                  <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-4 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                     <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleSelect(d.id)}
                       className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer flex-shrink-0" aria-label="Select dispatch" />
                     <button onClick={() => toggle(d.id)} aria-label={isOpen ? 'Collapse' : 'Expand'}
@@ -473,7 +473,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
 
                   {/* Expanded detail */}
                   {isOpen && (
-                    <div className="px-10 py-3 bg-[var(--color-bg-elevated)]/30 border-t border-[var(--color-border-subtle)] space-y-3">
+                    <div className="px-10 py-3 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)] border-t border-[var(--color-border-subtle)] space-y-3">
                       {/* Jobs */}
                       {(d.dispatch_items ?? []).length > 0 && (
                         <div>
@@ -494,7 +494,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                       )}
                       {/* POD info */}
                       {hasPOD && pod && (
-                        <div className="rounded-lg bg-[var(--color-success)]/5 border border-[var(--color-success)]/20 p-3">
+                        <div className="rounded-lg bg-[color:color-mix(in_srgb,var(--color-success)_5%,transparent)] border border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)] p-3">
                           <p className="text-xs font-semibold text-[var(--color-success)] mb-1">✓ Proof of Delivery</p>
                           <p className="text-xs text-[var(--color-text-secondary)]">Received by: <strong>{pod.received_by}</strong></p>
                           <p className="text-xs text-[var(--color-text-muted)]">Condition: {pod.condition} · {formatDateTime(pod.received_at)}</p>

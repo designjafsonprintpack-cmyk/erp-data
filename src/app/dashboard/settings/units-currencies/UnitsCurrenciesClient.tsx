@@ -59,13 +59,13 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
           <Plus size={12} /> Add
         </button>
       </div>
-      <div className="flex items-center gap-3 px-5 py-2 bg-[var(--color-bg-elevated)]/50 border-b border-[var(--color-border-subtle)]">
+      <div className="flex items-center gap-3 px-5 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] border-b border-[var(--color-border-subtle)]">
         {columns.map(c => <div key={c.key} className={cn('text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider', c.width || 'flex-1')}>{c.label}</div>)}
         <div className="w-16 text-right text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Actions</div>
       </div>
       <div className="divide-y divide-[var(--color-border-subtle)]">
         {items.map((item, idx) => (
-          <div key={item.id} className={cn('flex items-center gap-3 px-5 py-2.5 hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+          <div key={item.id} className={cn('flex items-center gap-3 px-5 py-2.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
             {editingId === item.id ? (
               <>
                 {columns.map(c => <input key={c.key} className={cn(inputCls, c.width)} value={form[c.key] ?? ''} type={c.type || 'text'} onChange={e => setForm(p => ({ ...p, [c.key]: e.target.value }))} placeholder={c.placeholder} />)}
@@ -81,7 +81,7 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
                     <div className="flex items-center gap-2">
                       <span>{item[c.key] ?? '—'}</span>
                       {badgeKey && c.key === columns[0].key && item[badgeKey] && (
-                        <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 px-1.5 py-0.5 rounded-full border border-[var(--color-warning)]/20">
+                        <span className="flex items-center gap-1 text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-1.5 py-0.5 rounded-full border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]">
                           <Star size={9} /> {badgeLabel}
                         </span>
                       )}
@@ -90,14 +90,14 @@ function SettingsTable({ title, items: initialItems, columns, apiResource, badge
                 ))}
                 <div className="w-16 flex justify-end gap-1">
                   <button onClick={() => { setForm(Object.fromEntries(columns.map(c => [c.key, String(item[c.key] ?? '')]))); setEditingId(item.id) }} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] transition-colors"><Pencil size={12} /></button>
-                  <button onClick={() => setDeleteTarget(item)} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
+                  <button onClick={() => setDeleteTarget(item)} className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={12} /></button>
                 </div>
               </>
             )}
           </div>
         ))}
         {editingId === 'new' && (
-          <div className="flex items-center gap-3 px-5 py-2.5 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+          <div className="flex items-center gap-3 px-5 py-2.5 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
             {columns.map((c, i) => <input key={c.key} autoFocus={i === 0} className={cn(inputCls, c.width)} value={form[c.key] ?? ''} type={c.type || 'text'} onChange={e => setForm(p => ({ ...p, [c.key]: e.target.value }))} placeholder={c.placeholder + ' *'} />)}
             <div className="w-16 flex justify-end gap-1">
               <button onClick={save} disabled={loading} className="px-2.5 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>

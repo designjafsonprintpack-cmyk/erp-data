@@ -59,14 +59,14 @@ export default async function AuditLogPage() {
           {logs.map((log, idx) => {
             const diff = log.action === 'UPDATE' ? getFieldDiff(log.old_values, log.new_values) : []
             return (
-              <div key={log.id} className={`grid grid-cols-12 gap-3 px-5 py-3 text-sm items-start ${idx % 2 === 1 ? 'bg-[var(--color-bg-elevated)]/20' : ''}`}>
+              <div key={log.id} className={`grid grid-cols-12 gap-3 px-5 py-3 text-sm items-start ${idx % 2 === 1 ? 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]' : ''}`}>
                 <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-mono">{formatDateTime(log.changed_at)}</div>
                 <div className="col-span-2 text-[var(--color-text-primary)] font-mono text-xs">{log.table_name}</div>
                 <div className="col-span-1">
                   <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                    log.action === 'INSERT' ? 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
-                    : log.action === 'UPDATE' ? 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]'
-                    : 'bg-[var(--color-danger)]/15 text-[var(--color-danger)]'
+                    log.action === 'INSERT' ? 'bg-[color:color-mix(in_srgb,var(--color-success)_15%,transparent)] text-[var(--color-success)]'
+                    : log.action === 'UPDATE' ? 'bg-[color:color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)]'
+                    : 'bg-[color:color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]'
                   }`}>{log.action}</span>
                 </div>
                 <div className="col-span-7 text-xs">

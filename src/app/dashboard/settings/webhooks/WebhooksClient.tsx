@@ -126,7 +126,7 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[var(--color-text-primary)]">{ep.name}</span>
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded', ep.is_active ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
+                    <span className={cn('text-xs px-1.5 py-0.5 rounded', ep.is_active ? 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]' : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
                       {ep.is_active ? 'Active' : 'Paused'}
                     </span>
                   </div>
@@ -149,11 +149,11 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
                     <History size={13} />
                   </button>
                   <button onClick={() => toggleActive(ep)} title={ep.is_active ? 'Pause' : 'Activate'}
-                    className={cn('w-7 h-7 flex items-center justify-center rounded transition-colors', ep.is_active ? 'text-[var(--color-success)] hover:bg-[var(--color-success)]/10' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
+                    className={cn('w-7 h-7 flex items-center justify-center rounded transition-colors', ep.is_active ? 'text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
                     <Power size={13} />
                   </button>
                   <button onClick={() => setDeleteTarget(ep)} title="Delete"
-                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -228,7 +228,7 @@ export default function WebhooksClient({ initialEndpoints }: { initialEndpoints:
                   <p className="text-xs text-[var(--color-text-muted)]">{d.attempted_at ? formatDateTime(d.attempted_at) : '—'}{d.error_message ? ` · ${d.error_message}` : ''}</p>
                 </div>
                 <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0',
-                  d.status === 'success' ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]' : 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]')}>
+                  d.status === 'success' ? 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]' : 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)]')}>
                   {d.status}{d.response_code ? ` (${d.response_code})` : ''}
                 </span>
               </div>

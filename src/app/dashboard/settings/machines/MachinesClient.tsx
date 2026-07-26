@@ -29,10 +29,10 @@ const MACHINE_TYPES = [
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  running:     { label: 'Running',     color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20',     icon: <Zap size={11} /> },
+  running:     { label: 'Running',     color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]',     icon: <Zap size={11} /> },
   idle:        { label: 'Idle',        color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',        icon: <CheckCircle2 size={11} /> },
-  maintenance: { label: 'Maintenance', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20',       icon: <Wrench size={11} /> },
-  breakdown:   { label: 'Breakdown',   color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20',           icon: <AlertTriangle size={11} /> },
+  maintenance: { label: 'Maintenance', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]',       icon: <Wrench size={11} /> },
+  breakdown:   { label: 'Breakdown',   color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]',           icon: <AlertTriangle size={11} /> },
 }
 
 const EMPTY_FORM = { name: '', code: '', machine_type: 'printing', capacity_per_hour: '', status: 'idle', notes: '' }
@@ -203,7 +203,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
               {typeMachines.map(machine => {
                 const statusCfg = STATUS_CONFIG[machine.status] || STATUS_CONFIG.idle
                 return (
-                  <div key={machine.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/40 transition-colors">
+                  <div key={machine.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)] transition-colors">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">{machine.name}</span>
@@ -229,7 +229,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                         <Pencil size={13} />
                       </button>
                       <button onClick={() => setDeleteTarget(machine)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                        className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>

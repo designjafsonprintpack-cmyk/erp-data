@@ -138,7 +138,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
           {templates.map(tpl => (
             <button key={tpl.id} onClick={() => setSelectedId(tpl.id)}
               className={cn('w-full text-left px-4 py-3 transition-colors hover:bg-[var(--color-bg-elevated)]',
-                selectedId === tpl.id && 'bg-[var(--color-accent)]/8 border-l-2 border-l-[var(--color-accent)]')}>
+                selectedId === tpl.id && 'bg-[color:color-mix(in_srgb,var(--color-accent)_8%,transparent)] border-l-2 border-l-[var(--color-accent)]')}>
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{tpl.name}</span>
                 {tpl.is_default && <Star size={11} className="text-[var(--color-warning)] flex-shrink-0" />}
@@ -156,7 +156,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{selected.name}</h2>
-                {selected.is_default && <span className="text-xs text-[var(--color-warning)] bg-[var(--color-warning)]/10 px-2 py-0.5 rounded-full border border-[var(--color-warning)]/20 flex items-center gap-1"><Star size={9} /> Default</span>}
+                {selected.is_default && <span className="text-xs text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-2 py-0.5 rounded-full border border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)] flex items-center gap-1"><Star size={9} /> Default</span>}
               </div>
               {selected.description && <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{selected.description}</p>}
             </div>
@@ -167,7 +167,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
               </button>
               {!selected.is_default && (
                 <button onClick={() => setDeleteTarget({ type: 'template', id: selected.id, name: selected.name })}
-                  className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                  className="w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -176,7 +176,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
 
           <div className="divide-y divide-[var(--color-border-subtle)]">
             {selected.workflow_stages.map((stage, idx) => (
-              <div key={stage.id} className={cn('flex items-center gap-3 px-5 py-3 hover:bg-[var(--color-bg-elevated)]/30', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15')}>
+              <div key={stage.id} className={cn('flex items-center gap-3 px-5 py-3 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
                 {editingStageId === stage.id ? (
                   <div className="flex-1 flex items-center gap-3">
                     <input autoFocus className={cn(inputCls, 'flex-1')} value={stageForm.name} onChange={e => setStageForm(p => ({ ...p, name: e.target.value }))} placeholder="Stage name" />
@@ -194,7 +194,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
                       <button onClick={() => moveStage(stage.id, 'up')} disabled={idx === 0} className="w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-30 transition-colors"><ChevronUp size={13} /></button>
                       <button onClick={() => moveStage(stage.id, 'down')} disabled={idx === selected.workflow_stages.length - 1} className="w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-30 transition-colors"><ChevronDown size={13} /></button>
                     </div>
-                    <span className="w-6 h-6 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 flex items-center justify-center text-xs font-bold text-[var(--color-accent)] flex-shrink-0">{idx + 1}</span>
+                    <span className="w-6 h-6 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center text-xs font-bold text-[var(--color-accent)] flex-shrink-0">{idx + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">{stage.name}</span>
@@ -208,7 +208,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
                         <Pencil size={12} />
                       </button>
                       <button onClick={() => setDeleteTarget({ type: 'stage', id: stage.id, name: stage.name })}
-                        className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                        className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -218,7 +218,7 @@ export default function WorkflowClient({ initialTemplates }: { initialTemplates:
             ))}
 
             {editingStageId === 'new' && (
-              <div className="flex items-center gap-3 px-5 py-3 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+              <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
                 <div className="w-6 h-6 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{selected.workflow_stages.length + 1}</div>
                 <input autoFocus className={cn(inputCls, 'flex-1')} value={stageForm.name} onChange={e => setStageForm(p => ({ ...p, name: e.target.value }))} placeholder="Stage name *" />
                 <input className={cn(inputCls, 'w-28')} type="number" value={stageForm.estimated_hours} onChange={e => setStageForm(p => ({ ...p, estimated_hours: e.target.value }))} placeholder="Est. hours" />

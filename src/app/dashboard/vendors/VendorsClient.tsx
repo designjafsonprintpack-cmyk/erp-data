@@ -61,16 +61,16 @@ const VENDOR_COLUMNS = (
     key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
     render: v => (
       <span className="inline-flex items-center gap-1 justify-end">
-        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Receipt size={12} />
         </button>
-        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]/30 transition-colors">
+        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
           <Wallet size={12} />
         </button>
-        <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+        <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Edit2 size={12} />
         </button>
-        <button onClick={() => onDelete(v)} title="Delete" aria-label="Delete vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]/30 transition-colors">
+        <button onClick={() => onDelete(v)} title="Delete" aria-label="Delete vendor" className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
           <Trash2 size={12} />
         </button>
       </span>

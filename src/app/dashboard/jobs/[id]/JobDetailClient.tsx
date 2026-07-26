@@ -48,21 +48,21 @@ const EVENT_LABELS: Record<string, string> = {
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  created: 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
-  stage_completed: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
-  hold_started: 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]',
-  hold_ended: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
+  created: 'bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]',
+  stage_completed: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]',
+  hold_started: 'bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] text-[var(--color-danger)]',
+  hold_ended: 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]',
   remark_added: 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)]',
-  wastage_recorded: 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
-  plate_assigned: 'bg-[var(--color-info)]/10 text-[var(--color-info)]',
+  wastage_recorded: 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)]',
+  plate_assigned: 'bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] text-[var(--color-info)]',
 }
 
 function daysUrgency(required_date: string | null, status: JobStatus) {
   if (!required_date || ['completed','dispatched','cancelled'].includes(status)) return null
   const days = Math.ceil((new Date(required_date).getTime() - Date.now()) / 86400000)
-  if (days < 0) return { text: `${Math.abs(days)} days overdue`, cls: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' }
-  if (days === 0) return { text: 'Due today', cls: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' }
-  if (days <= 3) return { text: `${days} days left`, cls: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' }
+  if (days < 0) return { text: `${Math.abs(days)} days overdue`, cls: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' }
+  if (days === 0) return { text: 'Due today', cls: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' }
+  if (days <= 3) return { text: `${days} days left`, cls: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' }
   return null
 }
 
@@ -288,12 +288,12 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 {statusCfg.label}
               </span>
               {job.is_on_hold && (
-                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20 flex items-center gap-1.5">
+                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)] flex items-center gap-1.5">
                   <PauseCircle size={11} /> On Hold
                 </span>
               )}
               {job.is_repeat && (
-                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20 flex items-center gap-1.5">
+                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] flex items-center gap-1.5">
                   <RefreshCw size={11} /> Repeat #{job.repeat_sequence}
                 </span>
               )}
@@ -324,7 +324,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           </button>
           {isSuperadmin && (
             <button onClick={() => setDeleteModal(true)}
-              className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-danger)]/40 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors">
+              className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_40%,transparent)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
               <Trash2 size={14} /> Delete
             </button>
           )}
@@ -359,8 +359,8 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               const isOptional = (s as any).workflow_stages?.is_optional
               return (
                 <span key={s.id} className={cn('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1',
-                  s.status === 'completed'   ? 'bg-[var(--color-success)]/10 text-[var(--color-success)] border-[var(--color-success)]/20' :
-                  s.status === 'in_progress' ? 'bg-[var(--color-warning)]/10 text-[var(--color-warning)] border-[var(--color-warning)]/20' :
+                  s.status === 'completed'   ? 'bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' :
+                  s.status === 'in_progress' ? 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' :
                   s.status === 'skipped'     ? 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)] line-through' :
                                                'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)]'
                 )}>
@@ -487,7 +487,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
             {/* Hold info */}
             {job.is_on_hold && (
-              <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 p-4">
+              <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-danger)_5%,transparent)] p-4">
                 <p className="text-xs font-semibold text-[var(--color-danger)] mb-1 flex items-center gap-1.5"><PauseCircle size={12} /> On Hold Since</p>
                 <p className="text-xs text-[var(--color-text-secondary)]">{job.hold_started_at ? formatDateTime(job.hold_started_at) : '—'}</p>
                 {job.hold_notes && <p className="text-xs text-[var(--color-text-muted)] mt-1 italic">{job.hold_notes}</p>}
@@ -530,8 +530,8 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
                 return (
                   <div key={stage.id} className={cn('flex items-center gap-4 px-5 py-4',
-                    isCurrent && 'bg-[var(--color-warning)]/5 border-l-2 border-l-[var(--color-warning)]',
-                    idx % 2 === 1 && !isCurrent && 'bg-[var(--color-bg-elevated)]/20')}>
+                    isCurrent && 'bg-[color:color-mix(in_srgb,var(--color-warning)_5%,transparent)] border-l-2 border-l-[var(--color-warning)]',
+                    idx % 2 === 1 && !isCurrent && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
                     {/* Step number */}
                     <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border',
                       isDone    ? 'bg-[var(--color-success)] text-white border-[var(--color-success)]' :
@@ -602,7 +602,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
               <div className="divide-y divide-[var(--color-border-subtle)]">
                 {events.map(event => (
-                  <div key={event.id} className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--color-bg-elevated)]/30">
+                  <div key={event.id} className="flex items-start gap-4 px-5 py-3.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]">
                     <div className={cn('flex-shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium', EVENT_COLORS[event.event_type] || 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)]')}>
                       {EVENT_LABELS[event.event_type] || event.event_type}
                     </div>
@@ -652,7 +652,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <div className="divide-y divide-[var(--color-border-subtle)]">
                 {events.filter(e => e.event_type === 'remark_added').map(event => (
                   <div key={event.id} className="flex items-start gap-3 px-5 py-3.5">
-                    <div className="w-7 h-7 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
                       <User size={12} className="text-[var(--color-accent)]" />
                     </div>
                     <div className="flex-1">
@@ -688,7 +688,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <div className="divide-y divide-[var(--color-border-subtle)]">
                 {wastage.map(w => (
                   <div key={w.id} className="flex items-start gap-4 px-5 py-3.5">
-                    <div className="flex-shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                    <div className="flex-shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)]">
                       {w.quantity.toLocaleString()}
                     </div>
                     <div className="flex-1 min-w-0">

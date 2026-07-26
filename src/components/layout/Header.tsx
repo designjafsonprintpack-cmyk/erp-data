@@ -161,7 +161,7 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
                     className={cn(
                       'w-full text-left px-3 min-h-11 lg:min-h-0 py-2 text-sm transition-colors',
                       currentTheme === t.value
-                        ? 'text-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                        ? 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
                         : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]'
                     )}
                   >
@@ -189,7 +189,7 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
             aria-label="Account menu"
             className="flex items-center gap-2 px-1 md:px-2 h-11 lg:h-auto lg:py-1.5 rounded-md hover:bg-[var(--color-bg-elevated)] transition-colors"
           >
-            <div className="w-7 h-7 lg:w-6 lg:h-6 rounded-full bg-[var(--color-accent)]/20 border border-[var(--color-accent)]/30 flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 lg:w-6 lg:h-6 rounded-full bg-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)] border border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] flex items-center justify-center flex-shrink-0">
               <span className="text-xs font-semibold text-[var(--color-accent)]">
                 {user?.full_name?.charAt(0).toUpperCase() ?? 'U'}
               </span>
@@ -217,7 +217,7 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
                   <Settings size={14} /> Settings
                 </Link>
                 <div className="border-t border-[var(--color-border)] mt-1 pt-1">
-                  <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 min-h-11 lg:min-h-0 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10">
+                  <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 min-h-11 lg:min-h-0 py-2 text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]">
                     <LogOut size={14} /> Sign Out
                   </button>
                 </div>

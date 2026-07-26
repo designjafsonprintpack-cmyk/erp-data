@@ -16,9 +16,9 @@ export interface SalesOrder {
 }
 export type SOStatus = 'confirmed' | 'in_production' | 'completed' | 'dispatched' | 'cancelled'
 export const SO_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  confirmed:     { label: 'Confirmed',     color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20' },
-  in_production: { label: 'In Production', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  completed:     { label: 'Completed',     color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
-  dispatched:    { label: 'Dispatched',    color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
+  confirmed:     { label: 'Confirmed',     color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  in_production: { label: 'In Production', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  completed:     { label: 'Completed',     color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  dispatched:    { label: 'Dispatched',    color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
   cancelled:     { label: 'Cancelled',     color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }

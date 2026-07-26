@@ -75,7 +75,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
 
       <div className="divide-y divide-[var(--color-border-subtle)]">
         {items.map((item, idx) => (
-          <div key={item.id} className={cn('flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+          <div key={item.id} className={cn('flex items-center gap-2 px-4 py-2.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
             {editingId === item.id ? (
               <>
                 {allFields.map(f => (
@@ -97,7 +97,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
                     <Pencil size={12} />
                   </button>
                   <button onClick={() => setDeleteTarget(item)}
-                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -107,7 +107,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
         ))}
 
         {editingId === 'new' && (
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
             {allFields.map(f => (
               <input key={f.key} autoFocus={f.key === 'name'} className={cn(inputCls, 'flex-1')} value={form[f.key] ?? ''}
                 type={f.type || 'text'} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder + ' *'} />
@@ -197,7 +197,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
 
       <div className="divide-y divide-[var(--color-border-subtle)]">
         {items.map((item, idx) => (
-          <div key={item.id} className={cn('flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--color-bg-elevated)]/40', idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/20')}>
+          <div key={item.id} className={cn('flex items-center gap-2 px-4 py-2.5 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)]', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
             {editingId === item.id ? (
               <>
                 <input className={cn(inputCls, 'flex-1')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Name" />
@@ -219,7 +219,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
                     <Pencil size={12} />
                   </button>
                   <button onClick={() => setDeleteTarget(item)}
-                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-danger)]/10 hover:text-[var(--color-danger)] transition-colors">
+                    className="w-7 h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -229,7 +229,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
         ))}
 
         {editingId === 'new' && (
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)]/5 border-t border-[var(--color-accent)]/20">
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
             <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Name *" />
             <select className={inputCls} value={form.unit_basis} onChange={e => setForm(p => ({ ...p, unit_basis: e.target.value }))}>
               {UNIT_BASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

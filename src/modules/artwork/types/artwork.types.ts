@@ -4,11 +4,11 @@ export type ArtworkStatus =
 
 export const ARTWORK_STATUS_CONFIG: Record<ArtworkStatus, { label: string; color: string; dot: string }> = {
   draft:                     { label: 'Draft',                     color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',           dot: 'bg-[var(--color-text-muted)]' },
-  internal_review:           { label: 'Internal Review',           color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/30',            dot: 'bg-[var(--color-accent)]' },
-  waiting_customer_approval: { label: 'Waiting Customer Approval', color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/30',         dot: 'bg-[var(--color-warning)]' },
-  changes_requested:         { label: 'Changes Requested',         color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/30',            dot: 'bg-[var(--color-danger)]' },
-  approved:                  { label: 'Approved',                  color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/30',         dot: 'bg-[var(--color-success)]' },
-  rejected:                  { label: 'Rejected',                  color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/30',            dot: 'bg-[var(--color-danger)]' },
+  internal_review:           { label: 'Internal Review',           color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)]',            dot: 'bg-[var(--color-accent)]' },
+  waiting_customer_approval: { label: 'Waiting Customer Approval', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]',         dot: 'bg-[var(--color-warning)]' },
+  changes_requested:         { label: 'Changes Requested',         color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)]',            dot: 'bg-[var(--color-danger)]' },
+  approved:                  { label: 'Approved',                  color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)]',         dot: 'bg-[var(--color-success)]' },
+  rejected:                  { label: 'Rejected',                  color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)]',            dot: 'bg-[var(--color-danger)]' },
   archived:                  { label: 'Archived',                  color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',         dot: 'bg-[var(--color-text-muted)]' },
 }
 

@@ -17,12 +17,12 @@ interface Department { id: string; name: string }
 interface Role { id: string; name: string; description: string | null }
 
 const ROLE_CFG: Record<string, { label: string; color: string }> = {
-  superadmin:    { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
-  super_admin:   { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[var(--color-danger)]/10 border-[var(--color-danger)]/20' },
-  admin:         { label: 'Admin',          color: 'text-[var(--color-warning)] bg-[var(--color-warning)]/10 border-[var(--color-warning)]/20' },
-  manager:       { label: 'Manager',        color: 'text-[var(--color-accent)] bg-[var(--color-accent)]/10 border-[var(--color-accent)]/20' },
-  production:    { label: 'Production',     color: 'text-[var(--color-info)] bg-[var(--color-info)]/10 border-[var(--color-info)]/20' },
-  sales:         { label: 'Sales',          color: 'text-[var(--color-success)] bg-[var(--color-success)]/10 border-[var(--color-success)]/20' },
+  superadmin:    { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  super_admin:   { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  admin:         { label: 'Admin',          color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  manager:       { label: 'Manager',        color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  production:    { label: 'Production',     color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  sales:         { label: 'Sales',          color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   accounts:      { label: 'Accounts',       color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
   staff:         { label: 'Staff',          color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
   readonly:      { label: 'Read Only',      color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
@@ -85,14 +85,14 @@ const USER_COLUMNS = (
     render: u => (
       <div className="flex items-center gap-1.5 justify-end">
         <button onClick={() => onEdit(u)} aria-label={`Edit ${u.full_name}`}
-          className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/30 transition-colors">
+          className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Edit2 size={13} />
         </button>
         <button onClick={() => onToggleActive(u)} aria-label={u.is_active ? `Deactivate ${u.full_name}` : `Activate ${u.full_name}`}
           className={cn('w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border transition-colors',
             u.is_active
-              ? 'border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10'
-              : 'border-[var(--color-success)]/30 text-[var(--color-success)] hover:bg-[var(--color-success)]/10')}>
+              ? 'border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]'
+              : 'border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]')}>
           {u.is_active ? <UserX size={13} /> : <UserCheck size={13} />}
         </button>
       </div>
