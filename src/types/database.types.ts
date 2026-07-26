@@ -287,6 +287,7 @@ export type Database = {
           comment_text: string
           comment_type: string
           company_id: string
+          shape: Json | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -308,6 +309,7 @@ export type Database = {
           comment_text: string
           comment_type?: string
           company_id: string
+          shape?: Json | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           comment_text?: string
           comment_type?: string
           company_id?: string
+          shape?: Json | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null

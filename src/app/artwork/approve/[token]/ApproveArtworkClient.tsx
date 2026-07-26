@@ -1,9 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, XCircle, MessageSquareWarning, Image as ImageIcon, Loader2, Maximize2, Download, X, MapPin, Send, User, Mail, Stamp, MessageSquare } from 'lucide-react'
+import { CheckCircle2, XCircle, MessageSquareWarning, Image as ImageIcon, Loader2, Download, MapPin, User, Mail, Stamp, AlertTriangle } from 'lucide-react'
+import { visibleMarks } from '@/components/artwork/MarkupOverlay'
+import type { MarkupShape } from '@/lib/schemas/publicToken'
+import ArtworkMarkupCanvas, { type DraftMark } from './ArtworkMarkupCanvas'
 
 type CommentType = 'comment' | 'emboss'
-interface Comment { id: string; comment_text: string; comment_type?: CommentType; position_x: number | null; position_y: number | null; resolved: boolean; created_at: string }
+interface Comment {
+  id: string; comment_text: string; comment_type?: CommentType
+  shape?: MarkupShape | null
+  position_x: number | null; position_y: number | null; resolved: boolean; created_at: string
+}
 interface Artwork {
   id: string; version: number; status: string; file_name: string
   designer_notes: string | null; preview_url: string | null
@@ -25,17 +32,17 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
   const [result, setResult] = useState<Action | null>(null)
   const [notesFor, setNotesFor] = useState<Action | null>(null)
   const [notes, setNotes] = useState('')
-  const [fullscreen, setFullscreen] = useState(false)
-  const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null)
-  const [pinText, setPinText] = useState('')
-  const [pinSubmitting, setPinSubmitting] = useState(false)
+  // Drawn markup (migration 090). Drafts live here rather than inside the
+  // canvas so that Approve can see unsaved work and warn about it.
+  const [drafts, setDrafts] = useState<DraftMark[]>([])
+  const [savingMarks, setSavingMarks] = useState(false)
+  const [approveWarned, setApproveWarned] = useState(false)
 
   // Emboss marking (migration 089). Two ways in, because the customer thinks
-  // about embossing both ways: "this logo, right here" (pin the spot, then
-  // switch the pin to Emboss) and "logo and brand name" (just list it, no
-  // position). Both end up as artwork_comments rows with comment_type
-  // 'emboss'; position_x/y are simply NULL for the listed-only ones.
-  const [pinMode, setPinMode] = useState<CommentType>('comment')
+  // about embossing both ways: "this logo, right here" (draw a box on it with
+  // the Emboss tool) and "logo and brand name" (just list it, no position).
+  // Both end up as artwork_comments rows with comment_type 'emboss';
+  // position_x/y and shape are simply NULL for the listed-only ones.
   const [embossText, setEmbossText] = useState('')
   const [embossSubmitting, setEmbossSubmitting] = useState(false)
 
@@ -93,7 +100,12 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
   const startDecision = (action: Action) => {
     setIdentityTouched(true)
     if (!isIdentityValid) return
-    if (action === 'approve') { respond('approve'); return }
+    if (action === 'approve') {
+      // Warn once, then let them through — their call, not ours.
+      if (needsApproveWarning && !approveWarned) { setApproveWarned(true); return }
+      respond('approve')
+      return
+    }
     setNotesFor(action)
   }
 
@@ -115,17 +127,44 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
     setArtwork(prev => prev ? { ...prev, comments: [...prev.comments, json.data] } : prev)
   }
 
-  const submitPin = async () => {
-    if (!pendingPin || !pinText.trim()) return
-    setPinSubmitting(true)
+  // A whole drawing session in one request — see the 'save_marks' branch in
+  // the route for why this isn't one call per stroke.
+  const saveMarks = async () => {
+    if (drafts.length === 0) return
+    setSavingMarks(true)
     try {
-      await postMark(pinText.trim(), pinMode, pendingPin)
-      setPendingPin(null)
-      setPinText('')
+      const res = await fetch(`/api/v1/public/artwork/${token}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_marks',
+          author_name: approverName.trim() || undefined,
+          marks: drafts.map(d => ({
+            comment_text: d.comment_text, comment_type: d.comment_type,
+            shape: d.shape, position_x: d.position_x, position_y: d.position_y,
+          })),
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not save your marks.')
+      setArtwork(prev => prev ? { ...prev, comments: [...prev.comments, ...json.data] } : prev)
+      setDrafts([])
     } catch (e: any) {
       setError(e.message)
     } finally {
-      setPinSubmitting(false)
+      setSavingMarks(false)
+    }
+  }
+
+  // Undo for a mark that was already saved — the canvas's own Undo only
+  // reaches back through the current, unsaved session.
+  const deleteMark = async (id: string) => {
+    try {
+      const res = await fetch(`/api/v1/public/artwork/${token}?comment_id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not remove that mark.')
+      setArtwork(prev => prev ? { ...prev, comments: prev.comments.filter(c => c.id !== id) } : prev)
+    } catch (e: any) {
+      setError(e.message)
     }
   }
 
@@ -144,18 +183,20 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
 
   const isApproved = artwork?.status === 'approved' || result === 'approve'
 
+  // Marks that sit ON the image are listed by the canvas itself. Everything
+  // else is a typed-only note, split into embossing vs ordinary comments — so
+  // nothing appears twice on the page.
   const allMarks = artwork?.comments ?? []
-  const embossMarks = allMarks.filter(c => c.comment_type === 'emboss')
-  const plainComments = allMarks.filter(c => c.comment_type !== 'emboss')
+  const onImage = visibleMarks(allMarks)
+  const offImage = allMarks.filter(c => !onImage.some(m => m.id === c.id))
+  const embossMarks = offImage.filter(c => c.comment_type === 'emboss')
+  const plainComments = offImage.filter(c => c.comment_type !== 'emboss')
 
-  // Emboss pins are amber and never show a resolved state — an emboss mark is
-  // a production instruction, not a complaint to be closed out.
-  const pinCls = (c: Comment) =>
-    c.comment_type === 'emboss'
-      ? 'bg-[#1a1810] border-[#d4a72c] text-[#d4a72c]'
-      : c.resolved
-        ? 'bg-[#101a14] border-[#3fb865] text-[#3fb865]'
-        : 'bg-[#1a1414] border-[#e5484d] text-[#e5484d]'
+  // Approving while changes are outstanding is allowed but questioned — the
+  // same "warn, record, don't block" rule the rest of the system follows.
+  // Emboss marks never count: they're instructions, not objections.
+  const openChangeMarks = allMarks.filter(c => c.comment_type !== 'emboss' && !c.resolved).length
+  const needsApproveWarning = drafts.length > 0 || openChangeMarks > 0
 
   return (
     <div className="min-h-screen bg-[#0b0d12] text-[#e6e8ec] flex items-center justify-center p-4">
@@ -205,71 +246,24 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
             </div>
 
             {artwork.preview_url && (
-              <div className="relative bg-[#0e1015] flex items-center justify-center p-4">
-                <div className="relative inline-block">
-                  <img src={artwork.preview_url} alt={artwork.file_name} className="max-h-[420px] rounded-lg cursor-crosshair"
-                    onClick={e => {
-                      const rect = (e.target as HTMLImageElement).getBoundingClientRect()
-                      const x = ((e.clientX - rect.left) / rect.width) * 100
-                      const y = ((e.clientY - rect.top) / rect.height) * 100
-                      setPendingPin({ x, y })
-                      setPinText('')
-                    }} />
-                  {artwork.comments.map(c => c.position_x !== null && c.position_y !== null && (
-                    <div key={c.id} title={c.comment_type === 'emboss' ? `Emboss: ${c.comment_text}` : c.comment_text}
-                      className={`absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${pinCls(c)}`}
-                      style={{ left: `${c.position_x}%`, top: `${c.position_y}%` }}>
-                      {c.comment_type === 'emboss' ? <Stamp size={11} /> : <MapPin size={11} />}
-                    </div>
-                  ))}
-                  {pendingPin && (
-                    <div className={`absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border-2 flex items-center justify-center animate-pulse ${pinMode === 'emboss' ? 'border-[#d4a72c] bg-[#1a1810]' : 'border-[#5b8def] bg-[#101520]'}`}
-                      style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%` }}>
-                      {pinMode === 'emboss'
-                        ? <Stamp size={11} className="text-[#d4a72c]" />
-                        : <MapPin size={11} className="text-[#5b8def]" />}
-                    </div>
-                  )}
-                </div>
-                <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border ${isApproved ? 'bg-[#101a14] border-[#1f3a2a] text-[#3fb865]' : 'bg-[#1a1414]/90 border-[#3a2020] text-[#e5484d]'}`}>
+              <div className="relative border-b border-[#22252c]">
+                <ArtworkMarkupCanvas
+                  imageUrl={artwork.preview_url}
+                  fileName={artwork.file_name}
+                  savedMarks={onImage}
+                  drafts={drafts}
+                  setDrafts={setDrafts}
+                  onSave={saveMarks}
+                  onDelete={deleteMark}
+                  saving={savingMarks}
+                />
+                <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border pointer-events-none ${isApproved ? 'bg-[#101a14] border-[#1f3a2a] text-[#3fb865]' : 'bg-[#1a1414]/90 border-[#3a2020] text-[#e5484d]'}`}>
                   {isApproved ? 'APPROVED FOR PRINT' : 'NOT APPROVED'}
                 </div>
-                <button onClick={() => setFullscreen(true)}
-                  className="absolute bottom-6 right-6 w-9 h-9 rounded-full bg-[#12141a]/90 border border-[#22252c] flex items-center justify-center text-[#8a8f9c] hover:text-[#e6e8ec] transition-colors">
-                  <Maximize2 size={14} />
-                </button>
-                <a href={artwork.preview_url} download={artwork.file_name}
-                  className="absolute bottom-6 left-6 w-9 h-9 rounded-full bg-[#12141a]/90 border border-[#22252c] flex items-center justify-center text-[#8a8f9c] hover:text-[#e6e8ec] transition-colors">
+                <a href={artwork.preview_url} download={artwork.file_name} title="Download artwork"
+                  className="absolute top-6 left-6 w-9 h-9 rounded-full bg-[#12141a]/90 border border-[#22252c] flex items-center justify-center text-[#8a8f9c] hover:text-[#e6e8ec] transition-colors">
                   <Download size={14} />
                 </a>
-              </div>
-            )}
-
-            {pendingPin && (
-              <div className="px-6 py-4 border-t border-[#22252c] space-y-2.5 bg-[#0e1015]">
-                <p className="text-xs text-[#8a8f9c]">What is this spot about?</p>
-                {/* Comment vs Emboss — the same pin, two meanings. */}
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setPinMode('comment')}
-                    className={`flex-1 h-10 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${pinMode === 'comment' ? 'border-[#5b8def] bg-[#101520] text-[#5b8def]' : 'border-[#22252c] text-[#8a8f9c] hover:bg-[#181b22]'}`}>
-                    <MessageSquare size={13} /> Comment
-                  </button>
-                  <button onClick={() => setPinMode('emboss')}
-                    className={`flex-1 h-10 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${pinMode === 'emboss' ? 'border-[#d4a72c] bg-[#1a1810] text-[#d4a72c]' : 'border-[#22252c] text-[#8a8f9c] hover:bg-[#181b22]'}`}>
-                    <Stamp size={13} /> Emboss here
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input value={pinText} onChange={e => setPinText(e.target.value)} autoFocus
-                    onKeyDown={e => e.key === 'Enter' && submitPin()}
-                    placeholder={pinMode === 'emboss' ? 'What has to be embossed here? e.g. Logo' : 'e.g. Move logo 2mm left, barcode too small…'}
-                    className="flex-1 h-9 px-3 rounded-lg border border-[#22252c] bg-[#12141a] text-sm text-[#e6e8ec] placeholder:text-[#565b66] focus:outline-none focus:border-[#3a3f4a]" />
-                  <button onClick={submitPin} disabled={pinSubmitting || !pinText.trim()}
-                    className="h-9 px-3 rounded-lg bg-[#2e7d46] text-white text-sm hover:bg-[#357d4a] disabled:opacity-50 transition-colors flex items-center gap-1.5">
-                    {pinSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </button>
-                  <button onClick={() => setPendingPin(null)} className="h-9 px-3 rounded-lg border border-[#22252c] text-[#8a8f9c] text-sm hover:bg-[#181b22] transition-colors">Cancel</button>
-                </div>
               </div>
             )}
 
@@ -280,8 +274,8 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
                 <Stamp size={13} /> Embossing
               </p>
               <p className="text-xs text-[#8a8f9c]">
-                Batayein kya kya emboss hona hai — artwork par us jagah click karke &quot;Emboss here&quot;
-                chunein, ya neeche likh dein.
+                Batayein kya kya emboss hona hai — upar <b>Emboss</b> tool se us cheez par box
+                banayein, ya bina jagah bataye neeche likh dein.
               </p>
 
               {embossMarks.length > 0 ? (
@@ -354,6 +348,28 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
               )}
             </div>
 
+            {/* Asked once when Approve is pressed with work outstanding. Warn,
+                record, don't block — the customer decides. */}
+            {approveWarned && !notesFor && (
+              <div className="px-6 py-4 border-t border-[#3a3520] bg-[#1a1810] space-y-2">
+                <p className="text-sm font-medium text-[#d4a72c] flex items-center gap-2">
+                  <AlertTriangle size={15} /> Ek minute —
+                </p>
+                <ul className="text-xs text-[#c5c9d1] space-y-1 list-disc pl-4">
+                  {drafts.length > 0 && (
+                    <li>{drafts.length} mark abhi save nahi hui — approve karne par woh zaya ho jayengi.</li>
+                  )}
+                  {openChangeMarks > 0 && (
+                    <li>Aap ne {openChangeMarks} change mark ki hai. Approve ka matlab hai &quot;aise hi print kar dein&quot;.</li>
+                  )}
+                </ul>
+                <p className="text-xs text-[#8a8f9c]">
+                  Changes karwane hain to <b>Request Changes</b> dabayein. Phir bhi approve karna hai
+                  to dobara Approve dabayein.
+                </p>
+              </div>
+            )}
+
             {notesFor ? (
               <div className="p-6 border-t border-[#22252c] space-y-3">
                 <label className="text-sm text-[#8a8f9c]">{notesFor === 'reject' ? 'Why are you rejecting this artwork?' : 'What changes would you like?'}</label>
@@ -381,21 +397,13 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
                 <button onClick={() => startDecision('approve')} disabled={!!submitting}
                   className="flex-1 h-11 rounded-lg bg-[#2e7d46] text-white font-medium text-sm hover:bg-[#357d4a] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                   {submitting === 'approve' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  Approve
+                  {approveWarned ? 'Approve anyway' : 'Approve'}
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {fullscreen && artwork?.preview_url && (
-          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-6" onClick={() => setFullscreen(false)}>
-            <button onClick={() => setFullscreen(false)} className="absolute top-6 right-6 w-10 h-10 rounded-full bg-[#12141a] border border-[#22252c] flex items-center justify-center text-[#e6e8ec]">
-              <X size={18} />
-            </button>
-            <img src={artwork.preview_url} alt={artwork.file_name} className="max-w-full max-h-full rounded-lg" />
-          </div>
-        )}
       </div>
     </div>
   )

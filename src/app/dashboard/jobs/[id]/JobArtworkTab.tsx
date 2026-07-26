@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { Upload, Plus, Trash2, ExternalLink, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
+import { MarkupOverlay, markNumber } from '@/components/artwork/MarkupOverlay'
+import type { MarkupShape } from '@/lib/schemas/publicToken'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
@@ -16,6 +18,9 @@ interface ArtworkComment {
   // 'emboss' = the customer marked this as something to be embossed
   // (migration 089). Optional so rows fetched before it existed still parse.
   comment_type?: 'comment' | 'emboss'
+  // Drawn markup from the approval page (migration 090); NULL on older rows,
+  // which stay plain numbered pins.
+  shape?: MarkupShape | null
   resolved: boolean; created_at: string
   users?: { full_name: string } | null
 }
@@ -436,8 +441,11 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       <Modal open={!!commentsModal} onClose={() => setCommentsModal(null)} title={`Comments & Markup — v${commentsModal?.version || ''}`} size="lg">
         {commentsModal && (() => {
           const list = comments[commentsModal.id] || []
-          const pinned = list.filter(c => c.position_x !== null && c.position_y !== null)
-          const pinNumber = (id: string) => pinned.findIndex(c => c.id === id) + 1
+          // Shapes and legacy pins share one numbering sequence — the shared
+          // helper is the single source of it, so the badge on the image and
+          // the number in the list can never drift apart.
+          const pinNumber = (id: string) => markNumber(list, id)
+          const onImage = (c: ArtworkComment) => !!c.shape || c.position_x !== null
           return (
             <div className="space-y-4">
               <div className="relative bg-black rounded-lg flex items-center justify-center min-h-[240px]">
@@ -445,16 +453,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                   <div className="relative inline-block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-h-[400px] rounded-lg" />
-                    {pinned.map(c => (
-                      <div key={c.id} title={c.comment_type === 'emboss' ? `Emboss: ${c.comment_text}` : c.comment_text}
-                        className={cn('absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 flex items-center justify-center text-[11px] font-bold text-white',
-                          c.comment_type === 'emboss'
-                            ? 'bg-[var(--color-warning)] border-white/60'
-                            : c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
-                        style={{ left: `${c.position_x}%`, top: `${c.position_y}%` }}>
-                        {pinNumber(c.id)}
-                      </div>
-                    ))}
+                    <MarkupOverlay marks={list} />
                   </div>
                 ) : (
                   <p className="text-xs text-[var(--color-text-muted)] py-16">Loading image…</p>
@@ -479,7 +478,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                         : c.author_type === 'customer' ? 'border-[var(--color-warning)]/25 bg-[var(--color-warning)]/5' : 'border-[var(--color-border)] bg-[var(--color-bg-secondary)]')}>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5">
-                          {c.position_x !== null && c.position_y !== null && (
+                          {onImage(c) && (
                             <span className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0',
                               c.comment_type === 'emboss' ? 'bg-[var(--color-warning)]' : c.resolved ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]')}>
                               {pinNumber(c.id)}
@@ -508,7 +507,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                         )}
                       </div>
                       <p className="text-[var(--color-text-primary)]">
-                        {c.position_x !== null && <span className="font-semibold">#{pinNumber(c.id)} </span>}
+                        {onImage(c) && <span className="font-semibold">#{pinNumber(c.id)} </span>}
                         {c.comment_text}
                       </p>
                     </div>
@@ -539,16 +538,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           <div className="relative inline-block" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={commentsModalImageUrl} alt={commentsModal.file_name} className="max-w-full max-h-[90vh] rounded-lg" />
-            {(comments[commentsModal.id] || []).filter(c => c.position_x !== null).map((c, i) => (
-              <div key={c.id} title={c.comment_type === 'emboss' ? `Emboss: ${c.comment_text}` : c.comment_text}
-                className={cn('absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white',
-                  c.comment_type === 'emboss'
-                    ? 'bg-[var(--color-warning)] border-white/60'
-                    : c.resolved ? 'bg-[var(--color-success)] border-white/60' : 'bg-[var(--color-danger)] border-white/60')}
-                style={{ left: `${c.position_x}%`, top: `${c.position_y}%` }}>
-                {i + 1}
-              </div>
-            ))}
+            <MarkupOverlay marks={comments[commentsModal.id] || []} size="lg" />
           </div>
         </div>
       )}

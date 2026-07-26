@@ -213,6 +213,10 @@ clean and matches, the following are live:
   Colors / Quantity / Die Number / Box Type
 - New / Repeat toggle on New Job, with a searchable parent-job picker
 - Topbar: right controls pinned right, gutters additive to safe-area insets
+- Artwork approval: WhatsApp-style markup editor (draw/arrow/box/text/emboss +
+  undo, drafts saved in one `save_marks` call, shapes stored as 0–100 % points
+  in `artwork_comments.shape`, rendered everywhere by `MarkupOverlay`); approver
+  email optional, name still required — **needs migrations 089 + 090**
 
 **Migrations 087 and 088 must have been run** (`jobs.gsm`,
 `sales_order_items.gsm`). If job save or edit 500s, check these first.

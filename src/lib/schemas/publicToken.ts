@@ -1,7 +1,35 @@
 import { z } from 'zod'
 
+// Drawn markup geometry (migration 090). Coordinates are PERCENTAGES of the
+// image on both axes, so the drawing lands in the right place at any size.
+// Limits are deliberately tight — this arrives from a public, unauthenticated
+// endpoint, and a freehand stroke can otherwise carry thousands of points.
+const markupPoint = z.tuple([z.number().min(0).max(100), z.number().min(0).max(100)])
+
+export const markupShapeSchema = z.object({
+  tool: z.enum(['pen', 'arrow', 'rect', 'text']),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'color must be a #rrggbb hex value'),
+  points: z.array(markupPoint).min(1).max(500),
+})
+export type MarkupShape = z.infer<typeof markupShapeSchema>
+
+// One drawn mark on its way to the server. comment_text is NOT NULL in the
+// database, so the editor always sends a fallback label when the customer
+// draws without typing anything.
+const markupMarkSchema = z.object({
+  comment_text: z.string().trim().min(1).max(500),
+  comment_type: z.enum(['comment', 'emboss']).optional(),
+  shape: markupShapeSchema.optional().nullable(),
+  position_x: z.number().min(0).max(100).optional().nullable(),
+  position_y: z.number().min(0).max(100).optional().nullable(),
+})
+
 export const publicArtworkActionSchema = z.object({
-  action: z.enum(['approve', 'reject', 'request_changes', 'comment']),
+  // 'save_marks' saves a whole drawing session in ONE request. Sending each
+  // stroke separately would burn through the 20-per-5-minutes rate limit on
+  // this route after a normal amount of marking up.
+  action: z.enum(['approve', 'reject', 'request_changes', 'comment', 'save_marks']),
+  marks: z.array(markupMarkSchema).min(1).max(50).optional(),
   comment_text: z.string().optional(),
   // 'comment' = ordinary customer note, 'emboss' = the customer marking an
   // element that has to be embossed (migration 089). Both travel through
@@ -25,10 +53,16 @@ export const publicArtworkActionSchema = z.object({
   ),
   position_x: z.union([z.number(), z.string()]).optional().nullable(),
   position_y: z.union([z.number(), z.string()]).optional().nullable(),
+  shape: markupShapeSchema.optional().nullable(),
   notes: z.string().optional().nullable(),
 }).refine(
-  (data) => data.action === 'comment' || !!data.approver_name?.trim(),
+  // Marking up (comment / save_marks) never needs identity — only an actual
+  // decision does.
+  (data) => data.action === 'comment' || data.action === 'save_marks' || !!data.approver_name?.trim(),
   { message: 'Your name is required to approve, reject, or request changes.', path: ['approver_name'] }
+).refine(
+  (data) => data.action !== 'save_marks' || (data.marks?.length ?? 0) > 0,
+  { message: 'Nothing to save.', path: ['marks'] }
 )
 
 export const publicQuotationActionSchema = z.object({

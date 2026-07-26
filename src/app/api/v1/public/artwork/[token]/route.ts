@@ -43,7 +43,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   // /api/v1/artwork/[id]/comments) and must never leak to this public
   // endpoint even if written about the same artwork version.
   const { data: comments } = await supabase.from('artwork_comments' as any)
-    .select('id, comment_text, comment_type, position_x, position_y, resolved, created_at')
+    .select('id, comment_text, comment_type, shape, position_x, position_y, resolved, created_at')
     .eq('artwork_id', row.id).eq('author_type', 'customer')
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
@@ -99,12 +99,37 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
       // Anything other than an explicit 'emboss' stays an ordinary comment —
       // never trust the public body to widen this.
       comment_type: body.comment_type === 'emboss' ? 'emboss' : 'comment',
+      shape: body.shape ?? null,
       position_x: typeof body.position_x === 'number' ? body.position_x : null,
       position_y: typeof body.position_y === 'number' ? body.position_y : null,
-    }).select('id, comment_text, comment_type, position_x, position_y, resolved, created_at').single()
+    }).select('id, comment_text, comment_type, shape, position_x, position_y, resolved, created_at').single()
 
     if (commentErr) return NextResponse.json({ error: commentErr.message }, { status: 500 })
     return NextResponse.json({ data: comment })
+  }
+
+  // A whole drawing session in one insert. Same early-return reasoning as
+  // 'comment' above: marking up is allowed whatever the approval status is,
+  // and carries no approver identity.
+  if (action === 'save_marks') {
+    const rows = (body.marks ?? []).map(m => ({
+      company_id: art.company_id,
+      artwork_id: art.id,
+      author_type: 'customer',
+      author_name: body.author_name?.trim() || null,
+      comment_text: m.comment_text.trim(),
+      comment_type: m.comment_type === 'emboss' ? 'emboss' : 'comment',
+      shape: m.shape ?? null,
+      position_x: typeof m.position_x === 'number' ? m.position_x : null,
+      position_y: typeof m.position_y === 'number' ? m.position_y : null,
+    }))
+
+    const { data: saved, error: saveErr } = await supabase.from('artwork_comments' as any)
+      .insert(rows)
+      .select('id, comment_text, comment_type, shape, position_x, position_y, resolved, created_at')
+
+    if (saveErr) return NextResponse.json({ error: saveErr.message }, { status: 500 })
+    return NextResponse.json({ data: saved ?? [] })
   }
 
   if (['approved', 'rejected'].includes(art.status)) {
@@ -195,4 +220,50 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   }
 
   return NextResponse.json({ success: true, status: newStatus })
+})
+
+// Undo for a mark the customer already saved. The in-editor Undo button covers
+// the drawing session itself; this covers "I saved it and then changed my mind".
+//
+// Public and unauthenticated, so the scoping is deliberately narrow: the row
+// must belong to THIS artwork (found via the token, never from the request)
+// AND be customer-authored, so a link holder can never touch internal staff
+// notes or another job's comments. Soft delete, like everywhere else.
+export const DELETE = withErrorHandling(async function DELETE(req: NextRequest, { params }: { params: { token: string } }) {
+  const limited = rateLimit(`public-artwork-action:${getClientIp(req)}`, { windowMs: 5 * 60_000, max: 20 })
+  if (limited) return limited
+
+  const commentId = req.nextUrl.searchParams.get('comment_id')
+  if (!commentId) return NextResponse.json({ error: 'comment_id is required' }, { status: 400 })
+
+  const supabase = createSupabaseAdminClient()
+
+  const { data: artwork, error: findErr } = await supabase.from('job_artworks' as any)
+    .select('id, status, approval_token_expires_at')
+    .eq('approval_token', params.token)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (findErr || !artwork) return NextResponse.json({ error: 'This approval link is invalid.' }, { status: 404 })
+
+  const art = artwork as any
+  if (art.approval_token_expires_at && new Date(art.approval_token_expires_at) < new Date()) {
+    return NextResponse.json({ error: 'This approval link has expired. Please ask us to resend it.' }, { status: 410 })
+  }
+
+  // Once a decision is final the marks are part of that record — same reason
+  // the decision itself can't be changed.
+  if (['approved', 'rejected'].includes(art.status)) {
+    return NextResponse.json({ error: `This artwork has already been ${art.status}.` }, { status: 409 })
+  }
+
+  const { error: delErr } = await supabase.from('artwork_comments' as any)
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .eq('artwork_id', art.id)
+    .eq('author_type', 'customer')
+    .is('deleted_at', null)
+
+  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
+  return NextResponse.json({ success: true })
 })
