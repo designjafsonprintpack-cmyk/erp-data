@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import StoreClient from './StoreClient'
+import { loadJobsAwaitingBoardIssue } from '@/lib/utils/jobsAwaitingBoardIssue'
 
 export default async function StorePage() {
   const supabase = createSupabaseServerClient()
@@ -23,6 +24,11 @@ export default async function StorePage() {
       .is('deleted_at', null).eq('is_active', true).order('description'),
   ])
 
+  // Jobs standing at the Board Issue stage, with their MRN state attached —
+  // Store's actual work list. The MRN list below is the paperwork; this is
+  // which jobs are waiting on it.
+  const boardIssueJobs = await loadJobsAwaitingBoardIssue(supabase, companyId)
+
   return (
     <div className="space-y-5">
       <div>
@@ -31,6 +37,7 @@ export default async function StorePage() {
       </div>
       <StoreClient
         initialMRNs={(mrnsRes.data ?? []) as any[]}
+        boardIssueJobs={boardIssueJobs}
         jobs={(jobsRes.data ?? []) as any[]}
         units={(unitsRes.data ?? []) as any[]}
         boardInventory={(boardInventoryRes.data ?? []) as any[]}

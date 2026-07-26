@@ -1,13 +1,16 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, ExternalLink, Scissors, Trash2, RotateCcw, History, Lock } from 'lucide-react'
+import { Plus, Search, ExternalLink, Scissors, Trash2, RotateCcw, History, Lock, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
+import { formatTimeAgo, formatDateTime, planLabel } from '@/lib/utils/format'
+import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
+import type { JobNeedingPlates } from '@/lib/utils/jobsNeedingPlates'
 
 interface Plate {
   id: string; color: string; plate_size: string | null; status: string
@@ -22,7 +25,6 @@ interface JobPlateHistoryRow {
   machines?: { name: string; code: string } | null
 }
 interface Job { id: string; job_number: string; job_title: string; customers?: { name: string } | null }
-interface Machine { id: string; name: string; code: string }
 interface ColorSpecOption { id: string; name: string }
 
 const SIZES = ['1030 x 790', '1030 x 770']
@@ -40,15 +42,17 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 type ColorRow = { color: string; mode: 'new' | 'old'; existing_plate_id: string }
 
-export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs = [] }: { initialPlates: Plate[]; jobs: Job[]; machines: Machine[]; colorSpecs?: ColorSpecOption[] }) {
+export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, colorSpecs = [] }: { initialPlates: Plate[]; jobs: Job[]; jobsNeedingPlates: JobNeedingPlates[]; colorSpecs?: ColorSpecOption[] }) {
   const [plates, setPlates] = useState(initialPlates)
+  // Local copy so a job disappears from "Plates Needed" the moment its plates
+  // are added, without waiting for a server render.
+  const [needPlates, setNeedPlates] = useState(jobsNeedingPlates)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const [addModal, setAddModal] = useState(false)
   const [addJobId, setAddJobId] = useState('')
   const [addSize, setAddSize] = useState(SIZES[0])
-  const [addMachineId, setAddMachineId] = useState('')
   const [addMadeDate, setAddMadeDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [colorRows, setColorRows] = useState<ColorRow[]>([{ color: '', mode: 'new', existing_plate_id: '' }])
   const [adding, setAdding] = useState(false)
@@ -104,8 +108,19 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
     setColorRows(prev => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r))
 
   const resetAddForm = () => {
-    setAddJobId(''); setAddSize(SIZES[0]); setAddMachineId('')
+    setAddJobId(''); setAddSize(SIZES[0])
     setColorRows([{ color: '', mode: 'new', existing_plate_id: '' }])
+  }
+
+  // "Add Plates" straight off a job card — the job is already the answer, so
+  // the form opens with it selected and one colour row per colour the job
+  // actually prints.
+  const openAddForJob = (job: JobNeedingPlates) => {
+    setAddJobId(job.job_id)
+    setAddSize(SIZES[0])
+    const colors = Math.min(Math.max(job.no_of_colors ?? 1, 1), 8)
+    setColorRows(Array.from({ length: colors }, () => ({ color: '', mode: 'new' as const, existing_plate_id: '' })))
+    setAddModal(true)
   }
 
   const submitAdd = async () => {
@@ -120,7 +135,7 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
       const res = await fetch('/api/v1/plates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          job_id: addJobId || null, plate_size: addSize, machine_id: addMachineId || null, made_date: addMadeDate,
+          job_id: addJobId || null, plate_size: addSize, made_date: addMadeDate,
           colors: rows.map(r => ({ color: r.color.trim(), mode: r.mode, existing_plate_id: r.existing_plate_id || undefined })),
         }),
       })
@@ -131,6 +146,8 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
         const ids = new Set(data.map((p: any) => p.id))
         return [...data, ...prev.filter(p => !ids.has(p.id))]
       })
+      // Plates are now issued to this job, so it's off the needed list.
+      if (addJobId) setNeedPlates(prev => prev.filter(j => j.job_id !== addJobId))
       setAddModal(false)
       resetAddForm()
       toast.success(`${data.length} plate${data.length > 1 ? 's' : ''} added`)
@@ -228,6 +245,53 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
 
   return (
     <div className="space-y-4">
+      {/* Plates Needed — the plate room's work list. Printing is hard-blocked
+          without an active job_plates row, so these are the jobs about to hit
+          that wall. A job leaves this list on its own once plates are issued. */}
+      {needPlates.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Plates Needed</span>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {needPlates.length} job{needPlates.length > 1 ? 's' : ''} waiting — printing can&apos;t start without plates
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--color-border-subtle)]">
+            {needPlates.map(job => {
+              const pcfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG]
+              return (
+                <div key={job.job_id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/dashboard/jobs/${job.job_id}`}
+                        className="text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate">
+                        {job.job_number} — {job.job_title}
+                      </Link>
+                      {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
+                      {job.printing_status === 'in_progress' && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-danger)]/15 text-[var(--color-danger)] flex-shrink-0">
+                          PRESS WAITING
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[var(--color-text-muted)] flex-wrap">
+                      {job.customer_name && <span>{job.customer_name}</span>}
+                      {job.no_of_colors != null && <span>· {job.no_of_colors} color</span>}
+                      {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => openAddForJob(job)}
+                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                    <Plus size={14} /> Add Plates
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <Toolbar
         search={{ value: search, onChange: setSearch, placeholder: 'Search color…' }}
@@ -373,13 +437,6 @@ export default function PlatesClient({ initialPlates, jobs, machines, colorSpecs
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Size</label>
             <select className={inputCls} value={addSize} onChange={e => setAddSize(e.target.value)}>
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine</label>
-            <select className={inputCls} value={addMachineId} onChange={e => setAddMachineId(e.target.value)}>
-              <option value="">— None —</option>
-              {machines.map(m => <option key={m.id} value={m.id}>{m.name} ({m.code})</option>)}
             </select>
           </div>
           <div className="space-y-1.5">

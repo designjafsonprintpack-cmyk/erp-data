@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
-import { Package, Plus, ChevronDown, ChevronRight, Check, X, Trash2 } from 'lucide-react'
+import { Package, Plus, ChevronDown, ChevronRight, Check, X, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatDateTime } from '@/lib/utils/format'
+import { formatDate, formatDateTime, planLabel } from '@/lib/utils/format'
+import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
+import type { BoardIssueJob } from '@/lib/utils/jobsAwaitingBoardIssue'
 import Link from 'next/link'
 
 interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null; board_item_id: string | null; notes?: string | null }
@@ -26,8 +28,11 @@ const MATERIAL_TYPES = ['board','paper','ink','lamination','foil','glue','chemic
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', quantity_required: '1', unit_id: '', notes: '' }
 
-export default function StoreClient({ initialMRNs, jobs, units, boardInventory }: { initialMRNs: MRN[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
+export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, boardInventory }: { initialMRNs: MRN[]; boardIssueJobs: BoardIssueJob[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
   const [mrns, setMRNs] = useState(initialMRNs)
+  // Local copy so a row's button follows what just happened (MRN created,
+  // approved, issued) without waiting for a server render.
+  const [boardIssueRows, setBoardIssueRows] = useState(boardIssueJobs)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState('')
   const [newMRNModal, setNewMRNModal] = useState(false)
@@ -72,6 +77,13 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
       const { data } = await res.json()
       const job = jobs.find(j => j.id === form.job_id)
       setMRNs(prev => [{ ...data, jobs: job || null, material_requisition_items: [] }, ...prev])
+      // If this MRN was raised for a job sitting in the action panel above,
+      // that row now has paperwork — swap its button from Create to Approve.
+      if (form.job_id) {
+        setBoardIssueRows(prev => prev.map(j => j.job_id === form.job_id
+          ? { ...j, mrn: { id: data.id, mrn_number: data.mrn_number, status: data.status } }
+          : j))
+      }
       setNewMRNModal(false)
       setForm({ job_id: '', required_date: '', notes: '' })
       setLineItems([{ ...EMPTY_ITEM }])
@@ -80,16 +92,42 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
     finally { setLoading(false) }
   }
 
-  const approveMRN = async (mrn: MRN) => {
+  const approveMRN = async (mrnId: string) => {
     try {
-      const res = await fetch(`/api/v1/store/${mrn.id}`, {
+      const res = await fetch(`/api/v1/store/${mrnId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve' }),
       })
       if (!res.ok) throw new Error()
-      setMRNs(prev => prev.map(m => m.id === mrn.id ? { ...m, status: 'approved' } : m))
+      setMRNs(prev => prev.map(m => m.id === mrnId ? { ...m, status: 'approved' } : m))
       toast.success('MRN approved')
     } catch { toast.error('Failed') }
+  }
+
+  // Open the issue modal from anywhere (the action panel, the list row) with
+  // the remaining quantity pre-filled per line, the way the list row does it.
+  const openIssue = (mrn: MRN) => {
+    const qtys: Record<string, string> = {}
+    for (const i of (mrn.material_requisition_items || [])) {
+      qtys[i.id] = String(i.quantity_required - i.quantity_issued)
+    }
+    setIssueQtys(qtys)
+    setIssueModal(mrn)
+  }
+
+  // "Create MRN" straight off a Board Issue job card, pre-filled with the
+  // job's own board and sheet quantity — the same content the workflow route
+  // auto-creates when the stage is started, for the case where Store gets there
+  // first.
+  const openNewMRNForJob = (job: BoardIssueJob) => {
+    setForm({ job_id: job.job_id, required_date: '', notes: '' })
+    setLineItems([{
+      ...EMPTY_ITEM,
+      material_name: job.board_type_name ?? '',
+      material_type: 'board',
+      quantity_required: job.sheet_qty != null ? String(job.sheet_qty) : '1',
+    }])
+    setNewMRNModal(true)
   }
 
   const issueMaterials = async () => {
@@ -118,8 +156,85 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
     finally { setLoading(false) }
   }
 
+  // Jobs whose board still has to be issued. A job whose MRN has been fully
+  // issued drops off — the stage can be completed and Store is done with it.
+  // Status comes from the live MRN list where we have it, so a row disappears
+  // the moment it's issued rather than on the next page load.
+  const liveMrnStatus = (job: BoardIssueJob) =>
+    (job.mrn ? mrns.find(m => m.id === job.mrn!.id)?.status : null) ?? job.mrn?.status ?? null
+  const actionable = boardIssueRows.filter(j => liveMrnStatus(j) !== 'issued')
+
   return (
     <div className="space-y-4">
+      {/* Board Issue — Action Needed. The list below is the paperwork; this is
+          which jobs are standing still waiting for it. Starting the Board Issue
+          stage auto-creates the MRN, so most rows here just need approving and
+          issuing; a job that reached Store before its stage was started gets a
+          Create MRN button pre-filled from the job. */}
+      {actionable.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Board Issue — Action Needed</span>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {actionable.length} job{actionable.length > 1 ? 's' : ''} waiting on Store
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--color-border-subtle)]">
+            {actionable.map(job => {
+              const pcfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG]
+              // The full MRN (with its line items) only exists locally if it
+              // came down with the 50 most recent — otherwise point at the list.
+              const fullMrn = job.mrn ? mrns.find(m => m.id === job.mrn!.id) ?? null : null
+              const liveStatus = liveMrnStatus(job)
+              return (
+                <div key={job.job_id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/dashboard/jobs/${job.job_id}`}
+                        className="text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate">
+                        {job.job_number} — {job.job_title}
+                      </Link>
+                      {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
+                      {job.mrn && (
+                        <span className="text-[10px] text-[var(--color-text-muted)] font-mono flex-shrink-0">{job.mrn.mrn_number}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                      {job.customer_name && <span>{job.customer_name}</span>}
+                      {job.board_type_name && <span>· {job.board_type_name}</span>}
+                      {job.gsm != null && <span>· {job.gsm} gsm</span>}
+                      {job.sheet_qty != null && <span>· {job.sheet_qty} sheets</span>}
+                      {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!job.mrn ? (
+                      <button onClick={() => openNewMRNForJob(job)}
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+                        <Plus size={14} /> Create MRN
+                      </button>
+                    ) : liveStatus === 'pending' ? (
+                      <button onClick={() => approveMRN(job.mrn!.id)}
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border border-[var(--color-success)]/30 text-sm md:text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
+                        <Check size={14} /> Approve
+                      </button>
+                    ) : fullMrn ? (
+                      <button onClick={() => openIssue(fullMrn)}
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-warning)] text-white text-sm md:text-xs font-medium hover:opacity-90 transition-colors">
+                        <Package size={14} /> Issue
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-[var(--color-text-muted)]">Find {job.mrn.mrn_number} below</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center gap-2.5 md:gap-3">
         <TabStrip
@@ -178,13 +293,13 @@ export default function StoreClient({ initialMRNs, jobs, units, boardInventory }
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {mrn.status === 'pending' && (
-                        <button onClick={() => approveMRN(mrn)}
+                        <button onClick={() => approveMRN(mrn.id)}
                           className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
                           <Check size={11} /> Approve
                         </button>
                       )}
                       {['approved','partially_issued'].includes(mrn.status) && (
-                        <button onClick={() => { setIssueModal(mrn); const qtys: Record<string, string> = {}; items.forEach(i => { qtys[i.id] = String(i.quantity_required - i.quantity_issued) }); setIssueQtys(qtys) }}
+                        <button onClick={() => openIssue(mrn)}
                           className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
                           <Package size={11} /> Issue
                         </button>

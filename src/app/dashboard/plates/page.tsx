@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import PlatesClient from './PlatesClient'
+import { loadJobsNeedingPlates } from '@/lib/utils/jobsNeedingPlates'
 
 export default async function PlatesPage() {
   const supabase = createSupabaseServerClient()
@@ -27,13 +28,10 @@ export default async function PlatesPage() {
     .order('created_at', { ascending: false })
     .limit(150)
 
-  const { data: machines } = await supabase
-    .from('machines' as any)
-    .select('id,name,code,machine_type')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('machine_type', 'printing')
-    .order('name')
+  // Which jobs are about to need plates — printing is hard-blocked without
+  // them, so this is the plate room's actual work list. Replaces the old
+  // "machines" fetch, which only fed a dropdown nobody wanted on the form.
+  const jobsNeedingPlates = await loadJobsNeedingPlates(supabase, companyId)
 
   const { data: colorSpecs } = await supabase
     .from('color_specs' as any)
@@ -89,7 +87,7 @@ export default async function PlatesPage() {
       <PlatesClient
         initialPlates={platesWithCurrentJob as any[]}
         jobs={(jobs ?? []) as any[]}
-        machines={(machines ?? []) as any[]}
+        jobsNeedingPlates={jobsNeedingPlates}
         colorSpecs={(colorSpecs ?? []) as any[]}
       />
     </div>
