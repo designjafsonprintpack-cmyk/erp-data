@@ -252,7 +252,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
         <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
           <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
             <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
-            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Plates Needed</span>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Plates Needed</h2>
             <span className="text-xs text-[var(--color-text-muted)]">
               {needPlates.length} job{needPlates.length > 1 ? 's' : ''} waiting — printing can&apos;t start without plates
             </span>

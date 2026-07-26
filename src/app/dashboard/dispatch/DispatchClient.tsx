@@ -9,9 +9,11 @@ import { cn } from '@/lib/utils/cn'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatTimeAgo, planLabel } from '@/lib/utils/format'
 import { getCourierTrackingLink } from '@/lib/utils/courierTracking'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
+import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
+import type { JobAwaitingDispatch } from '@/lib/utils/jobsAwaitingDispatch'
 import Link from 'next/link'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
@@ -51,11 +53,14 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 const EMPTY_ITEM = { job_id: '', quantity_dispatched: '', carton_count: '', weight_kg: '', notes: '' }
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
-export default function DispatchClient({ initialDispatches, customers, readyJobs }: {
-  initialDispatches: Dispatch[]; customers: Customer[]; readyJobs: Job[]
+export default function DispatchClient({ initialDispatches, customers, readyJobs, awaitingDispatch }: {
+  initialDispatches: Dispatch[]; customers: Customer[]; readyJobs: Job[]; awaitingDispatch: JobAwaitingDispatch[]
 }) {
   const searchParams = useSearchParams()
   const [dispatches, setDispatches] = useState(initialDispatches)
+  // Local copy so a job leaves "Ready to Dispatch" as soon as it's put on an
+  // order, without waiting for a server render.
+  const [readyToDispatch, setReadyToDispatch] = useState(awaitingDispatch)
   const [filterStatus, setFilterStatus] = useState('')
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [loading, setLoading]       = useState(false)
@@ -128,12 +133,37 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
         })),
         proof_of_delivery: [],
       }, ...prev])
+      // Those jobs are on an order now — off the ready list.
+      const usedJobIds = new Set(lineItems.filter(l => l.job_id).map(l => l.job_id))
+      setReadyToDispatch(prev => prev.filter(j => !usedJobIds.has(j.job_id)))
       setNewModal(false)
       setForm({ customer_id: '', delivery_address: '', delivery_city: '', delivery_contact: '', delivery_phone: '', dispatch_method: 'own_vehicle', vehicle_number: '', driver_name: '', driver_phone: '', courier_name: '', tracking_number: '', scheduled_date: '', delivery_charges: '0', notes: '' })
       setLineItems([{ ...EMPTY_ITEM }])
       toast.success(`Challan ${data.dispatch_number} created`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
+  }
+
+  /**
+   * "Create Challan" straight off a ready job — customer, address and the job
+   * line (with its full quantity) pre-filled, which is the whole form for a
+   * single-job dispatch. Grouping several jobs for one customer still works:
+   * add lines in the modal as before.
+   */
+  const openDispatchForJob = (job: JobAwaitingDispatch) => {
+    const cust = job.customer_id ? customers.find(c => c.id === job.customer_id) : undefined
+    setForm(prev => ({
+      ...prev,
+      customer_id: job.customer_id ?? '',
+      delivery_address: cust?.address ?? '',
+      delivery_phone: cust?.mobile ?? cust?.phone ?? '',
+    }))
+    setLineItems([{
+      ...EMPTY_ITEM,
+      job_id: job.job_id,
+      quantity_dispatched: job.quantity != null ? String(job.quantity) : '',
+    }])
+    setNewModal(true)
   }
 
   /* ─── Bulk selection + export ─────────────────────────────────────────────── */
@@ -253,6 +283,55 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           </div>
         ))}
       </div>
+
+      {/* Ready to Dispatch — jobs whose workflow has reached Dispatch and that
+          aren't on any challan yet. The list below is the paperwork; this is
+          the goods sitting on the floor waiting for it. */}
+      {readyToDispatch.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-success)]/30 bg-[var(--color-success)]/[0.06] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[var(--color-success)]/20 flex items-center gap-2">
+            <Truck size={14} className="text-[var(--color-success)] flex-shrink-0" />
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Ready to Dispatch</h2>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {readyToDispatch.length} job{readyToDispatch.length > 1 ? 's' : ''} with no challan yet
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--color-border-subtle)]">
+            {readyToDispatch.map(job => {
+              const pcfg = JOB_PRIORITY_CONFIG[job.priority as keyof typeof JOB_PRIORITY_CONFIG]
+              const late = job.required_date ? new Date(`${job.required_date}T00:00:00`).getTime() < Date.now() : false
+              return (
+                <div key={job.job_id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/dashboard/jobs/${job.job_id}`}
+                        className="text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate">
+                        {job.job_number} — {job.job_title}
+                      </Link>
+                      {pcfg && <span className={cn('text-[10px] font-medium flex-shrink-0', pcfg.color)}>{pcfg.label}</span>}
+                      {late && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-danger)]/15 text-[var(--color-danger)] flex-shrink-0">
+                          PAST DUE
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                      {job.customer_name && <span>{job.customer_name}</span>}
+                      {job.quantity != null && <span>· {job.quantity.toLocaleString()} pcs</span>}
+                      {job.required_date && <span>· Due {formatDate(job.required_date, { day: 'numeric', month: 'short' })}</span>}
+                      {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => openDispatchForJob(job)}
+                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                    <Plus size={14} /> Create Challan
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">

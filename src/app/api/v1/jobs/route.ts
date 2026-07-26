@@ -8,6 +8,7 @@ import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/j
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobSchema } from '@/lib/schemas/job'
+import { withCurrentStageNames } from '@/lib/utils/currentStageNames'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -25,7 +26,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   let q = supabase
     .from('jobs' as any)
-    .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
+    .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,current_stage_id,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
     .is('deleted_at', null)
     .eq('is_active', true)
 
@@ -39,7 +40,13 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
+
+  // Same current-stage enrichment the server-rendered first page does, so
+  // filtering or searching doesn't blank out the Stage column.
+  const companyId = await getCompanyId(user, supabase)
+  const rows = await withCurrentStageNames(supabase, companyId, (data ?? []) as any[])
+
+  return NextResponse.json({ data: rows, total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {

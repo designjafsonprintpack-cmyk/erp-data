@@ -9,6 +9,7 @@ import { parseBody } from '@/lib/utils/validate'
 import { jobWorkflowActionSchema } from '@/lib/schemas/jobActions'
 import { checkStageGate } from '@/lib/utils/jobStageGate'
 import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
+import { closeJobIfWorkflowDone } from '@/lib/utils/closeJobIfWorkflowDone'
 import { notifyDepartment } from '@/lib/utils/notifyDepartment'
 
 // After a stage completes, some previously-blocked stages may now be
@@ -261,9 +262,30 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
   // Auto-notify whichever department owns the next stage(s) that just
   // became startable — best-effort, never blocks the response.
+  let jobClosed = false
   if (action === 'complete' || action === 'skip') {
     await notifyNewlyUnblockedStages(supabase, companyId, jobId).catch(() => null)
+
+    // Was that the last stage? Then the job itself is done — nothing else was
+    // ever moving it out of 'in_progress'.
+    jobClosed = await closeJobIfWorkflowDone(supabase, companyId, jobId).catch(() => false)
+
+    if (jobClosed) {
+      await recordJobEvent({
+        company_id: companyId,
+        job_id: params.id,
+        event_type: 'status_changed',
+        old_value: 'in_progress',
+        new_value: 'completed',
+        notes: 'All workflow stages finished',
+        actor_id: userTableId,
+      }, supabase)
+    }
   }
 
-  return NextResponse.json({ data, ...(warnings.length > 0 ? { warnings } : {}) })
+  return NextResponse.json({
+    data,
+    ...(jobClosed ? { job_completed: true } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
+  })
 })

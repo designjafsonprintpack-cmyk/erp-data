@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import DispatchClient from './DispatchClient'
+import { loadJobsAwaitingDispatch } from '@/lib/utils/jobsAwaitingDispatch'
 
 export default async function DispatchPage() {
   const supabase = createSupabaseServerClient()
@@ -21,6 +22,10 @@ export default async function DispatchPage() {
       .in('status', ['completed','in_progress']).order('job_number').limit(100),
   ])
 
+  // Jobs whose workflow has reached Dispatch and which aren't on an order yet
+  // — the list this page was missing.
+  const awaitingDispatch = await loadJobsAwaitingDispatch(supabase, companyId)
+
   const dispatched  = (dispatchRes.data ?? []).filter((d: any) => d.status === 'dispatched').length
   const delivered   = (dispatchRes.data ?? []).filter((d: any) => d.status === 'delivered').length
   const pending     = (dispatchRes.data ?? []).filter((d: any) => d.status === 'pending').length
@@ -37,6 +42,7 @@ export default async function DispatchPage() {
         initialDispatches={(dispatchRes.data ?? []) as any[]}
         customers={(customersRes.data ?? []) as any[]}
         readyJobs={(jobsRes.data ?? []) as any[]}
+        awaitingDispatch={awaitingDispatch}
       />
     </div>
   )

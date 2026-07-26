@@ -200,6 +200,37 @@ input[type="number"] {
   }
 }
 
+/* Track count for a row whose cells don't add up to 12 — today that means a
+   list with a selection checkbox, which prepends its own span-1 cell on top of
+   the columns' declared spans. Without this the extra unit wraps the last
+   column onto a second line. Same breakpoint split as .dl-cell above, and only
+   applied by the component when the total actually differs from 12, so every
+   other list keeps the plain grid-cols-12 track. */
+.dl-grid {
+  grid-template-columns: repeat(var(--dl-cols-md), minmax(0, 1fr));
+}
+@media (min-width: 1280px) {
+  .dl-grid {
+    grid-template-columns: repeat(var(--dl-cols-xl), minmax(0, 1fr));
+  }
+}
+
+/* ── Pointer cursor on controls ────────────────────────────────────────────
+   Tailwind v3's Preflight doesn't set this and the browser default for
+   <button> is an arrow, so every button in the app read as non-clickable on
+   desktop. Cursor only — no layout, no spacing, no colour. Coarse pointers
+   have no cursor at all, hence the fine-pointer scope. */
+@media (pointer: fine) {
+  button:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
 /* ── Sticky form action bar (mobile) ───────────────────────────────────────
    On long create/edit forms the Save button used to live at the very bottom
    of the page — on a phone that means scrolling past every field to submit,

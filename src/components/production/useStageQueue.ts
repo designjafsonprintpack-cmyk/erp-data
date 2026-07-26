@@ -14,6 +14,8 @@ export interface QueueEntry {
   started_at: string | null
   planned_date: string | null
   department_name: string | null
+  /** Mandatory stages can't be skipped — same rule Job Detail applies. */
+  is_optional?: boolean
   blocked_reason?: string
 }
 
@@ -72,6 +74,8 @@ export function useStageQueue(url: string | null) {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed')
       toast.success(action === 'start' ? 'Stage started' : action === 'complete' ? 'Stage completed' : 'Stage skipped')
+      // That was the last stage — the job closed itself.
+      if (json.job_completed) toast.success(`${entry.job_number} complete — all stages finished`)
       if (Array.isArray(json.warnings)) json.warnings.forEach((w: string) => toast.warning(w))
       await reload()
     } catch (e: any) {

@@ -14,6 +14,13 @@ export interface StageQueueEntry {
   started_at: string | null
   planned_date: string | null
   department_name: string | null
+  /**
+   * Whether this stage may be skipped. Job Detail has always hidden Skip on
+   * mandatory stages; the queues offered it on every ready stage, so the same
+   * job could be skipped past Printing from the floor but not from its own
+   * page. The API allows either — this makes the two screens agree.
+   */
+  is_optional: boolean
   blocked_reason?: string
 }
 
@@ -53,7 +60,7 @@ export async function loadStageQueue(
   filter: StageQueueFilter = {}
 ): Promise<StageQueue> {
   let query = supabase.from('job_stage_progress' as any)
-    .select('id, job_id, sequence_order, workflow_stage_id, status, started_at, workflow_stages!inner(name, department_id, stage_type, departments(name)), jobs(job_number, job_title, priority, required_date, customers(name))')
+    .select('id, job_id, sequence_order, workflow_stage_id, status, started_at, workflow_stages!inner(name, department_id, stage_type, is_optional, departments(name)), jobs(job_number, job_title, priority, required_date, customers(name))')
     .eq('company_id', companyId)
     .in('status', ['pending', 'in_progress'])
     .eq('is_active', true)
@@ -98,6 +105,7 @@ export async function loadStageQueue(
       started_at: row.started_at,
       planned_date: plannedDateByJob.get(row.job_id) ?? null,
       department_name: row.workflow_stages?.departments?.name ?? null,
+      is_optional: row.workflow_stages?.is_optional === true,
     }
 
     if (row.status === 'in_progress') {

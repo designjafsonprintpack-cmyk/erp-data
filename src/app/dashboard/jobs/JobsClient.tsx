@@ -17,6 +17,9 @@ interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
   priority: JobPriority; quantity: number; required_date: string | null
   order_date: string; is_on_hold: boolean; is_repeat: boolean; created_at: string
+  current_stage_id?: string | null
+  /** Live workflow stage name, resolved server-side from current_stage_id. */
+  current_stage_name?: string | null
   customers?: { name: string; customer_code: string } | null
   workflow_templates?: { name: string } | null
 }
@@ -50,11 +53,18 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
 
 
 /**
- * Column spans total 11 — DataList prepends a span-1 selection column, keeping
- * the row at the same 12 units the hand-rolled grid used.
- *
  * A factory (not a constant) so the thumbnail column can close over the
  * per-job lookup — same shape as USER_COLUMNS in UsersClient.tsx.
+ *
+ * SPAN BUDGET — currently over by one, deliberately left alone:
+ * these spans total 12, and DataList prepends a span-1 selection column (this
+ * is the only list in the app that passes `selection`), so the row asks for 13
+ * units of a `grid-cols-12`. The last column therefore wraps below at >=1280px.
+ * It has been that way since the title column was widened 2 -> 3 for the
+ * artwork thumbnail — the comment that used to sit here still claimed 11.
+ * Fixing it means deciding which column gives up a unit (status and stage both
+ * clip badly at 1), which is a visual call, not a mechanical one — so it is
+ * flagged rather than quietly changed here.
  */
 const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[] => [
   {
@@ -117,8 +127,25 @@ const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[]
     render: j => <span className="text-sm text-[var(--color-text-secondary)]">{j.quantity.toLocaleString()}</span>,
   },
   {
-    key: 'workflow', header: 'Workflow', span: 2, role: 'desktop',
-    render: j => <span className="text-xs text-[var(--color-text-muted)]">{j.workflow_templates?.name || '—'}</span>,
+    // Was the workflow TEMPLATE name — the same value on nearly every row and
+    // no help in knowing what a job is waiting on. The live stage is the thing
+    // people actually walk over to ask about; the template name is still on
+    // the job's own page (and kept here as the cell's tooltip).
+    key: 'stage', header: 'Stage', span: 2, role: 'meta', label: 'Stage',
+    render: j => {
+      const done = ['completed', 'dispatched'].includes(j.status)
+      return (
+        <span
+          title={j.workflow_templates?.name ? `Workflow: ${j.workflow_templates.name}` : undefined}
+          className={cn('text-xs truncate',
+            done ? 'text-[var(--color-success)]'
+              : j.current_stage_name ? 'text-[var(--color-text-secondary)]'
+              : 'text-[var(--color-text-muted)]')}
+        >
+          {done ? 'Done' : j.current_stage_name || '—'}
+        </span>
+      )
+    },
   },
   {
     key: 'due', header: 'Due Date', span: 1, role: 'meta', label: 'Due',

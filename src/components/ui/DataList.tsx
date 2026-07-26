@@ -138,6 +138,23 @@ export function DataList<T>({
   const tabletCols = columns.filter(c => c.role !== 'desktop')
   const tSpans = tabletSpans(tabletCols)
 
+  // The grid is 12 units wide, but a list that passes `selection` prepends its
+  // own span-1 checkbox cell — so its columns have to fit in 11, not 12. The
+  // Jobs list (the only one using selection) declares 12, which made the row
+  // ask for 13 units and pushed its last column onto a second line at >=1280px.
+  // Widening the track count instead of stealing a unit from a column keeps
+  // every column's information intact and leaves selection-less lists exactly
+  // as they were (12 units → identical to the grid-cols-12 class).
+  const declaredUnits = columns.reduce((n, c) => n + c.span, 0) + (selection ? 1 : 0)
+  const tabletUnits = tSpans.reduce((n, s) => n + s, 0) + (selection ? 1 : 0)
+  const gridStyle: React.CSSProperties | undefined =
+    declaredUnits === 12 && tabletUnits === 12
+      ? undefined
+      : {
+          ['--dl-cols-md' as string]: tabletUnits,
+          ['--dl-cols-xl' as string]: declaredUnits,
+        }
+
   const identity = columns.filter(c => c.role === 'identity')
   const titles = columns.filter(c => c.role === 'title')
   const statuses = columns.filter(c => c.role === 'status')
@@ -192,8 +209,10 @@ export function DataList<T>({
       {/* ───────────────────────── Desktop / tablet table ───────────────────────── */}
       <div className="hidden md:block rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
         <div
+          style={gridStyle}
           className={cn(
             'grid grid-cols-12 gap-3 px-5 py-2.5 bg-[var(--color-bg-elevated)]',
+            gridStyle && 'dl-grid',
             'border-b border-[var(--color-border)] text-xs font-semibold',
             'text-[var(--color-text-muted)] uppercase tracking-wider rounded-t-xl',
             // position:sticky is broken by an ancestor with overflow-hidden —
@@ -236,18 +255,20 @@ export function DataList<T>({
           {rows.map((row, idx) => {
             const classes = cn(
               'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
+              gridStyle && 'dl-grid',
               'hover:bg-[var(--color-bg-elevated)]/50',
               striped && idx % 2 === 1 && 'bg-[var(--color-bg-elevated)]/15',
               rowClassName?.(row, idx)
             )
             const href = rowHref?.(row)
             if (href) {
-              return <Link key={getRowId(row)} href={href} className={classes}>{rowInner(row)}</Link>
+              return <Link key={getRowId(row)} href={href} className={classes} style={gridStyle}>{rowInner(row)}</Link>
             }
             return (
               <div
                 key={getRowId(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
+                style={gridStyle}
                 className={cn(classes, onRowClick && 'cursor-pointer')}
               >
                 {rowInner(row)}

@@ -108,11 +108,15 @@ export function QueueBoard({
               className="flex items-center justify-center gap-1.5 h-14 md:h-7 flex-1 md:flex-none px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-accent)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Play size={16} className="md:hidden" /><Play size={11} className="hidden md:block" /> Start
             </button>
-            <button onClick={() => onAct(e, 'skip')} disabled={actingOn === e.stage_progress_id}
-              title="Skip this stage" aria-label="Skip this stage"
-              className="flex items-center justify-center gap-1 h-14 w-14 md:h-7 md:w-auto md:px-2 rounded-lg md:rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] text-[11px] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors flex-shrink-0">
-              <SkipForward size={16} className="md:hidden" /><SkipForward size={11} className="hidden md:block" />
-            </button>
+            {/* Only optional stages can be skipped — matches the Job Detail
+                workflow panel, which has always gated Skip this way. */}
+            {e.is_optional && (
+              <button onClick={() => onAct(e, 'skip')} disabled={actingOn === e.stage_progress_id}
+                title="Skip this stage" aria-label="Skip this stage"
+                className="flex items-center justify-center gap-1 h-14 w-14 md:h-7 md:w-auto md:px-2 rounded-lg md:rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] text-[11px] hover:bg-[var(--color-bg-elevated)] disabled:opacity-50 transition-colors flex-shrink-0">
+                <SkipForward size={16} className="md:hidden" /><SkipForward size={11} className="hidden md:block" />
+              </button>
+            )}
           </div>
         )}
       />

@@ -92,7 +92,14 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
     finally { setLoading(false) }
   }
 
+  // Which MRN is mid-approve. Without this the button stayed live during the
+  // request and a second tap fired a second approve — easy to do on a phone,
+  // where there's no cursor feedback that anything happened.
+  const [approving, setApproving] = useState<string | null>(null)
+
   const approveMRN = async (mrnId: string) => {
+    if (approving) return
+    setApproving(mrnId)
     try {
       const res = await fetch(`/api/v1/store/${mrnId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -102,6 +109,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
       setMRNs(prev => prev.map(m => m.id === mrnId ? { ...m, status: 'approved' } : m))
       toast.success('MRN approved')
     } catch { toast.error('Failed') }
+    finally { setApproving(null) }
   }
 
   // Open the issue modal from anywhere (the action panel, the list row) with
@@ -175,7 +183,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
         <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/[0.06] overflow-hidden">
           <div className="px-4 py-2.5 border-b border-[var(--color-warning)]/20 flex items-center gap-2">
             <AlertTriangle size={14} className="text-[var(--color-warning)] flex-shrink-0" />
-            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Board Issue — Action Needed</span>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Board Issue — Action Needed</h2>
             <span className="text-xs text-[var(--color-text-muted)]">
               {actionable.length} job{actionable.length > 1 ? 's' : ''} waiting on Store
             </span>
@@ -215,9 +223,9 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                         <Plus size={14} /> Create MRN
                       </button>
                     ) : liveStatus === 'pending' ? (
-                      <button onClick={() => approveMRN(job.mrn!.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border border-[var(--color-success)]/30 text-sm md:text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
-                        <Check size={14} /> Approve
+                      <button onClick={() => approveMRN(job.mrn!.id)} disabled={approving === job.mrn.id}
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border border-[var(--color-success)]/30 text-sm md:text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-50 transition-colors">
+                        <Check size={14} /> {approving === job.mrn.id ? 'Approving…' : 'Approve'}
                       </button>
                     ) : fullMrn ? (
                       <button onClick={() => openIssue(fullMrn)}
@@ -293,9 +301,9 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {mrn.status === 'pending' && (
-                        <button onClick={() => approveMRN(mrn.id)}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 transition-colors">
-                          <Check size={11} /> Approve
+                        <button onClick={() => approveMRN(mrn.id)} disabled={approving === mrn.id}
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md border border-[var(--color-success)]/30 text-xs text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-50 transition-colors">
+                          <Check size={11} /> {approving === mrn.id ? 'Approving…' : 'Approve'}
                         </button>
                       )}
                       {['approved','partially_issued'].includes(mrn.status) && (

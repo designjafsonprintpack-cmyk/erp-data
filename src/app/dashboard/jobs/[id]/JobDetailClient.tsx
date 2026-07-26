@@ -189,9 +189,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         body: JSON.stringify({ stage_progress_id: stageId, action, notes }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      const { data, warnings } = await res.json()
+      const { data, warnings, job_completed } = await res.json()
       setStages(prev => prev.map(s => s.id === data.id ? { ...s, ...data } : s))
       toast.success(action === 'start' ? 'Stage started' : action === 'complete' ? 'Stage completed' : 'Stage skipped')
+      // Last stage done — the job closed itself. router.refresh() picks up the
+      // new status and completed date in the header.
+      if (job_completed) {
+        toast.success('Job complete — all stages finished')
+        router.refresh()
+      }
       // Non-blocking heads-up (e.g. board stock short for this job) — the
       // stage change already went through, this is informational only.
       if (Array.isArray(warnings)) {
