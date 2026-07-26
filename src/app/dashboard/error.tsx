@@ -31,7 +31,7 @@ export default function DashboardError({
         )}
         <button
           onClick={reset}
-          className="mt-5 inline-flex items-center gap-2 px-4 h-10 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors"
+          className="mt-5 inline-flex items-center gap-2 px-4 h-10 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           <RefreshCw size={14} /> Try again
         </button>

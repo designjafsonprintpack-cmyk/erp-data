@@ -144,6 +144,33 @@ deliberately left empty. Never read from it.
   They're declared after Tailwind's utilities so they win the cascade, and the
   insets are `0px` on desktop and on any phone in portrait. Never pair one with
   a `p*-4`. Use `pl-[calc(1rem+var(--safe-left))]`. Cost two separate bugs.
+- **Never write an opacity modifier on a CSS variable colour** —
+  `bg-[var(--color-danger)]/10`, `border-[var(--color-warning)]/30`. Tailwind
+  v3 cannot inject alpha into a `var()`, so it emits **no rule at all**: the
+  background tint silently vanishes and the border falls back to Preflight's
+  `#e5e7eb`, which reads as a bright white line on every dark theme. It cost
+  **573 broken utilities across 64 files** before anyone spotted it, because
+  nothing errors — the UI just looks flat and off-theme. The working form is
+  `bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]`
+  (underscores for spaces, `[color:...]` hint required so Tailwind treats the
+  function as a colour). Verify by grepping the built CSS in
+  `.next/static/css/` for the rule — if it isn't there, the class didn't exist.
+- **Filled buttons take `--color-on-*`, never `text-white`.** White on the
+  accent/success/warning/danger/info fills fails WCAG AA in all four dark
+  themes (worst: white on dark-orange's warning at **1.67:1**). Each theme
+  publishes `--color-on-accent`, `-on-accent-hover`, `-on-success`,
+  `-on-warning`, `-on-danger`, `-on-info`, resolved per palette: white where it
+  clears 3.2:1 (the band GitHub/Stripe/Linear ship for blue and red buttons),
+  the theme's darkest surface where it doesn't. `-on-accent-hover` deliberately
+  mirrors `-on-accent` so a label never flips colour mid-hover. `text-white` is
+  still correct on hardcoded-hex backgrounds (the customer-facing approval
+  pages) and on overlay badges.
+  **Known residual, accepted:** 6 of 30 pairs stay in the 3.0–3.8 band rather
+  than reaching 4.5 — the blue accent in `github-dark` and the red danger fill
+  in all four dark themes. Dark ink on blue or red reads as broken, and this is
+  what mainstream products ship. Closing it properly means separate darker
+  *fill* tokens (Primer's `bgColor-accent-emphasis` pattern), not a label swap.
+  Don't "fix" it by flipping those labels to ink.
 - **`cn()` is tailwind-merge.** Class order matters — a class passed in later
   silently cancels an earlier conflicting one. Caught only by render assertions.
 - **Empty string vs Postgres.** A blank form control sends `''`, and Postgres

@@ -250,7 +250,7 @@ export default function FloorDashboardClient({
           ] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} role="tab" aria-selected={tab === key} data-tab-active={tab === key}
               className={cn('px-3 md:px-4 h-11 md:h-9 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
-                tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+                tab === key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
             </button>
           ))}
@@ -261,7 +261,7 @@ export default function FloorDashboardClient({
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           <button onClick={() => setAssignModal(true)}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> Assign Job
           </button>
         </div>
@@ -367,7 +367,7 @@ export default function FloorDashboardClient({
                           <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-[var(--color-border-subtle)]">
                             {asgn.status === 'queued' && (
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'start' })}
-                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                                 <Play size={11} /> Start
                               </button>
                             )}
@@ -377,7 +377,7 @@ export default function FloorDashboardClient({
                                 <Pause size={11} /> Pause
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'complete' })}
-                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                                 <CheckCircle2 size={11} /> Done
                               </button>
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'issue' })}
@@ -387,7 +387,7 @@ export default function FloorDashboardClient({
                             </>}
                             {asgn.status === 'paused' && (
                               <button onClick={() => setActionModal({ assignment: asgn, action: 'resume' })}
-                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                                className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-xs font-medium hover:opacity-90 transition-colors">
                                 <Play size={11} /> Resume
                               </button>
                             )}
@@ -436,7 +436,7 @@ export default function FloorDashboardClient({
           <>
             <button onClick={() => setAssignModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={assign} disabled={loading || !assignForm.job_id || !assignForm.machine_id}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Cpu size={14} /> {loading ? 'Assigning…' : 'Assign to Machine'}
             </button>
           </>
@@ -638,7 +638,7 @@ function AssignmentTable({
                 <div className="col-span-2 flex items-center gap-1 justify-end">
                   {a.status === 'queued' && (
                     <button onClick={() => onAction(a, 'start')}
-                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                       <Play size={10} /> Start
                     </button>
                   )}
@@ -648,13 +648,13 @@ function AssignmentTable({
                       <Pause size={10} />
                     </button>
                     <button onClick={() => onAction(a, 'complete')}
-                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                       <CheckCircle2 size={10} /> Done
                     </button>
                   </>}
                   {a.status === 'paused' && (
                     <button onClick={() => onAction(a, 'resume')}
-                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                      className="flex items-center gap-1 px-3 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-xs font-medium hover:opacity-90 transition-colors">
                       <Play size={10} /> Resume
                     </button>
                   )}

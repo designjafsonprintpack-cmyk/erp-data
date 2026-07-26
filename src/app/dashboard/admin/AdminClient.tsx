@@ -78,7 +78,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
         ] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-medium border transition-all',
-              tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+              tab === key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
             <Icon size={13} />{label}
           </button>
         ))}
@@ -108,7 +108,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
                         {(['true','false'] as const).map(v => (
                           <button key={v} onClick={() => set(item.key, v)}
                             className={cn('px-3 h-9 rounded-md border text-sm font-medium transition-all capitalize',
-                              settings[item.key] === v ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+                              settings[item.key] === v ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
                             {v === 'true' ? 'Enabled' : 'Disabled'}
                           </button>
                         ))}
@@ -130,7 +130,7 @@ export default function AdminClient({ settings: initialSettings, settingsFull, a
               <p className="text-sm text-[var(--color-warning)]">{Object.keys(dirty).length} unsaved change{Object.keys(dirty).length !== 1 ? 's' : ''}</p>
             )}
             <button onClick={saveSettings} disabled={loading || !Object.keys(dirty).length}
-              className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors ml-auto">
+              className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors ml-auto">
               <Save size={14} /> {loading ? 'Saving…' : 'Save Settings'}
             </button>
           </div>

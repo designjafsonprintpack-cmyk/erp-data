@@ -94,7 +94,7 @@ export function QueueBoard({
         tone="bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] text-[var(--color-info)]"
         renderAction={e => (
           <button onClick={() => onAct(e, 'complete')} disabled={actingOn === e.stage_progress_id}
-            className="flex items-center justify-center gap-1.5 h-14 md:h-7 w-full md:w-auto px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-success)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
+            className="flex items-center justify-center gap-1.5 h-14 md:h-7 w-full md:w-auto px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm md:text-[11px] font-semibold md:font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
             <CheckCircle2 size={16} className="md:hidden" /><CheckCircle2 size={11} className="hidden md:block" /> Complete
           </button>
         )}
@@ -105,7 +105,7 @@ export function QueueBoard({
         renderAction={e => (
           <div className="flex items-center gap-2 md:gap-1.5">
             <button onClick={() => onAct(e, 'start')} disabled={actingOn === e.stage_progress_id}
-              className="flex items-center justify-center gap-1.5 h-14 md:h-7 flex-1 md:flex-none px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-accent)] text-white text-sm md:text-[11px] font-semibold md:font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center justify-center gap-1.5 h-14 md:h-7 flex-1 md:flex-none px-4 md:px-2.5 rounded-lg md:rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-[11px] font-semibold md:font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Play size={16} className="md:hidden" /><Play size={11} className="hidden md:block" /> Start
             </button>
             {/* Only optional stages can be skipped — matches the Job Detail

@@ -172,18 +172,18 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => setActiveType('all')}
           className={cn('px-3 h-8 rounded-md text-sm font-medium transition-colors border',
-            activeType === 'all' ? 'bg-[var(--color-accent)] text-white border-transparent' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]')}>
+            activeType === 'all' ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]')}>
           All ({machines.length})
         </button>
         {MACHINE_TYPES.map(t => (
           <button key={t.value} onClick={() => setActiveType(t.value)}
             className={cn('px-3 h-8 rounded-md text-sm font-medium transition-colors border',
-              activeType === t.value ? 'bg-[var(--color-accent)] text-white border-transparent' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]')}>
+              activeType === t.value ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]')}>
             {t.label} ({grouped[t.value]?.length ?? 0})
           </button>
         ))}
         <button onClick={openNew}
-          className="ml-auto flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="ml-auto flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={14} /> Add Machine
         </button>
       </div>
@@ -258,7 +258,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
           <>
             <button onClick={() => setModalOpen(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={save} disabled={loading || !form.name || !form.code}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Saving…' : editingMachine ? 'Save Changes' : 'Add Machine'}
             </button>
           </>
@@ -307,7 +307,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
             <div className="flex gap-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-1 w-fit">
               {(['downtime', 'maintenance'] as const).map(t => (
                 <button key={t} onClick={() => setLogTab(t)}
-                  className={cn('px-3 h-7 rounded-md text-xs font-medium capitalize transition-all', logTab === t ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)]')}>
+                  className={cn('px-3 h-7 rounded-md text-xs font-medium capitalize transition-all', logTab === t ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-secondary)]')}>
                   {t}
                 </button>
               ))}
@@ -330,7 +330,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                       <input className={inputCls} placeholder="Reason (optional)" value={downtimeForm.reason} onChange={e => setDowntimeForm(p => ({ ...p, reason: e.target.value }))} />
                     </div>
                     <button onClick={logDowntime} disabled={logLoading}
-                      className="px-3 h-8 rounded-md bg-[var(--color-danger)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-50">
+                      className="px-3 h-8 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-xs font-medium hover:opacity-90 disabled:opacity-50">
                       Log Downtime
                     </button>
                   </div>
@@ -350,7 +350,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                       </div>
                       {!e.ended_at && (
                         <button onClick={() => closeDowntime(e)} disabled={logLoading}
-                          className="px-3 h-7 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 flex-shrink-0">
+                          className="px-3 h-7 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 disabled:opacity-50 flex-shrink-0">
                           Resolve
                         </button>
                       )}
@@ -387,7 +387,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                   </div>
                   <input type="date" className={inputCls} value={maintenanceForm.next_due_date} onChange={e => setMaintenanceForm(p => ({ ...p, next_due_date: e.target.value }))} placeholder="Next due date (recurring)" />
                   <button onClick={logMaintenance} disabled={logLoading}
-                    className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">
+                    className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">
                     Save
                   </button>
                 </div>

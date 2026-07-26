@@ -72,7 +72,7 @@ export default function LoginForm() {
         </div>
         <button type="submit" disabled={loading} className={cn(
           'w-full h-10 flex items-center justify-center gap-2 rounded-md text-sm font-medium',
-          'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)]',
+          'bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]',
           'transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed'
         )}>
           {loading ? (

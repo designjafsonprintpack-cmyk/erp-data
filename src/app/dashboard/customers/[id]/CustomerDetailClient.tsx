@@ -144,7 +144,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
       <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl p-1 w-fit">
         {[{ key: 'info', label: 'Information' }, { key: 'contacts', label: `Contacts (${contacts.length})` }, { key: 'addresses', label: `Addresses (${addresses.length})` }, { key: 'activity', label: 'Activity' }, { key: 'ledger', label: 'Ledger' }].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key as any)}
-            className={cn('px-4 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
+            className={cn('px-4 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
             {t.label}
           </button>
         ))}
@@ -201,7 +201,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   <textarea className={cn(inputCls, 'h-20 resize-none py-2')} value={infoForm.notes} onChange={e => setInfoForm(p => ({ ...p, notes: e.target.value }))} />
                 </div>
                 <div className="col-span-2 flex gap-2">
-                  <button onClick={saveInfo} disabled={loading} className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"><Check size={14} /> Save</button>
+                  <button onClick={saveInfo} disabled={loading} className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"><Check size={14} /> Save</button>
                   <button onClick={() => setEditingInfo(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
                 </div>
               </div>
@@ -241,7 +241,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Contacts</h2>
             <button onClick={() => setNewContact({ name: '', designation: '', email: '', phone: '', mobile: '' })}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={14} /> Add Contact
             </button>
           </div>
@@ -273,7 +273,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                 {['name', 'designation', 'email', 'phone', 'mobile'].map((k, i) => (
                   <input key={k} autoFocus={i === 0} className={cn(inputCls, 'flex-1')} value={newContact[k] ?? ''} onChange={e => setNewContact(p => ({ ...p!, [k]: e.target.value }))} placeholder={k.charAt(0).toUpperCase() + k.slice(1) + (k === 'name' ? ' *' : '')} />
                 ))}
-                <button onClick={saveContact} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+                <button onClick={saveContact} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
                 <button onClick={() => setNewContact(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
               </div>
             )}
@@ -288,7 +288,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
             <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Addresses</h2>
             <button onClick={() => setNewAddress({ label: '', address_type: 'billing', address_line1: '', address_line2: '', city: '', country: 'Pakistan' })}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={14} /> Add Address
             </button>
           </div>
@@ -327,7 +327,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                 <input className={inputCls} value={newAddress.address_line1} onChange={e => setNewAddress(p => ({ ...p!, address_line1: e.target.value }))} placeholder="Address Line 1 *" />
                 <input className={inputCls} value={newAddress.address_line2} onChange={e => setNewAddress(p => ({ ...p!, address_line2: e.target.value }))} placeholder="Address Line 2 (optional)" />
                 <div className="flex gap-2">
-                  <button onClick={saveAddress} disabled={loading} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Address</button>
+                  <button onClick={saveAddress} disabled={loading} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Address</button>
                   <button onClick={() => setNewAddress(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
                 </div>
               </div>
@@ -448,7 +448,7 @@ function PortalAccessCard({ customerId }: { customerId: string }) {
               <ShieldOff size={13} /> Revoke
             </button>
           )}
-          <button onClick={generate} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          <button onClick={generate} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <Copy size={13} /> {link ? 'Regenerate & Copy' : 'Generate & Copy Link'}
           </button>
         </div>
@@ -514,7 +514,7 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
         <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Activity Timeline</h2>
         <button onClick={() => setNewActivity({ activity_type: 'call', subject: '', notes: '' })}
-          className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={14} /> Log Activity
         </button>
       </div>
@@ -534,7 +534,7 @@ function CustomerActivityTab({ customerId }: { customerId: string }) {
           </div>
           <textarea className={cn(inputCls, 'h-16 resize-none py-2')} value={newActivity.notes} onChange={e => setNewActivity(p => ({ ...p!, notes: e.target.value }))} placeholder="Notes (optional)" />
           <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+            <button onClick={save} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
             <button onClick={() => setNewActivity(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
           </div>
         </div>

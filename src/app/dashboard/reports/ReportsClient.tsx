@@ -168,7 +168,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           ] as const).map(([key, label, Icon]) => (
             <button key={key} onClick={() => setTab(key)} role="tab" aria-selected={tab === key} data-tab-active={tab === key}
               className={cn('flex items-center gap-1.5 px-3 md:px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
-                tab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+                tab === key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               <Icon size={13} />{label}
             </button>
           ))}
@@ -755,7 +755,7 @@ function CustomReportBuilder() {
             {columns.map(c => (
               <button key={c.key} onClick={() => toggleCol(c.key)}
                 className={cn('px-3 h-7 rounded-full text-xs font-medium border transition-all',
-                  selectedCols.has(c.key) ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-muted)]')}>
+                  selectedCols.has(c.key) ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-muted)]')}>
                 {c.label}
               </button>
             ))}
@@ -764,7 +764,7 @@ function CustomReportBuilder() {
 
         <div className="flex gap-2">
           <button onClick={run} disabled={loading}
-            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {loading ? 'Running…' : 'Run Report'}
           </button>
           {rows.length > 0 && (

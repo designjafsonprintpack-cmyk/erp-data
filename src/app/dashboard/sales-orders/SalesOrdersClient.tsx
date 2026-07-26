@@ -96,7 +96,7 @@ export default function SalesOrdersClient({ initialData, initialTotal }: { initi
       <Toolbar
         search={{ value: search, onChange: handleSearch, placeholder: 'Search SO number…' }}
         actions={
-          <Link href="/dashboard/sales-orders/new" className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          <Link href="/dashboard/sales-orders/new" className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New SO
           </Link>
         }

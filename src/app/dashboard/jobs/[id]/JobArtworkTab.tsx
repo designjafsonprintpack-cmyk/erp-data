@@ -238,7 +238,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <button onClick={() => setUploadModal(true)}
-          className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> Add Artwork
         </button>
       </div>
@@ -343,7 +343,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         footer={<>
           <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={upload} disabled={loading || !selectedFile}
-            className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <Upload size={14} /> {loading ? 'Uploading…' : 'Add Artwork'}
           </button>
         </>}>
@@ -351,7 +351,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
             <input type="file" accept=".jpg,.jpeg,image/jpeg" onChange={e => pickFile(e.target.files?.[0] || null)}
-              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-white hover:file:bg-[var(--color-accent-hover)]" />
+              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
             <p className="text-xs text-[var(--color-text-muted)]">JPG only.</p>
             {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
@@ -378,7 +378,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
               </div>
               <p className="text-xs text-[var(--color-text-muted)]">The customer will be able to view this artwork and Approve, Reject, or Request Changes — no login needed. This also moves the status to &quot;Waiting Customer Approval&quot;.</p>
               <button onClick={generateLink} disabled={linkLoading}
-                className="w-full flex items-center justify-center gap-2 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                className="w-full flex items-center justify-center gap-2 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                 <Link2 size={14} /> {linkLoading ? 'Generating…' : 'Generate Link'}
               </button>
             </>
@@ -518,7 +518,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                       placeholder="Add an internal note…"
                       className="flex-1 min-w-0 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]" />
                     <button onClick={() => addComment(commentsModal.id)} disabled={addingComment || !newComment.trim()}
-                      className="h-11 md:h-9 px-3 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                      className="h-11 md:h-9 px-3 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                       Add
                     </button>
                   </div>

@@ -95,7 +95,7 @@ export function Toolbar({
               <SlidersHorizontal size={15} />
               Filters
               {activeFilterCount > 0 && (
-                <span className="ml-0.5 min-w-5 h-5 px-1 rounded-full bg-[var(--color-accent)] text-white text-[11px] font-semibold flex items-center justify-center tabular-nums">
+                <span className="ml-0.5 min-w-5 h-5 px-1 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] text-[11px] font-semibold flex items-center justify-center tabular-nums">
                   {activeFilterCount}
                 </span>
               )}
@@ -121,7 +121,7 @@ export function Toolbar({
             )}
             <button
               onClick={() => setSheetOpen(false)}
-              className="px-5 h-11 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium"
+              className="px-5 h-11 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium"
             >
               Show results
             </button>

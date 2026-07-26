@@ -330,12 +330,12 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           )}
           {job.is_on_hold ? (
             <button onClick={() => setResumeModal(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 transition-colors">
               <PlayCircle size={14} /> Resume
             </button>
           ) : !['completed','dispatched','cancelled'].includes(job.status) && (
             <button onClick={() => setHoldModal(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 transition-colors">
               <PauseCircle size={14} /> Hold
             </button>
           )}
@@ -534,8 +534,8 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                     idx % 2 === 1 && !isCurrent && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_20%,transparent)]')}>
                     {/* Step number */}
                     <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border',
-                      isDone    ? 'bg-[var(--color-success)] text-white border-[var(--color-success)]' :
-                      isCurrent ? 'bg-[var(--color-warning)] text-white border-[var(--color-warning)]' :
+                      isDone    ? 'bg-[var(--color-success)] text-[var(--color-on-success)] border-[var(--color-success)]' :
+                      isCurrent ? 'bg-[var(--color-warning)] text-[var(--color-on-warning)] border-[var(--color-warning)]' :
                       isSkipped ? 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)] opacity-50' :
                                   'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)]')}>
                       {isDone ? <CheckCircle2 size={14} /> : idx + 1}
@@ -558,7 +558,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                       {isPending && (
                         <>
                           <button onClick={() => advanceStage(stage.id, 'start')} disabled={loading || job.is_on_hold}
-                            className="flex items-center gap-1 px-3 h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-colors">
+                            className="flex items-center gap-1 px-3 h-7 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-colors">
                             <PlayCircle size={11} /> Start
                           </button>
                           {isOptional && (
@@ -571,7 +571,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                       )}
                       {isCurrent && (
                         <button onClick={() => advanceStage(stage.id, 'complete')} disabled={loading}
-                          className="flex items-center gap-1 px-3 h-7 rounded-md bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-colors">
+                          className="flex items-center gap-1 px-3 h-7 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-colors">
                           <CheckCircle2 size={11} /> Complete
                         </button>
                       )}
@@ -638,7 +638,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 placeholder="Add a remark… (Enter to submit)"
                 className={inputCls} />
               <button onClick={addRemark} disabled={addingRemark || !remark.trim()}
-                className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors flex-shrink-0">
+                className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors flex-shrink-0">
                 <MessageSquare size={14} /> Add
               </button>
             </div>
@@ -676,7 +676,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <p className="text-xl font-bold text-[var(--color-text-primary)] mt-0.5">{totalWastage.toLocaleString()}</p>
             </div>
             <button onClick={() => setWastageModal(true)}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <AlertTriangle size={14} /> Record Wastage
             </button>
           </div>
@@ -714,7 +714,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <>
             <button onClick={() => setHoldModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={holdJob} disabled={loading || !holdForm.hold_reason_id}
-              className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Holding…' : 'Put On Hold'}
             </button>
           </>
@@ -740,7 +740,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <>
             <button onClick={() => setResumeModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={resumeJob} disabled={loading}
-              className="px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Resuming…' : 'Resume Job'}
             </button>
           </>
@@ -760,7 +760,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <>
             <button onClick={() => setRepeatModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createRepeat} disabled={loading}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Repeat Job'}
             </button>
           </>
@@ -796,7 +796,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           <>
             <button onClick={() => setWastageModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={recordWastage} disabled={recordingWastage || !wastageForm.wastage_reason_id || !wastageForm.quantity}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {recordingWastage ? 'Saving…' : 'Record Wastage'}
             </button>
           </>

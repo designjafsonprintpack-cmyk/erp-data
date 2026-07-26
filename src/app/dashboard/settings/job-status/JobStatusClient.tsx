@@ -109,7 +109,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
       <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl p-1 w-fit">
         {[{ key: 'status', label: 'Job Statuses' }, { key: 'delay', label: 'Delay Reasons' }].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key as any)}
-            className={cn('px-5 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-white shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
+            className={cn('px-5 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
             {t.label}
           </button>
         ))}
@@ -120,7 +120,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">Job Statuses ({statuses.length})</span>
             <button onClick={() => { setStatusForm({ name: '', slug: '', color_hex: '#2f81f7' }); setEditingStatusId('new') }}
-              className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={12} /> Add Status
             </button>
           </div>
@@ -131,7 +131,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                   <input className={cn(inputCls, 'flex-1')} value={statusForm.name} onChange={e => setStatusForm(p => ({ ...p, name: e.target.value }))} placeholder="Status name" />
                   <input className={cn(inputCls, 'w-32')} value={statusForm.slug} onChange={e => setStatusForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/\s+/g, '_') }))} placeholder="slug" />
                   <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-8 rounded border border-[var(--color-border)] cursor-pointer" />
-                  <button onClick={saveStatus} disabled={loading} className="w-8 h-8 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={13} /></button>
+                  <button onClick={saveStatus} disabled={loading} className="w-8 h-8 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={13} /></button>
                   <button onClick={() => setEditingStatusId(null)} className="w-8 h-8 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={13} /></button>
                 </div>
               ) : (
@@ -145,7 +145,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                 <input autoFocus className={cn(inputCls, 'flex-1')} value={statusForm.name} onChange={e => setStatusForm(p => ({ ...p, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '_') }))} placeholder="Status name *" />
                 <input className={cn(inputCls, 'w-32')} value={statusForm.slug} onChange={e => setStatusForm(p => ({ ...p, slug: e.target.value }))} placeholder="slug *" />
                 <input type="color" value={statusForm.color_hex} onChange={e => setStatusForm(p => ({ ...p, color_hex: e.target.value }))} className="w-10 h-8 rounded border border-[var(--color-border)] cursor-pointer" />
-                <button onClick={saveStatus} disabled={loading || !statusForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+                <button onClick={saveStatus} disabled={loading || !statusForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
                 <button onClick={() => setEditingStatusId(null)} className="px-2.5 h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
               </div>
             )}
@@ -157,7 +157,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
         <div className="space-y-3">
           <div className="flex justify-end">
             <button onClick={() => { setDelayForm({ name: '', category: 'general' }); setEditingDelayId('new') }}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={14} /> Add Reason
             </button>
           </div>
@@ -168,7 +168,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
               <select className={cn(inputCls, 'w-36 capitalize')} value={delayForm.category} onChange={e => setDelayForm(p => ({ ...p, category: e.target.value }))}>
                 {DELAY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button onClick={saveDelay} disabled={loading || !delayForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
+              <button onClick={saveDelay} disabled={loading || !delayForm.name} className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save</button>
               <button onClick={() => setEditingDelayId(null)} className="px-2.5 h-8 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-bg-elevated)]">Cancel</button>
             </div>
           )}
@@ -187,7 +187,7 @@ export default function JobStatusClient({ initialStatuses, initialDelayReasons }
                         <select className={cn(inputCls, 'w-32 capitalize')} value={delayForm.category} onChange={e => setDelayForm(p => ({ ...p, category: e.target.value }))}>
                           {DELAY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <button onClick={saveDelay} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={12} /></button>
+                        <button onClick={saveDelay} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
                         <button onClick={() => setEditingDelayId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
                       </>
                     ) : (

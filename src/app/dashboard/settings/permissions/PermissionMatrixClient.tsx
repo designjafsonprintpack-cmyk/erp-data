@@ -113,7 +113,7 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all',
               selectedRole === role.id
-                ? 'bg-[var(--color-accent)] text-white border-transparent shadow-md'
+                ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent shadow-md'
                 : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent)] hover:text-[var(--color-text-primary)]'
             )}
           >
@@ -197,7 +197,7 @@ export default function PermissionMatrixClient({ roles, permissions, initialMatr
                           className={cn(
                             'w-6 h-6 rounded flex items-center justify-center transition-all duration-150',
                             granted
-                              ? 'bg-[var(--color-success)] text-white hover:bg-[color:color-mix(in_srgb,var(--color-success)_80%,transparent)]'
+                              ? 'bg-[var(--color-success)] text-[var(--color-on-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_80%,transparent)]'
                               : 'bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]',
                             isPending && 'opacity-50'
                           )}

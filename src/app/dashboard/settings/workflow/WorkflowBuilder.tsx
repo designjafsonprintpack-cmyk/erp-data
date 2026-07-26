@@ -177,7 +177,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Templates</span>
           <button onClick={() => setAddTemplateOpen(true)}
-            className="flex items-center gap-1 px-2 h-6 rounded text-xs bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)]">
+            className="flex items-center gap-1 px-2 h-6 rounded text-xs bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">
             <Plus size={11} /> New
           </button>
         </div>
@@ -263,7 +263,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                           <input type="checkbox" checked={editStageForm.is_optional} onChange={e => setEditStageForm(p => ({ ...p, is_optional: e.target.checked }))} />
                           Optional
                         </label>
-                        <button onClick={() => updateStage(stage)} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white"><Check size={12} /></button>
+                        <button onClick={() => updateStage(stage)} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)]"><Check size={12} /></button>
                         <button onClick={() => setEditingStageId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]"><X size={12} /></button>
                       </>
                     ) : (
@@ -327,7 +327,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
                     Optional
                   </label>
                   <button onClick={addStage} disabled={loading || !stageForm.name}
-                    className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Add</button>
+                    className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Add</button>
                   <button onClick={() => setAddingStage(false)}
                     className="px-3 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
                 </div>
@@ -354,7 +354,7 @@ export default function WorkflowBuilder({ initialTemplates, initialStages, depar
           <>
             <button onClick={() => setAddTemplateOpen(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={saveTemplate} disabled={loading || !templateForm.name}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Template'}
             </button>
           </>

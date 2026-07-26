@@ -13,10 +13,10 @@ interface QItem { id: string; line_no: number; product_desc: string; size_l: num
 interface Quotation { id: string; quotation_number: string; status: string; valid_until: string | null; discount_percent: number; notes: string | null; terms_conditions: string | null; subtotal: number; tax_amount: number; discount_amount: number; total_amount: number; revision: number; created_at: string; approval_token: string | null; approval_token_expires_at: string | null; approval_responded_at: string | null; approval_ip: string | null; customers: { name: string; customer_code: string; email: string | null; phone: string | null } | null; quotation_items: QItem[] }
 
 const STATUS_ACTIONS: Record<string, { label: string; next: string; color: string }[]> = {
-  draft:    [{ label: 'Mark Sent', next: 'sent', color: 'bg-[var(--color-info)] text-white' }],
-  sent:     [{ label: 'Approve', next: 'approved', color: 'bg-[var(--color-success)] text-white' }, { label: 'Reject', next: 'rejected', color: 'bg-[var(--color-danger)] text-white' }],
+  draft:    [{ label: 'Mark Sent', next: 'sent', color: 'bg-[var(--color-info)] text-[var(--color-on-info)]' }],
+  sent:     [{ label: 'Approve', next: 'approved', color: 'bg-[var(--color-success)] text-[var(--color-on-success)]' }, { label: 'Reject', next: 'rejected', color: 'bg-[var(--color-danger)] text-[var(--color-on-danger)]' }],
   approved: [],
-  rejected: [{ label: 'Reactivate', next: 'draft', color: 'bg-[var(--color-accent)] text-white' }],
+  rejected: [{ label: 'Reactivate', next: 'draft', color: 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' }],
 }
 
 export default function QuotationDetailClient({ quotation: initial }: { quotation: Quotation }) {
@@ -97,7 +97,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
           ))}
           {qt.status === 'approved' && (
             <button onClick={() => setConvertModal(true)} disabled={loading}
-              className="flex items-center gap-1.5 px-4 h-8 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center gap-1.5 px-4 h-8 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 transition-colors">
               <ArrowRight size={14} /> Convert to SO
             </button>
           )}
@@ -187,7 +187,7 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
         footer={
           <>
             <button onClick={() => setConvertModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
-            <button onClick={convertToSO} disabled={loading} className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+            <button onClick={convertToSO} disabled={loading} className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               <ArrowRight size={14} /> {loading ? 'Converting…' : 'Convert to SO'}
             </button>
           </>

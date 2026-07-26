@@ -197,7 +197,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             <Plus size={14} /> New Vendor
           </button>
           <button onClick={() => setNewPOModal(true)}
-            className="flex items-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors justify-center">
+            className="flex items-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors justify-center">
             <Plus size={15} /> New PO
           </button>
         </div>
@@ -255,7 +255,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
                       )}
                       {['confirmed','partially_received'].includes(po.status) && (
                         <button onClick={() => { setReceiveModal(po); const q: Record<string,string> = {}; items.forEach(i => { q[i.id] = String(i.quantity - i.quantity_received) }); setReceiveQtys(q) }}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                           <Check size={11} /> Receive
                         </button>
                       )}
@@ -308,7 +308,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           <>
             <button onClick={() => setNewPOModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createPO} disabled={loading || !poForm.vendor_id}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create PO'}
             </button>
           </>
@@ -396,7 +396,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             <>
               <button onClick={() => setReceiveModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={receiveGoods} disabled={loading}
-                className="px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+                className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Processing…' : 'Receive Goods'}
               </button>
             </>
@@ -426,7 +426,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           <>
             <button onClick={() => setNewVendorModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createVendor} disabled={loading || !vendorForm.name}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create Vendor'}
             </button>
           </>
@@ -553,7 +553,7 @@ function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
       </div>
 
       {!billForm ? (
-        <button onClick={startBill} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+        <button onClick={startBill} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           Record Vendor Bill
         </button>
       ) : (
@@ -574,7 +574,7 @@ function ThreeWayMatchView({ po, onClose }: { po: PO; onClose: () => void }) {
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={saveBill} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Bill</button>
+            <button onClick={saveBill} disabled={saving} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50">Save Bill</button>
             <button onClick={() => setBillForm(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]">Cancel</button>
           </div>
         </div>

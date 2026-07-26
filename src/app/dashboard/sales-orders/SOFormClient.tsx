@@ -136,7 +136,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</h2>
-          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={12} /> Add Line
           </button>
         </div>
@@ -196,7 +196,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
           Cancel
         </Link>
         <button onClick={save} disabled={loading || !form.customer_id}
-          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Saving…' : mode === 'new' ? 'Create Sales Order' : 'Save Changes'}
         </button>
       </div>

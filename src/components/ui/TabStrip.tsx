@@ -66,7 +66,7 @@ export function TabStrip({ tabs, active, onChange, trailing, className, scrollOn
                 // two lines rather than three.
                 'px-3 md:px-4 h-11 md:h-8',
                 isActive
-                  ? 'bg-[var(--color-accent)] text-white border-transparent'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent'
                   : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
               )}
             >

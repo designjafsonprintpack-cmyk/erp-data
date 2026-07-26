@@ -102,7 +102,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           {([['schedule', 'Schedule'], ['unplanned', `Unplanned Jobs (${unplannedJobs.length})`]] as const).map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key)} role="tab" aria-selected={activeTab === key} data-tab-active={activeTab === key}
               className={cn('px-4 h-11 md:h-8 rounded-md text-sm font-medium border transition-all flex-shrink-0 whitespace-nowrap',
-                activeTab === key ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+                activeTab === key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {label}
             </button>
           ))}
@@ -110,7 +110,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
             <div className="flex items-center gap-1 ml-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5 flex-shrink-0">
               {(['timeline', 'calendar'] as const).map(v => (
                 <button key={v} onClick={() => setScheduleView(v)}
-                  className={cn('px-3 h-9 md:h-6 rounded text-xs font-medium capitalize transition-colors', scheduleView === v ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)]')}>
+                  className={cn('px-3 h-9 md:h-6 rounded text-xs font-medium capitalize transition-colors', scheduleView === v ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)]')}>
                   {v}
                 </button>
               ))}
@@ -118,7 +118,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           )}
         </ScrollRow>
         <button onClick={() => setPlanModal(true)}
-          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={15} /> Plan Job
         </button>
       </div>
@@ -270,7 +270,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           <>
             <button onClick={() => setPlanModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createPlan} disabled={loading || !form.job_id || !form.planned_date}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Calendar size={14} /> {loading ? 'Creating…' : 'Create Plan'}
             </button>
           </>

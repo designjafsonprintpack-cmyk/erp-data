@@ -184,7 +184,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
         filters={
           <button onClick={() => setShowLowOnly(!showLowOnly)}
             className={cn('flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border text-sm font-medium transition-colors w-full md:w-auto justify-center',
-              showLowOnly ? 'bg-[var(--color-warning)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
+              showLowOnly ? 'bg-[var(--color-warning)] text-[var(--color-on-warning)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
             <AlertTriangle size={14} /> Low Stock only
           </button>
         }
@@ -206,7 +206,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
               <Download size={14} /> Export
             </button>
             <button onClick={() => setAddModal(true)}
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={15} /> Add Item
             </button>
           </>
@@ -241,7 +241,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
           <>
             <button onClick={() => setAddModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={addItem} disabled={loading || !addForm.description}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Adding…' : 'Add Item'}
             </button>
           </>

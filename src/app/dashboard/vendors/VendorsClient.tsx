@@ -178,7 +178,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
               <Download size={14} /> Export
             </button>
             <button onClick={openNew}
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={15} /> New Vendor
             </button>
           </>
@@ -205,7 +205,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
           <>
             <button onClick={() => setModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={save} disabled={loading || !form.name}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Saving…' : editVendor ? 'Save Changes' : 'Create Vendor'}
             </button>
           </>
@@ -252,7 +252,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
           <>
             <button onClick={() => setPayVendor(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={recordPayment} disabled={payLoading || !payForm.amount}
-              className="px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {payLoading ? 'Recording…' : 'Record Payment'}
             </button>
           </>

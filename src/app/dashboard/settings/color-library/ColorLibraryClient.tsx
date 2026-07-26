@@ -121,7 +121,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
           </select>
         </div>
         <button onClick={startNew}
-          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={12} /> Add Color Spec
         </button>
       </div>
@@ -131,7 +131,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
           <SpecForm form={form} setForm={setForm} customers={customers} />
           <div className="flex gap-2">
             <button onClick={save} disabled={loading || !form.name.trim()}
-              className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
             <button onClick={() => setEditingId(null)}
               className="px-3 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           </div>
@@ -145,7 +145,7 @@ export default function ColorLibraryClient({ initialSpecs, customers }: { initia
               <div className="space-y-2">
                 <SpecForm form={form} setForm={setForm} customers={customers} />
                 <div className="flex gap-2">
-                  <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={12} /></button>
+                  <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
                   <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
                 </div>
               </div>

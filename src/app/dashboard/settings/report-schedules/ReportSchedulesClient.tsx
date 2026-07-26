@@ -72,7 +72,7 @@ export default function ReportSchedulesClient({ initialSchedules }: { initialSch
         <input className={inputCls} value={form.recipients} onChange={e => setForm(p => ({ ...p, recipients: e.target.value }))}
           placeholder="recipient1@example.com, recipient2@example.com" />
         <button onClick={create} disabled={loading}
-          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Plus size={14} /> Add Schedule
         </button>
       </div>

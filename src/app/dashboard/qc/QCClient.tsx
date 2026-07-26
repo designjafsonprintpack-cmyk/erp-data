@@ -289,19 +289,19 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         <div className="flex items-center gap-2 flex-shrink-0 [&>*]:flex-1 md:[&>*]:flex-none">
           {tab === 'inspections' && (
             <button onClick={() => setInspectModal(true)}
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={14} /> New Inspection
             </button>
           )}
           {tab === 'defects' && (
             <button onClick={() => setDefectModal(true)}
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 transition-colors">
               <Plus size={14} /> Log Defect
             </button>
           )}
           {tab === 'reprints' && (
             <button onClick={() => setReprintModal(true)}
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-warning)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 transition-colors">
               <RefreshCw size={14} /> Request Re-print
             </button>
           )}
@@ -469,7 +469,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                         {rpr.status === 'pending' && (
                           <>
                             <button onClick={() => { setReprintAction({ rpr, action: 'approve' }); setReprintActionNotes('') }}
-                              className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                              className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                               <ThumbsUp size={11} /> Approve
                             </button>
                             <button onClick={() => { setReprintAction({ rpr, action: 'reject' }); setReprintActionNotes('') }}
@@ -498,7 +498,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           <>
             <button onClick={() => setInspectModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitInspection} disabled={loading || !inspJob}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <ClipboardList size={14} /> {loading ? 'Saving…' : 'Submit Inspection'}
             </button>
           </>
@@ -548,8 +548,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
                           <button key={v} onClick={() => setResponse(item.id, 'response', v)}
                             className={cn('px-2.5 h-7 rounded-md text-xs font-medium border transition-all',
                               resp === v
-                                ? v === 'pass' ? 'bg-[var(--color-success)] text-white border-transparent'
-                                  : v === 'fail' ? 'bg-[var(--color-danger)] text-white border-transparent'
+                                ? v === 'pass' ? 'bg-[var(--color-success)] text-[var(--color-on-success)] border-transparent'
+                                  : v === 'fail' ? 'bg-[var(--color-danger)] text-[var(--color-on-danger)] border-transparent'
                                   : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)]'
                                 : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
                             {v === 'pass' ? '✓ Pass' : v === 'fail' ? '✗ Fail' : 'N/A'}
@@ -580,7 +580,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           <>
             <button onClick={() => setDefectModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitDefect} disabled={loading || !defectForm.job_id || !defectForm.defect_type}
-              className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-danger)] text-[var(--color-on-danger)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Logging…' : 'Log Defect'}
             </button>
           </>
@@ -622,7 +622,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Photos (optional)</label>
             <input type="file" accept="image/*" multiple
               onChange={e => setDefectPhotos(Array.from(e.target.files || []))}
-              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-white hover:file:bg-[var(--color-accent-hover)]" />
+              className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
             {defectPhotos.length > 0 && <p className="text-xs text-[var(--color-text-muted)]">{defectPhotos.length} photo(s) selected</p>}
           </div>
         </div>
@@ -634,7 +634,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
           <>
             <button onClick={() => setReprintModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={submitReprint} disabled={loading || !reprintForm.original_job_id || !reprintForm.reason || !reprintForm.quantity}
-              className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
               {loading ? 'Submitting…' : 'Submit Request'}
             </button>
           </>
@@ -728,7 +728,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             <>
               <button onClick={() => setResolveModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={resolveDefect} disabled={loading}
-                className="px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+                className="px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Resolving…' : 'Mark Resolved'}
               </button>
             </>

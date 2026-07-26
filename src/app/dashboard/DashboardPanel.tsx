@@ -133,7 +133,7 @@ export default function DashboardPanel({ stats, machines, recentJobs, department
               {(['week', 'month', 'year'] as const).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className={cn('h-5 px-1.5 rounded text-[10px] font-medium capitalize transition-colors',
-                    period === p ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
+                    period === p ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
                   {p}
                 </button>
               ))}

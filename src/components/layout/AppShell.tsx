@@ -51,7 +51,7 @@ export function AppShell({ children, user, company, sessionTimeoutMinutes }: App
           Visually hidden until focused. */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-[var(--color-accent)] focus:text-white focus:text-sm"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-md focus:bg-[var(--color-accent)] focus:text-[var(--color-on-accent)] focus:text-sm"
       >
         Skip to content
       </a>

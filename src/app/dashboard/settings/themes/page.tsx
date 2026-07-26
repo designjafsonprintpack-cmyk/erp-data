@@ -153,7 +153,7 @@ export default function ThemesPage() {
         <button onClick={() => setCustomizing(!customizing)}
           className={cn('flex items-center gap-2 px-4 h-9 rounded-md border text-sm font-medium transition-all',
             customizing
-              ? 'bg-[var(--color-accent)] text-white border-transparent'
+              ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent'
               : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
           <Palette size={15} />
           {customizing ? 'Hide Customizer' : 'Customize Colors'}
@@ -165,7 +165,7 @@ export default function ThemesPage() {
               <RotateCcw size={14} /> Reset
             </button>
             <button onClick={saveCustom}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 transition-colors">
               <Save size={14} /> {saved ? 'Saved! ✓' : 'Save Colors'}
             </button>
           </>

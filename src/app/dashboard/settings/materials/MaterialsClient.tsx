@@ -68,7 +68,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
         <span className="text-sm font-semibold text-[var(--color-text-primary)]">{title} <span className="text-[var(--color-text-muted)] font-normal">({items.length})</span></span>
         <button onClick={() => { setForm(Object.fromEntries(allFields.map(f => [f.key, '']))); setEditingId('new') }}
-          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={12} /> Add
         </button>
       </div>
@@ -82,7 +82,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
                   <input key={f.key} className={cn(inputCls, 'flex-1')} value={form[f.key] ?? ''} type={f.type || 'text'}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} />
                 ))}
-                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={12} /></button>
+                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
                 <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
               </>
             ) : (
@@ -113,7 +113,7 @@ function TypeManager({ title, apiType, items: initialItems, extraFields = [] }: 
                 type={f.type || 'text'} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder + ' *'} />
             ))}
             <button onClick={save} disabled={loading || !form.name}
-              className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
             <button onClick={() => setEditingId(null)}
               className="px-3 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           </div>
@@ -190,7 +190,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">These show up in the &quot;+ Add Cost Line&quot; picker on New Quotation — add any recurring cost item here (Plate, Printing, Foiling, Varnish, Perforation, etc.)</p>
         </div>
         <button onClick={() => { setForm({ name: '', unit_basis: 'per_sheet', default_rate: '' }); setEditingId('new') }}
-          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+          className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
           <Plus size={12} /> Add
         </button>
       </div>
@@ -205,7 +205,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
                   {UNIT_BASIS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <input type="number" className={cn(inputCls, 'w-28')} value={form.default_rate} onChange={e => setForm(p => ({ ...p, default_rate: e.target.value }))} placeholder="Rate" />
-                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-white hover:opacity-90"><Check size={12} /></button>
+                <button onClick={save} disabled={loading} className="w-7 h-7 flex items-center justify-center rounded bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90"><Check size={12} /></button>
                 <button onClick={() => setEditingId(null)} className="w-7 h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"><X size={12} /></button>
               </>
             ) : (
@@ -236,7 +236,7 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
             </select>
             <input type="number" className={cn(inputCls, 'w-28')} value={form.default_rate} onChange={e => setForm(p => ({ ...p, default_rate: e.target.value }))} placeholder="Rate" />
             <button onClick={save} disabled={loading || !form.name}
-              className="px-3 h-8 rounded bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              className="px-3 h-8 rounded bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
             <button onClick={() => setEditingId(null)}
               className="px-3 h-8 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           </div>
@@ -284,7 +284,7 @@ export default function MaterialsClient({ initialData }: { initialData: InitialD
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={cn('px-4 h-8 rounded-lg text-sm font-medium transition-all',
               activeTab === t.key
-                ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] shadow-sm'
                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
             {t.label}
           </button>

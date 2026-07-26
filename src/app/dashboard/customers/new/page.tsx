@@ -147,7 +147,7 @@ export default function NewCustomerPage() {
       <div className="form-actions flex items-center gap-3 justify-end [&>*]:flex-1 lg:[&>*]:flex-none [&>*]:justify-center [&>a]:flex [&>a]:items-center">
         <Link href="/dashboard/customers" className="px-4 h-11 lg:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</Link>
         <button onClick={save} disabled={loading || !form.name}
-          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Creating…' : form.pipeline_stage === 'lead' ? 'Create Lead' : form.pipeline_stage === 'prospect' ? 'Create Prospect' : 'Create Customer'}
         </button>
       </div>

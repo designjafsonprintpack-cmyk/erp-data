@@ -56,15 +56,12 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
  * A factory (not a constant) so the thumbnail column can close over the
  * per-job lookup — same shape as USER_COLUMNS in UsersClient.tsx.
  *
- * SPAN BUDGET — currently over by one, deliberately left alone:
- * these spans total 12, and DataList prepends a span-1 selection column (this
- * is the only list in the app that passes `selection`), so the row asks for 13
- * units of a `grid-cols-12`. The last column therefore wraps below at >=1280px.
- * It has been that way since the title column was widened 2 -> 3 for the
- * artwork thumbnail — the comment that used to sit here still claimed 11.
- * Fixing it means deciding which column gives up a unit (status and stage both
- * clip badly at 1), which is a visual call, not a mechanical one — so it is
- * flagged rather than quietly changed here.
+ * SPAN BUDGET: these spans total 12, and DataList prepends a span-1 selection
+ * column (this is the only list in the app that passes `selection`), so the row
+ * needs 13 track units. DataList widens the grid to match rather than have the
+ * last column wrap — so columns here are free to keep their declared widths,
+ * but the total is 13 with selection, not 12. Don't "correct" it back to 12 by
+ * shrinking a column: status and stage both clip badly at span 1.
  */
 const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[] => [
   {
@@ -77,9 +74,7 @@ const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[]
     ),
   },
   {
-    // Widened 3 -> the thumbnail needs the room; every other column is
-    // untouched so the row still totals 11 (+1 for DataList's own selection
-    // column = 12).
+    // Widened 2 -> 3; the thumbnail needs the room.
     key: 'title', header: 'Title / Customer', span: 3, role: 'title',
     render: j => {
       const t = thumbs[j.id]
@@ -250,7 +245,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
               <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
             </button>
             <Link href="/dashboard/jobs/new"
-              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
               <Plus size={15} /> New Job
             </Link>
           </>
@@ -269,11 +264,11 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
         {/* Kanban needs horizontal room by nature, so the toggle is desktop-only */}
         <div className="hidden lg:flex items-center gap-1 flex-shrink-0 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
           <button onClick={() => setView('list')} title="List view" aria-label="List view"
-            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'list' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'list' ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
             <List size={13} />
           </button>
           <button onClick={() => setView('kanban')} title="Kanban view" aria-label="Kanban view"
-            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'kanban' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+            className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', view === 'kanban' ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
             <LayoutGrid size={13} />
           </button>
         </div>

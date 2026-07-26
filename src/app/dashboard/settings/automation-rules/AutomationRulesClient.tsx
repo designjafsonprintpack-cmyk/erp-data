@@ -149,7 +149,7 @@ export default function AutomationRulesClient({ initialRules }: { initialRules: 
                 )}
                 <button onClick={() => toggle(def)} disabled={saving === def.type}
                   className={cn('flex items-center gap-1.5 px-3 h-8 rounded-md border text-xs font-medium transition-colors disabled:opacity-50',
-                    isActive ? 'border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]' : 'bg-[var(--color-accent)] text-white border-transparent hover:bg-[var(--color-accent-hover)]')}>
+                    isActive ? 'border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]' : 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent hover:bg-[var(--color-accent-hover)]')}>
                   <Power size={12} /> {isActive ? 'Pause' : 'Enable'}
                 </button>
               </div>

@@ -282,7 +282,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
                     </div>
                   </div>
                   <button onClick={() => openAddForJob(job)}
-                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
                     <Plus size={14} /> Add Plates
                   </button>
                 </div>
@@ -314,7 +314,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
         onClearFilters={() => { setStatusFilter(''); setJobFilter('') }}
         actions={
           <button onClick={() => setAddModal(true)}
-            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> Add Plates
           </button>
         }
@@ -421,7 +421,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
         footer={<>
           <button onClick={() => { setAddModal(false); resetAddForm() }} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={submitAdd} disabled={adding}
-            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {adding ? 'Adding…' : 'Add Plates'}
           </button>
         </>}>
@@ -528,7 +528,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
         footer={<>
           <button onClick={() => setReturnModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={submitReturn} disabled={returning}
-            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             {returning ? 'Returning…' : 'Return Plate'}
           </button>
         </>}>

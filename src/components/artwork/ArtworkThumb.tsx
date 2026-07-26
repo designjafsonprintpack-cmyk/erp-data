@@ -233,7 +233,7 @@ export function ArtworkThumb({
           'absolute top-1 left-1 rounded font-bold flex items-center',
           small ? 'px-1 h-3.5 text-[9px]' : 'px-1.5 h-5 text-[11px] top-1.5 left-1.5',
           approved
-            ? 'bg-[var(--color-success)] text-white'
+            ? 'bg-[var(--color-success)] text-[var(--color-on-success)]'
             : 'bg-black/65 text-white'
         )}
       >

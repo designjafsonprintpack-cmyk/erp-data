@@ -607,7 +607,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                               <span className="text-[var(--color-text-muted)]">Sales Tax: <span className="text-[var(--color-text-secondary)]">set once for the whole quotation above (or leave &quot;No tax&quot;)</span></span>
                             </div>
                             <button onClick={() => applyMargin(idx)}
-                              className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                              className="px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
                               Apply to Unit Price
                             </button>
                           </div>
@@ -658,7 +658,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
           Save as Draft
         </button>
         <button onClick={() => save('sent')} disabled={loading}
-          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Saving…' : 'Save & Mark Sent'}
         </button>
       </div>

@@ -219,7 +219,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {!job.mrn ? (
                       <button onClick={() => openNewMRNForJob(job)}
-                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
                         <Plus size={14} /> Create MRN
                       </button>
                     ) : liveStatus === 'pending' ? (
@@ -229,7 +229,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                       </button>
                     ) : fullMrn ? (
                       <button onClick={() => openIssue(fullMrn)}
-                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-warning)] text-white text-sm md:text-xs font-medium hover:opacity-90 transition-colors">
+                        className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm md:text-xs font-medium hover:opacity-90 transition-colors">
                         <Package size={14} /> Issue
                       </button>
                     ) : (
@@ -255,7 +255,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
           onChange={setFilterStatus}
         />
         <button onClick={() => setNewMRNModal(true)}
-          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors md:ml-auto flex-shrink-0">
+          className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors md:ml-auto flex-shrink-0">
           <Plus size={15} /> New MRN
         </button>
       </div>
@@ -308,7 +308,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
                       )}
                       {['approved','partially_issued'].includes(mrn.status) && (
                         <button onClick={() => openIssue(mrn)}
-                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-xs font-medium hover:opacity-90 transition-colors">
                           <Package size={11} /> Issue
                         </button>
                       )}
@@ -359,7 +359,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
           <>
             <button onClick={() => setNewMRNModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createMRN} disabled={loading}
-              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               {loading ? 'Creating…' : 'Create MRN'}
             </button>
           </>
@@ -427,7 +427,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
             <>
               <button onClick={() => setIssueModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={issueMaterials} disabled={loading}
-                className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+                className="px-4 h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 {loading ? 'Issuing…' : 'Issue Materials'}
               </button>
             </>

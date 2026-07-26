@@ -234,7 +234,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           {(['','draft','sent','partial','paid','overdue'] as const).map(s => (
             <button key={s} onClick={() => setFilterStatus(s)} role="tab" aria-selected={filterStatus === s} data-tab-active={filterStatus === s}
               className={cn('px-3 h-11 md:h-7 rounded-md text-xs font-medium border transition-all flex-shrink-0 whitespace-nowrap',
-                filterStatus === s ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
+                filterStatus === s ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label}
             </button>
           ))}
@@ -249,7 +249,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
             <Calculator size={14} /> Job Costing
           </button>
           <button onClick={() => setInvModal(true)}
-            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New Invoice
           </button>
         </div>
@@ -325,7 +325,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                         )}
                         {['sent','partial','overdue'].includes(inv.status) && (
                           <button onClick={() => { setPayModal(inv); setPayForm(p => ({ ...p, amount: String(inv.balance_due) })) }}
-                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                            className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                             <CreditCard size={11} /> Pay
                           </button>
                         )}
@@ -393,7 +393,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           <>
             <button onClick={() => setInvModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createInvoice} disabled={loading || !invForm.customer_id}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <FileText size={14} /> {loading ? 'Creating…' : 'Create Invoice'}
             </button>
           </>
@@ -508,7 +508,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
             <>
               <button onClick={() => setPayModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={recordPayment} disabled={loading}
-                className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+                className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 <CreditCard size={14} /> {loading ? 'Saving…' : 'Record Payment'}
               </button>
             </>
@@ -537,7 +537,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
                 {PAY_METHODS.map(m => (
                   <button key={m} onClick={() => setPayForm(p => ({ ...p, payment_method: m }))}
                     className={cn('px-3 h-8 rounded border text-xs font-medium capitalize transition-all',
-                      payForm.payment_method === m ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+                      payForm.payment_method === m ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
                     {m.replace('_',' ')}
                   </button>
                 ))}
@@ -571,7 +571,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               <Sparkles size={14} /> {aiCostLoading ? 'Checking…' : 'AI Suggest'}
             </button>
             <button onClick={saveCosting} disabled={loading || !costJobId}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Calculator size={14} /> {loading ? 'Saving…' : 'Save Costing'}
             </button>
           </>
@@ -731,7 +731,7 @@ function AgingReportView() {
       <div className="flex gap-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-1 w-fit">
         {(['ar', 'ap'] as const).map(s => (
           <button key={s} onClick={() => setSide(s)}
-            className={cn('px-4 h-7 rounded-md text-xs font-medium transition-all', side === s ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)]')}>
+            className={cn('px-4 h-7 rounded-md text-xs font-medium transition-all', side === s ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-secondary)]')}>
             {s === 'ar' ? 'Receivables (customers owe us)' : 'Payables (we owe vendors)'}
           </button>
         ))}

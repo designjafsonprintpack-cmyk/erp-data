@@ -100,7 +100,7 @@ export default function SequencesClient({ sequences, companyId }: { sequences: S
                 <div className="flex items-center gap-1 mt-1">
                   {isEditing ? (
                     <>
-                      <button onClick={() => save(seq)} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-white text-sm hover:opacity-90 disabled:opacity-50 transition-colors"><Check size={13} /> Save</button>
+                      <button onClick={() => save(seq)} disabled={loading} className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50 transition-colors"><Check size={13} /> Save</button>
                       <button onClick={() => setEditingType(null)} className="w-8 h-8 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors"><X size={13} /></button>
                     </>
                   ) : (

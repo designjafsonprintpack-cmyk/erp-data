@@ -208,7 +208,7 @@ export default function UsersClient({ initialUsers, departments, roles }: {
         search={{ value: search, onChange: setSearch, placeholder: 'Search by name, email, employee code…' }}
         actions={
           <button onClick={() => setNewModal(true)}
-            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New User
           </button>
         }
@@ -241,7 +241,7 @@ export default function UsersClient({ initialUsers, departments, roles }: {
           <>
             <button onClick={() => setNewModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createUser} disabled={loading || !newForm.full_name || !newForm.email}
-              className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <Users size={14} /> {loading ? 'Creating…' : 'Create User'}
             </button>
           </>
@@ -295,7 +295,7 @@ export default function UsersClient({ initialUsers, departments, roles }: {
             <>
               <button onClick={() => setEditModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={updateUser} disabled={loading}
-                className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                 {loading ? 'Saving…' : 'Save Changes'}
               </button>
             </>

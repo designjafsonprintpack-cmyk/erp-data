@@ -303,7 +303,7 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
           Cancel
         </Link>
         <button onClick={save} disabled={loading || !form.job_title}
-          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
           <Save size={15} /> {loading ? 'Saving…' : 'Save Changes'}
         </button>
       </div>

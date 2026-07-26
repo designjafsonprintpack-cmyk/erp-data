@@ -323,7 +323,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                     </div>
                   </div>
                   <button onClick={() => openDispatchForJob(job)}
-                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-white text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
+                    className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
                     <Plus size={14} /> Create Challan
                   </button>
                 </div>
@@ -362,7 +362,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             <Download size={14} /> Export{selected.size ? ` (${selected.size})` : ''}
           </button>
           <button onClick={() => setNewModal(true)}
-            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={15} /> New Challan
           </button>
         </div>
@@ -452,19 +452,19 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                       </Link>
                       {d.status === 'pending' && (
                         <button onClick={() => { setDispatchActionModal({ dispatch: d, action: 'dispatch' }); setActionNotes('') }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-warning)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-warning)] text-[var(--color-on-warning)] text-xs font-medium hover:opacity-90 transition-colors">
                           <Truck size={11} /> Dispatch
                         </button>
                       )}
                       {d.status === 'dispatched' && !hasPOD && (
                         <button onClick={() => { setPodModal(d); setPodForm({ received_by: '', condition: 'good', damage_notes: '', notes: '', photo_url: '', signature_url: '' }) }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                           <Camera size={11} /> POD
                         </button>
                       )}
                       {d.status === 'dispatched' && hasPOD && (
                         <button onClick={() => { setDispatchActionModal({ dispatch: d, action: 'deliver' }); setActionNotes('') }}
-                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-white text-xs font-medium hover:opacity-90 transition-colors">
+                          className="flex items-center gap-1 px-2.5 h-7 rounded bg-[var(--color-success)] text-[var(--color-on-success)] text-xs font-medium hover:opacity-90 transition-colors">
                           <CheckCircle2 size={11} /> Delivered
                         </button>
                       )}
@@ -522,7 +522,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           <>
             <button onClick={() => setNewModal(false)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             <button onClick={createDispatch} disabled={loading || !form.customer_id}
-              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
               <FileText size={14} /> {loading ? 'Creating…' : 'Create Challan'}
             </button>
           </>
@@ -569,7 +569,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
               {(['own_vehicle','courier','customer_pickup','third_party'] as const).map(m => (
                 <button key={m} onClick={() => setForm(p => ({ ...p, dispatch_method: m }))}
                   className={cn('h-9 rounded-md border text-xs font-medium transition-all',
-                    form.dispatch_method === m ? 'bg-[var(--color-accent)] text-white border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+                    form.dispatch_method === m ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
                   {METHOD_LABELS[m]}
                 </button>
               ))}
@@ -679,7 +679,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             <>
               <button onClick={() => setPodModal(null)} className="px-4 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={submitPOD} disabled={loading || !podForm.received_by}
-                className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
+                className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
                 <CheckCircle2 size={14} /> {loading ? 'Saving…' : 'Confirm Delivery'}
               </button>
             </>
@@ -703,9 +703,9 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
                   <button key={c} onClick={() => setPodForm(p => ({ ...p, condition: c }))}
                     className={cn('flex-1 h-9 rounded-md border text-xs font-medium capitalize transition-all',
                       podForm.condition === c
-                        ? c === 'good'    ? 'bg-[var(--color-success)] text-white border-transparent'
-                          : c === 'damaged' ? 'bg-[var(--color-danger)] text-white border-transparent'
-                          : 'bg-[var(--color-warning)] text-white border-transparent'
+                        ? c === 'good'    ? 'bg-[var(--color-success)] text-[var(--color-on-success)] border-transparent'
+                          : c === 'damaged' ? 'bg-[var(--color-danger)] text-[var(--color-on-danger)] border-transparent'
+                          : 'bg-[var(--color-warning)] text-[var(--color-on-warning)] border-transparent'
                         : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)]')}>
                     {c}
                   </button>

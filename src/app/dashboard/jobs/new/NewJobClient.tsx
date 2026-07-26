@@ -208,7 +208,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             className={cn(
               'flex items-center justify-center gap-2 px-4 h-9 rounded-md text-sm font-medium transition-colors flex-1 sm:flex-none',
               mode === t.id
-                ? 'bg-[var(--color-accent)] text-white'
+                ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
             )}>
             <t.icon size={14} /> {t.label}
@@ -493,12 +493,12 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
         </Link>
         {mode === 'repeat' ? (
           <button onClick={saveRepeat} disabled={loading || !repeat.parent_job_id}
-            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <RefreshCw size={15} /> {loading ? 'Creating…' : 'Create Repeat Job'}
           </button>
         ) : (
           <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
-            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
             <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
           </button>
         )}

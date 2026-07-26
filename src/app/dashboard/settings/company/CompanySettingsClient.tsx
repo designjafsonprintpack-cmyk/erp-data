@@ -190,7 +190,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
               </div>
               <div className="flex gap-2">
                 <button onClick={saveCompany} disabled={loading || !companyForm.name}
-                  className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                  className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
                   <Check size={14} /> Save Changes
                 </button>
                 <button onClick={() => setEditingCompany(false)}
@@ -237,7 +237,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
             </div>
           </div>
           <button onClick={() => { setForm({ name: '', address: '', is_head_office: 'false' }); setEditing({ type: 'branch', id: null }) }}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={14} /> Add Branch
           </button>
         </div>
@@ -248,7 +248,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                 <div className="flex-1 flex items-center gap-3">
                   <input className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name" />
                   <input className={cn(inputCls, 'flex-1')} value={form.address ?? ''} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Address" />
-                  <button onClick={saveBranch} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-sm hover:opacity-90 disabled:opacity-50"><Check size={14} /></button>
+                  <button onClick={saveBranch} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90 disabled:opacity-50"><Check size={14} /></button>
                   <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
                 </div>
               ) : (
@@ -286,7 +286,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
             <div className="flex items-center gap-3 px-5 py-3 bg-[color:color-mix(in_srgb,var(--color-accent)_5%,transparent)] border-t border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]">
               <input autoFocus className={cn(inputCls, 'flex-1')} value={form.name ?? ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Branch name *" />
               <input className={cn(inputCls, 'flex-1')} value={form.address ?? ''} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Address (optional)" />
-              <button onClick={saveBranch} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              <button onClick={saveBranch} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
               <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             </div>
           )}
@@ -310,7 +310,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
             </div>
           </div>
           <button onClick={() => { setForm({ name: '', location: '', branch_id: '' }); setEditing({ type: 'warehouse', id: null }) }}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={14} /> Add Warehouse
           </button>
         </div>
@@ -327,7 +327,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                       <option value="">No Branch</option>
                       {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
-                    <button onClick={saveWarehouse} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-white text-sm hover:opacity-90"><Check size={14} /></button>
+                    <button onClick={saveWarehouse} disabled={loading} className="px-3 h-9 rounded-md bg-[var(--color-success)] text-[var(--color-on-success)] text-sm hover:opacity-90"><Check size={14} /></button>
                     <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-elevated)]"><X size={14} /></button>
                   </div>
                 ) : (
@@ -363,7 +363,7 @@ export default function CompanySettingsClient({ company: initialCompany, branche
                 <option value="">No Branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              <button onClick={saveWarehouse} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-white text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
+              <button onClick={saveWarehouse} disabled={loading || !form.name} className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">Save</button>
               <button onClick={() => setEditing(null)} className="px-3 h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
             </div>
           )}

@@ -15,11 +15,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<Variant, string> = {
-  primary: 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] border-transparent',
+  primary: 'bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] border-transparent',
   secondary: 'bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]',
-  danger: 'bg-[var(--color-danger)] text-white hover:opacity-90 border-transparent',
+  danger: 'bg-[var(--color-danger)] text-[var(--color-on-danger)] hover:opacity-90 border-transparent',
   ghost: 'bg-transparent text-[var(--color-text-secondary)] border-transparent hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
-  outline: 'bg-transparent text-[var(--color-accent)] border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white',
+  outline: 'bg-transparent text-[var(--color-accent)] border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-on-accent)]',
 }
 
 const sizeStyles: Record<Size, string> = {
