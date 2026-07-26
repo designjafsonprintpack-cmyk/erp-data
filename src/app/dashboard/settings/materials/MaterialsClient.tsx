@@ -256,9 +256,9 @@ function CostItemTypesManager({ initialItems }: { initialItems: CostItemType[] }
 }
 
 // ─── TABS WRAPPER ─────────────────────────────────────────────────────────────
-type MaterialKey = 'board' | 'box' | 'paper' | 'ink' | 'glue' | 'foil' | 'costItems'
+type MaterialKey = 'board' | 'box' | 'paper' | 'ink' | 'glue' | 'foil' | 'coating' | 'costItems'
 
-interface InitialData { board: any[]; box: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; costItems: any[] }
+interface InitialData { board: any[]; box: any[]; paper: any[]; ink: any[]; glue: any[]; foil: any[]; coating: any[]; costItems: any[] }
 
 const TABS: { key: MaterialKey; label: string; extraFields?: any[] }[] = [
   { key: 'board',      label: 'Board Types',      extraFields: [{ key: 'flute_type', label: 'Flute', placeholder: 'e.g. B, C, E' }, { key: 'gsm', label: 'GSM', placeholder: 'GSM', type: 'number' }, { key: 'sheet_width_in', label: 'Sheet Width (in)', placeholder: '28', type: 'number' }, { key: 'sheet_height_in', label: 'Sheet Height (in)', placeholder: '40', type: 'number' }, { key: 'rate_per_sheet', label: 'Rate/Sheet (PKR)', placeholder: '0.00', type: 'number' }, { key: 'rate_per_kg', label: 'Rate/KG (PKR)', placeholder: '0.00', type: 'number' }] },
@@ -269,6 +269,9 @@ const TABS: { key: MaterialKey; label: string; extraFields?: any[] }[] = [
   { key: 'ink',        label: 'Ink Types',        extraFields: [{ key: 'color_code', label: 'Color Hex', placeholder: '#000000' }] },
   { key: 'glue',       label: 'Glue Types',       extraFields: [] },
   { key: 'foil',       label: 'Foil Types',       extraFields: [{ key: 'color', label: 'Color', placeholder: 'e.g. Gold' }] },
+  // The Job form's UV Coating dropdown reads straight from this table, so
+  // adding or removing a row here changes what the shop can pick on a job.
+  { key: 'coating',    label: 'Coating Types',    extraFields: [{ key: 'rate_per_sheet', label: 'Rate/Sheet (PKR)', placeholder: '0.00', type: 'number' }] },
   { key: 'costItems',  label: 'Cost Items',       extraFields: [] },
 ]
 

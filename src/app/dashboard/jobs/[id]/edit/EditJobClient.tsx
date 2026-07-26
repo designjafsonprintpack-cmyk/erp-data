@@ -9,7 +9,7 @@ import { type JobFormData } from '@/modules/jobs/types/job.types'
 interface Props {
   job: any
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
-  laminationTypes: any[]; foilTypes: any[]; workflows: any[]
+  laminationTypes: any[]; foilTypes: any[]; coatingTypes: any[]; workflows: any[]
   salesOrders: any[]; stockGsm: any[]
 }
 
@@ -27,8 +27,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, stockGsm }: Props) {
+export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, coatingTypes, workflows, stockGsm }: Props) {
   const router = useRouter()
+
+  // jobs.uv_coating stores the coating NAME as free text, not an id, so a job
+  // saved before a coating was renamed or removed from Settings holds a value
+  // the dropdown no longer offers. A <select> whose value matches no <option>
+  // renders blank, and the next save would write that blank back — silently
+  // wiping a spec nobody meant to touch. Keeping the job's own value in the
+  // list makes it visible and survivable; picking anything else still replaces
+  // it, which is the only way it should ever change.
+  const coatingOptions = (() => {
+    const names = coatingTypes.map((c: any) => c.name)
+    const current = job.uv_coating
+    return current && !names.includes(current) ? [...names, current] : names
+  })()
+
   const [form, setForm] = useState<JobFormData>({
     customer_id: job.customer_id || '', job_title: job.job_title || '', description: job.description || '',
     sales_order_id: job.sales_order_id || '',
@@ -266,10 +280,7 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
             <label htmlFor="editjobclient-21" className={labelCls}>UV Coating</label>
             <select id="editjobclient-21" className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
               <option value="">None</option>
-              <option value="UV">UV</option>
-              <option value="Soft UV">Soft UV</option>
-              <option value="Water Base">Water Base</option>
-              <option value="Drip-off">Drip-off</option>
+              {coatingOptions.map(name => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
         </div>

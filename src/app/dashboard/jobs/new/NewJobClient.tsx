@@ -11,7 +11,7 @@ import { formatTimeAgo } from '@/lib/utils/format'
 
 interface Props {
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
-  laminationTypes: any[]; foilTypes: any[]; workflows: any[]
+  laminationTypes: any[]; foilTypes: any[]; coatingTypes: any[]; workflows: any[]
   salesOrders: any[]; repeatableJobs: any[]; stockGsm: any[]; defaultWorkflowId: string
 }
 
@@ -33,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, repeatableJobs, stockGsm, defaultWorkflowId }: Props) {
+export default function NewJobClient({ customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, coatingTypes, workflows, salesOrders, repeatableJobs, stockGsm, defaultWorkflowId }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
@@ -454,10 +454,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <label htmlFor="newjobclient-28" className={labelCls}>UV Coating</label>
             <select id="newjobclient-28" className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
               <option value="">None</option>
-              <option value="UV">UV</option>
-              <option value="Soft UV">Soft UV</option>
-              <option value="Water Base">Water Base</option>
-              <option value="Drip-off">Drip-off</option>
+              {coatingTypes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
         </div>

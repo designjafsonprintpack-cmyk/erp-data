@@ -16,7 +16,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
   const role = await getAppRole(user, supabase)
   if (role !== 'superadmin') redirect(`/dashboard/jobs/${params.id}`)
 
-  const [jobRes, customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, workflows, salesOrders, stockGsm] = await Promise.all([
+  const [jobRes, customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, coatingTypes, workflows, salesOrders, stockGsm] = await Promise.all([
     supabase.from('jobs' as any).select('*, customers(name,customer_code), sales_orders(so_number)').eq('id', params.id).eq('company_id', companyId).single(),
     supabase.from('customers' as any).select('id,name,customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
@@ -24,6 +24,9 @@ export default async function EditJobPage({ params }: { params: { id: string } }
     supabase.from('paper_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
+    // UV Coating options — settings-managed (Settings > Materials > Coating
+    // Types), matching the New Job form.
+    supabase.from('coating_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('workflow_templates' as any).select('id,name,is_default').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('sales_orders' as any).select('id,so_number,customers(name)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
     // GSM options come from real stock rows, not from board_types.gsm — one
@@ -44,6 +47,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
       paperTypes={(paperTypes.data ?? []) as any[]}
       laminationTypes={(laminationTypes.data ?? []) as any[]}
       foilTypes={(foilTypes.data ?? []) as any[]}
+      coatingTypes={(coatingTypes.data ?? []) as any[]}
       workflows={(workflows.data ?? []) as any[]}
       salesOrders={(salesOrders.data ?? []) as any[]}
       stockGsm={(stockGsm.data ?? []) as any[]}
