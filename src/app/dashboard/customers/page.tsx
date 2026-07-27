@@ -18,7 +18,11 @@ export default async function CustomersPage() {
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('name')
-    .range(0, 24)
+    // Tiebreaker so paging is stable when two customers share a name — must
+    // match the ORDER BY in GET /api/v1/customers.
+    .order('id')
+    // Matches PAGE_SIZE in CustomersClient so "Load More" can ask for page 2 cleanly.
+    .range(0, 49)
 
   return (
     <div className="space-y-5">

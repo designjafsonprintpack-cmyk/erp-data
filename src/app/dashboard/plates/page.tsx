@@ -17,7 +17,9 @@ export default async function PlatesPage() {
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(100)
+    // PlatesClient filters this array in the browser, so anything past the
+    // limit is invisible to its search too. Raised 100 -> 200.
+    .limit(200)
 
   const { data: jobs } = await supabase
     .from('jobs' as any)

@@ -12,7 +12,9 @@ export default async function DispatchPage() {
     supabase.from('dispatch_orders' as any)
       .select('*, customers(name,customer_code), dispatch_items(id,job_id,quantity_dispatched,jobs(job_number,job_title)), proof_of_delivery(id,received_by,condition)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(50),
+      // DispatchClient filters this array in the browser, so anything past the
+      // limit is invisible to its search too. Raised 50 -> 200.
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('customers' as any)
       .select('id,name,customer_code,address,phone,mobile')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),

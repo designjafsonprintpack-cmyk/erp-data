@@ -35,7 +35,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     query = query.or(`name.ilike."%${escapeFilterValue(search)}%",customer_code.ilike."%${escapeFilterValue(search)}%",email.ilike."%${escapeFilterValue(search)}%",phone.ilike."%${escapeFilterValue(search)}%"`)
   }
 
-  const { data, error, count } = await query.order('name').range(offset, offset + limit - 1)
+  // .order('id') is the paging tiebreaker — see the matching comment on the
+  // customers list page.
+  const { data, error, count } = await query.order('name').order('id').range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })

@@ -14,15 +14,17 @@ export default async function QCPage() {
     supabase.from('qc_inspections' as any)
       .select('*, jobs(job_number,job_title,customers(name)), qc_templates(name), qc_defects(id,severity,resolved)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(40),
+      // The pass/fail counts below are computed from THIS array, so the limit
+      // caps the stats as well as the list. Raised 40 -> 200.
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('qc_defects' as any)
       .select('*, jobs(job_number,job_title)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).eq('resolved', false)
-      .order('created_at', { ascending: false }).limit(30),
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('reprint_requests' as any)
       .select('*, jobs!reprint_requests_original_job_id_fkey(job_number,job_title,customers(name))', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(30),
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('qc_templates' as any)
       .select('*, qc_template_items(*)').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('jobs' as any)

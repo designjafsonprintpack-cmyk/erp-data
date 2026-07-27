@@ -13,7 +13,9 @@ export default async function FinancePage() {
     supabase.from('invoices' as any)
       .select('*, customers(name,customer_code), invoice_items(id), payments(id,amount)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('invoice_date', { ascending: false }).limit(50),
+      // The billed/received/overdue totals below are summed from THIS array,
+      // so the limit caps the stats as well as the list. Raised 50 -> 200.
+      .order('invoice_date', { ascending: false }).limit(200),
     supabase.from('payments' as any)
       .select('amount,payment_date').eq('company_id', companyId).is('deleted_at', null)
       .gte('payment_date', new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)),

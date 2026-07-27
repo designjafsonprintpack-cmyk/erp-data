@@ -17,7 +17,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const search = searchParams.get('search') || ''
   const status = searchParams.get('status') || ''
   const page = parseInt(searchParams.get('page') || '1')
-  const limit = 25; const offset = (page - 1) * limit
+  // limit was hardcoded to 25 here, so the client asking for more was silently
+  // ignored and the list could never grow past its first page.
+  const limit = parseInt(searchParams.get('limit') || '25'); const offset = (page - 1) * limit
 
   let q = supabase.from('sales_orders' as any)
     .select('*, customers(name, customer_code)', { count: 'exact' })
@@ -26,7 +28,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status) q = q.eq('status', status)
   if (search) q = q.or(`so_number.ilike."%${escapeFilterValue(search)}%"`)
 
-  const { data, error, count } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+  // .order('id') is the paging tiebreaker — see the matching comment on the
+  // sales orders list page.
+  const { data, error, count } = await q.order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })

@@ -10,7 +10,10 @@ export default async function QuotationsPage() {
   const { data, count } = await supabase.from('quotations' as any)
     .select('*, customers(name, customer_code)', { count: 'exact' })
     .eq('company_id', companyId).is('deleted_at', null)
-    .order('created_at', { ascending: false }).range(0, 24)
+    // Matches PAGE_SIZE in QuotationsClient so "Load More" can ask for page 2
+    // cleanly; .order('id') is the tiebreaker that keeps paging stable when
+    // rows share a created_at. Must match GET /api/v1/quotations.
+    .order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, 49)
 
   return (
     <div className="space-y-5">

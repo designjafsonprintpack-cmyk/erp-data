@@ -297,6 +297,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
   const totalWastage = wastage.reduce((sum, w) => sum + Number(w.quantity), 0)
   const totalInk = ink.reduce((sum, i) => sum + Number(i.quantity_kg), 0)
+  // Only the append-only log — internal_remarks lives on the Overview tab now,
+  // so counting it here would badge a tab that doesn't show it.
+  const remarkCount = events.filter(e => e.event_type === 'remark_added').length
 
   const completedStages = stages.filter(s => s.status === 'completed').length
   const totalStages = stages.length
@@ -492,6 +495,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               {tab.key === 'ink' && ink.length > 0 && (
                 <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{ink.length}</span>
               )}
+              {/* The standing internal_remarks note counts too, or a job with
+                  remarks and no log entries looks empty from the tab strip. */}
+              {tab.key === 'remarks' && (remarkCount > 0) && (
+                <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{remarkCount}</span>
+              )}
             </button>
           )
         })}
@@ -501,7 +509,56 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-5">
           {/* Job specs */}
-          <div className="col-span-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+          <div className="col-span-2 space-y-4">
+          {/* Description, linked Sales Order and Workflow were all saved by the
+              New/Edit Job form (and the SO + workflow were even joined by this
+              page's query) but rendered nowhere — the same missing-JOIN class of
+              bug as box/board type. Only shown when there is something to show. */}
+          {((job as any).description || (job as any).internal_remarks || (job as any).sales_orders?.so_number || (job as any).workflow_templates?.name) && (
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Job Information</h2>
+              </div>
+              <div className="p-5 space-y-3">
+                {(job as any).description && (
+                  <div>
+                    <p className="text-xs text-[var(--color-text-muted)]">Description</p>
+                    <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap break-words">{(job as any).description}</p>
+                  </div>
+                )}
+                {/* The standing note on the job record — ganging details and
+                    the like. Lives here rather than in the Remarks tab, which
+                    is the append-only remark_added log, a different thing. */}
+                {(job as any).internal_remarks && (
+                  <div>
+                    <p className="text-xs text-[var(--color-text-muted)]">Internal Remarks</p>
+                    <p className="text-sm text-[var(--color-text-primary)] mt-0.5 whitespace-pre-wrap break-words">
+                      {(job as any).internal_remarks}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  {(job as any).sales_orders?.so_number && (
+                    <div>
+                      <p className="text-xs text-[var(--color-text-muted)]">Sales Order</p>
+                      <Link href={`/dashboard/sales-orders/${(job as any).sales_order_id}`}
+                        className="text-sm font-mono text-[var(--color-accent)] hover:underline">
+                        {(job as any).sales_orders.so_number}
+                      </Link>
+                    </div>
+                  )}
+                  {(job as any).workflow_templates?.name && (
+                    <div>
+                      <p className="text-xs text-[var(--color-text-muted)]">Workflow</p>
+                      <p className="text-sm text-[var(--color-text-primary)] mt-0.5">{(job as any).workflow_templates.name}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
               <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Product Specifications</h2>
             </div>
@@ -540,6 +597,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 </div>
               ))}
             </div>
+          </div>
           </div>
 
           {/* Right sidebar */}

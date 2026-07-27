@@ -15,7 +15,9 @@ export default async function ArtworkPage() {
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(50)
+    // ArtworkClient filters this array in the browser, so anything past the
+    // limit is invisible to its search too. Raised 50 -> 200.
+    .limit(200)
 
   const { data: jobs } = await supabase
     .from('jobs' as any)

@@ -12,6 +12,12 @@ import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { ArtworkThumb, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
+import { LoadMore } from '@/components/ui/LoadMore'
+
+/** Rows per page. The server-rendered first page in page.tsx uses the same
+ *  number. 100 rather than 50 because the 478 backdated legacy jobs sit at the
+ *  bottom of this list and were unreachable at 25. */
+const PAGE_SIZE = 100
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -163,6 +169,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const [jobs, setJobs] = useState(initialJobs)
   const thumbs = useJobThumbnails(jobs.map(j => j.id))
   const [total, setTotal] = useState(initialTotal)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [activeStatus, setActiveStatus] = useState('')
   const [loading, setLoading] = useState(false)
@@ -208,28 +215,30 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
     }
   }
 
-  const fetchJobs = useCallback(async (q: string, status: string) => {
+  const fetchJobs = useCallback(async (q: string, status: string, pageNo: number, append: boolean) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ limit: '50' })
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(pageNo) })
       if (q) params.set('search', q)
       if (status) params.set('status', status)
       const res = await fetch(`/api/v1/jobs?${params}`)
       const json = await res.json()
-      setJobs(json.data ?? [])
+      const rows = (json.data ?? []) as Job[]
+      setJobs(prev => append ? [...prev, ...rows] : rows)
       setTotal(json.total ?? 0)
+      setPage(pageNo)
     } catch { toast.error('Failed to load jobs') }
     finally { setLoading(false) }
   }, [])
 
   const handleSearch = (val: string) => {
     setSearch(val)
-    setTimeout(() => fetchJobs(val, activeStatus), 350)
+    setTimeout(() => fetchJobs(val, activeStatus, 1, false), 350)
   }
 
   const handleStatusTab = (status: string) => {
     setActiveStatus(status)
-    fetchJobs(search, status)
+    fetchJobs(search, status, 1, false)
   }
 
   return (
@@ -306,8 +315,14 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
         </div>
       )}
 
-      {view === 'list' && total > 25 && (
-        <p className="text-xs text-[var(--color-text-muted)] text-center">Showing {jobs.length} of {total} jobs</p>
+      {view === 'list' && (
+        <LoadMore
+          loaded={jobs.length}
+          total={total}
+          loading={loading}
+          onLoadMore={() => fetchJobs(search, activeStatus, page + 1, true)}
+          noun="jobs"
+        />
       )}
     </div>
   )

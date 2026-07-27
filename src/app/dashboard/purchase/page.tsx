@@ -11,7 +11,9 @@ export default async function PurchasePage() {
     supabase.from('purchase_orders' as any)
       .select('*, vendors(name,vendor_code), purchase_order_items(*)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(50),
+      // PurchaseClient filters this array in the browser, so anything past the
+      // limit is invisible to its search too. Raised 50 -> 200.
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('vendors' as any).select('id,name,vendor_code')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),
   ])

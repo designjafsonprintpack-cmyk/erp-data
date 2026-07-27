@@ -9,6 +9,10 @@ import { TabStrip } from '@/components/ui/TabStrip'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui'
+import { LoadMore } from '@/components/ui/LoadMore'
+
+/** Rows per page. The server-rendered first page in page.tsx uses the same number. */
+const PAGE_SIZE = 50
 
 interface Customer {
   id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string
@@ -116,32 +120,35 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
   const router = useRouter()
   const [customers, setCustomers] = useState(initialCustomers)
   const [total, setTotal] = useState(initialTotal)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
-  const doSearch = useCallback(async (q: string, stage: string) => {
+  const doSearch = useCallback(async (q: string, stage: string, pageNo: number, append: boolean) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ search: q, limit: '50' })
+      const params = new URLSearchParams({ search: q, limit: String(PAGE_SIZE), page: String(pageNo) })
       if (stage) params.set('stage', stage)
       const res = await fetch(`/api/v1/customers?${params.toString()}`)
       const json = await res.json()
-      setCustomers(json.data ?? [])
+      const rows = (json.data ?? []) as Customer[]
+      setCustomers(prev => append ? [...prev, ...rows] : rows)
       setTotal(json.total ?? 0)
+      setPage(pageNo)
     } catch { toast.error('Search failed') }
     finally { setLoading(false) }
   }, [])
 
   const handleSearch = (val: string) => {
     setSearch(val)
-    setTimeout(() => doSearch(val, stageFilter), 350)
+    setTimeout(() => doSearch(val, stageFilter, 1, false), 350)
   }
 
   const handleStageFilter = (stage: string) => {
     setStageFilter(stage)
-    doSearch(search, stage)
+    doSearch(search, stage, 1, false)
   }
 
   return (
@@ -182,12 +189,13 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
         />
       </div>
 
-      {/* Pagination hint */}
-      {total > 25 && (
-        <p className="text-xs text-[var(--color-text-muted)] text-center">
-          Showing {customers.length} of {total} customers
-        </p>
-      )}
+      <LoadMore
+        loaded={customers.length}
+        total={total}
+        loading={loading}
+        onLoadMore={() => doSearch(search, stageFilter, page + 1, true)}
+        noun="customers"
+      />
     </div>
   )
 }

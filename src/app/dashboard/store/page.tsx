@@ -14,7 +14,9 @@ export default async function StorePage() {
     supabase.from('material_requisitions' as any)
       .select('*, jobs(job_number,job_title,gsm), material_requisition_items(*)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(50),
+      // StoreClient filters this array in the browser, so anything past the
+      // limit is invisible to its search too. Raised 50 -> 200.
+      .order('created_at', { ascending: false }).limit(200),
     supabase.from('jobs' as any)
       .select('id,job_number,job_title').eq('company_id', companyId)
       .is('deleted_at', null).in('status', ['new','in_progress']).order('job_number').limit(100),

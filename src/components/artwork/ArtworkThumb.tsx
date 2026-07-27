@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { createSupabaseClient } from '@/lib/supabase/client'
@@ -133,12 +133,21 @@ export function useArtworkThumbnails(items: ThumbSource[]): Record<string, strin
 export function useJobThumbnails(jobIds: string[]): Record<string, JobThumbData> {
   const [data, setData] = useState<Record<string, JobThumbData>>({})
 
+  // Ids already asked for. Only the NEW ones go into the next request: with
+  // "Load More" the caller's list grows by a page at a time, and re-sending
+  // every id would push ?ids= past both the route's 300-id cap and the URL
+  // length limit — silently blanking the thumbnails on the longer lists.
+  const requested = useRef<Set<string>>(new Set())
+
   // Same reasoning as useArtworkThumbnails: key on the id list's content, not
   // its array identity, or every parent re-render re-fetches.
-  const key = Array.from(new Set(jobIds.filter(Boolean))).sort().join(',')
+  const key = Array.from(new Set(jobIds.filter(Boolean)))
+    .filter(id => !requested.current.has(id))
+    .sort().join(',')
 
   useEffect(() => {
     if (!key) return
+    key.split(',').forEach(id => requested.current.add(id))
     let cancelled = false
     ;(async () => {
       try {

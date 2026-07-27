@@ -37,6 +37,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })
+    // Tiebreaker — the legacy jobs all share one backdated created_at, and an
+    // unstable order across pages makes "Load More" repeat rows and skip
+    // others. Must match the ORDER BY on the jobs list page.
+    .order('id', { ascending: false })
     .range(offset, offset + limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

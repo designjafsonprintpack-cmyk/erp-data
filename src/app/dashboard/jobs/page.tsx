@@ -15,7 +15,13 @@ export default async function JobsPage() {
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .range(0, 24)
+    // Tiebreaker, not decoration: all 478 legacy jobs share one backdated
+    // created_at, and Postgres does not promise a stable order among ties —
+    // so without this, page 2 re-served rows page 1 had already shown and
+    // silently dropped others. Must match the ORDER BY in GET /api/v1/jobs.
+    .order('id', { ascending: false })
+    // Matches PAGE_SIZE in JobsClient so "Load More" can ask for page 2 cleanly.
+    .range(0, 99)
 
   // "Yeh job abhi kis stage par hai" as a real column in the list, instead of
   // having to open each job to find out.

@@ -8,6 +8,10 @@ import { QT_STATUS_CONFIG } from '@/modules/sales/quotations/types/quotation.typ
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
+import { LoadMore } from '@/components/ui/LoadMore'
+
+/** Rows per page. The server-rendered first page in page.tsx uses the same number. */
+const PAGE_SIZE = 50
 
 interface QT { id: string; quotation_number: string; status: string; total_amount: number; valid_until: string | null; created_at: string; customers: { name: string; customer_code: string } | null }
 
@@ -61,28 +65,31 @@ const COLUMNS: DataListColumn<QT>[] = [
 export default function QuotationsClient({ initialData, initialTotal }: { initialData: QT[]; initialTotal: number }) {
   const [data, setData] = useState(initialData)
   const [total, setTotal] = useState(initialTotal)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [loading, setLoading] = useState(false)
 
-  const doFetch = async (q: string, s: string) => {
+  const doFetch = async (q: string, s: string, pageNo: number, append: boolean) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ search: q, ...(s !== 'all' ? { status: s } : {}), limit: '50' })
+      const params = new URLSearchParams({ search: q, ...(s !== 'all' ? { status: s } : {}), limit: String(PAGE_SIZE), page: String(pageNo) })
       const res = await fetch(`/api/v1/quotations?${params}`)
       const json = await res.json()
-      setData(json.data ?? [])
+      const rows = (json.data ?? []) as QT[]
+      setData(prev => append ? [...prev, ...rows] : rows)
       setTotal(json.total ?? 0)
+      setPage(pageNo)
     } finally { setLoading(false) }
   }
 
   const handleSearch = (val: string) => {
     setSearch(val)
     clearTimeout((window as any)._qtTimer)
-    ;(window as any)._qtTimer = setTimeout(() => doFetch(val, status), 350)
+    ;(window as any)._qtTimer = setTimeout(() => doFetch(val, status, 1, false), 350)
   }
 
-  const handleStatus = (s: string) => { setStatus(s); doFetch(search, s) }
+  const handleStatus = (s: string) => { setStatus(s); doFetch(search, s, 1, false) }
 
   return (
     <div className="space-y-4">
@@ -117,6 +124,14 @@ export default function QuotationsClient({ initialData, initialTotal }: { initia
           }
         />
       </div>
+
+      <LoadMore
+        loaded={data.length}
+        total={total}
+        loading={loading}
+        onLoadMore={() => doFetch(search, status, page + 1, true)}
+        noun="quotations"
+      />
     </div>
   )
 }
