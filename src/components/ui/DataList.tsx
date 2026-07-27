@@ -53,6 +53,13 @@ interface DataListProps<T> {
   stickyHeader?: boolean
   /** Zebra striping on desktop rows. */
   striped?: boolean
+  /**
+   * Desktop/tablet row padding. 'comfortable' (default) is the py-3.5 every
+   * existing list already renders — passing nothing leaves a list byte-for-byte
+   * as it was. 'compact' halves the padding for lists long enough that
+   * scrolling is the real cost. Mobile cards are unaffected either way.
+   */
+  density?: 'comfortable' | 'compact'
   empty?: ReactNode
   className?: string
 }
@@ -124,6 +131,7 @@ export function DataList<T>({
   selection,
   stickyHeader = false,
   striped = true,
+  density = 'comfortable',
   empty,
   className,
 }: DataListProps<T>) {
@@ -254,7 +262,8 @@ export function DataList<T>({
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {rows.map((row, idx) => {
             const classes = cn(
-              'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
+              'grid grid-cols-12 gap-3 px-5 items-center transition-colors',
+              density === 'compact' ? 'py-2' : 'py-3.5',
               gridStyle && 'dl-grid',
               'hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]',
               striped && idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]',

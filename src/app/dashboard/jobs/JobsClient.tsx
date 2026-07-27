@@ -1,7 +1,7 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Briefcase, PauseCircle, RefreshCw, LayoutGrid, List, Download } from 'lucide-react'
+import { Plus, Briefcase, PauseCircle, RefreshCw, LayoutGrid, List, Download, Rows3, Rows2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
@@ -18,6 +18,20 @@ import { LoadMore } from '@/components/ui/LoadMore'
  *  number. 100 rather than 50 because the 478 backdated legacy jobs sit at the
  *  bottom of this list and were unreachable at 25. */
 const PAGE_SIZE = 100
+
+/**
+ * Row height on the Jobs list. The artwork thumbnail is worth its space when
+ * you are looking for a job by its picture and pure cost when you are scrolling
+ * past a hundred of them — so it is a choice, not a verdict.
+ *
+ *   compact      40x52 thumb, py-2   → ~68px per row
+ *   comfortable  60x77 thumb, py-3.5 → ~105px per row (the original)
+ *
+ * Compact is the default because the list is now 100 rows deep. Persisted, like
+ * the Artwork page's list/grid toggle — a working preference, not a per-visit one.
+ */
+type Density = 'compact' | 'comfortable'
+const JOBS_DENSITY_KEY = 'jafson.jobs.density'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
@@ -69,7 +83,7 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
  * but the total is 13 with selection, not 12. Don't "correct" it back to 12 by
  * shrinking a column: status and stage both clip badly at span 1.
  */
-const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[] => [
+const jobColumns = (thumbs: Record<string, JobThumbData>, density: Density): DataListColumn<Job>[] => [
   {
     key: 'job_number', header: 'Job #', span: 1, role: 'identity',
     render: j => (
@@ -87,7 +101,7 @@ const jobColumns = (thumbs: Record<string, JobThumbData>): DataListColumn<Job>[]
       return (
         <span className="flex items-center gap-2.5 min-w-0">
           <ArtworkThumb
-            size="sm"
+            size={density === 'compact' ? 'xs' : 'sm'}
             interactive={false}
             url={t?.url ?? undefined}
             fileName={t?.fileName ?? j.job_title}
@@ -174,6 +188,15 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const [activeStatus, setActiveStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [density, setDensity] = useState<Density>('compact')
+  useEffect(() => {
+    const saved = localStorage.getItem(JOBS_DENSITY_KEY)
+    if (saved === 'compact' || saved === 'comfortable') setDensity(saved)
+  }, [])
+  const changeDensity = (d: Density) => {
+    setDensity(d)
+    localStorage.setItem(JOBS_DENSITY_KEY, d)
+  }
   // Bulk selection — currently used for exporting a chosen subset. No bulk
   // status mutation on Jobs on purpose: status moves through the stage
   // engine, and a blind bulk status write would bypass its gating.
@@ -270,6 +293,23 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
           onChange={handleStatusTab}
           trailing={total > 0 ? <span className="text-xs text-[var(--color-text-muted)]">{total} jobs</span> : undefined}
         />
+        {/* Row height. md+ because that is where the table (and its thumbnail
+            column) exists at all — mobile renders cards, which ignore density. */}
+        {view === 'list' && (
+          <div className="hidden md:flex items-center gap-1 flex-shrink-0 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
+            <button onClick={() => changeDensity('compact')} title="Compact rows — smaller artwork thumbnail" aria-label="Compact rows"
+              aria-pressed={density === 'compact'}
+              className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', density === 'compact' ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+              <Rows3 size={13} />
+            </button>
+            <button onClick={() => changeDensity('comfortable')} title="Comfortable rows — larger artwork thumbnail" aria-label="Comfortable rows"
+              aria-pressed={density === 'comfortable'}
+              className={cn('w-7 h-6 flex items-center justify-center rounded-md transition-colors', density === 'comfortable' ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+              <Rows2 size={13} />
+            </button>
+          </div>
+        )}
+
         {/* Kanban needs horizontal room by nature, so the toggle is desktop-only */}
         <div className="hidden lg:flex items-center gap-1 flex-shrink-0 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-0.5">
           <button onClick={() => setView('list')} title="List view" aria-label="List view"
@@ -289,7 +329,8 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
         <div className={cn(loading && 'opacity-60')}>
           <DataList<Job>
             rows={jobs}
-            columns={jobColumns(thumbs)}
+            columns={jobColumns(thumbs, density)}
+            density={density}
             getRowId={j => j.id}
             rowHref={j => `/dashboard/jobs/${j.id}`}
             rowClassName={j => urgencyColor(j.required_date, j.status)}

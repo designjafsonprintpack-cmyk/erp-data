@@ -26,8 +26,19 @@ export const THUMB_SM_W = 60
 export const THUMB_SM_H = 77
 export const THUMB_SM_BOX = 'w-[60px] h-[77px]'
 
-type ThumbSize = 'lg' | 'sm'
-const SIZE_BOX: Record<ThumbSize, string> = { lg: THUMB_BOX, sm: THUMB_SM_BOX }
+/**
+ * A third size for the Jobs list's Compact density. 40x52 is the size Mehboob
+ * once called too small — and it still is, as a permanent default. It earns its
+ * place only because Compact is an explicit, one-click-reversible choice: at
+ * 60x77 a job row is ~105px tall, so 100 rows are 10,500px of scrolling. Same
+ * 125:160 ratio as the other two.
+ */
+export const THUMB_XS_W = 40
+export const THUMB_XS_H = 52
+export const THUMB_XS_BOX = 'w-[40px] h-[52px]'
+
+export type ThumbSize = 'lg' | 'sm' | 'xs'
+const SIZE_BOX: Record<ThumbSize, string> = { lg: THUMB_BOX, sm: THUMB_SM_BOX, xs: THUMB_XS_BOX }
 
 /** Extensions a browser can render directly in an <img>. */
 const IMAGE_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'SVG', 'AVIF'])
@@ -215,7 +226,9 @@ export function ArtworkThumb({
   const [failed, setFailed] = useState(false)
   const showImage = !!url && !failed
   const label = extLabel(fileName, fileType)
-  const small = size === 'sm'
+  // Both non-'lg' sizes use the tightened chrome; 'xs' only differs in the box.
+  const small = size !== 'lg'
+  const tiny = size === 'xs'
 
   const content = (
     <>
@@ -230,7 +243,9 @@ export function ArtworkThumb({
         />
       ) : (
         <div className={cn('flex flex-col items-center text-center', small ? 'gap-1 px-1' : 'gap-1.5 px-2')}>
-          <FileText size={small ? 14 : 22} className="text-[var(--color-text-muted)] opacity-50" />
+          {/* At 40x52 the icon and the label together crowd the tile — the
+              extension is the part that carries information, so it stays. */}
+          {!tiny && <FileText size={small ? 14 : 22} className="text-[var(--color-text-muted)] opacity-50" />}
           <span className={cn('font-semibold tracking-wide text-[var(--color-text-muted)]', small ? 'text-[9px]' : 'text-[11px]')}>{label}</span>
         </div>
       )}
