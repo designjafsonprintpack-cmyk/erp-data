@@ -115,6 +115,49 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     }
   }
 
+  // ─── Changed-repeat gates (migration 097) ───────────────────────────────────
+  // A "Repeat with Changes" job looks exactly like a repeat to whoever is
+  // working it, which is how the old plate gets mounted and the wrong expiry
+  // reaches a full lot. 097 added the warnings; these are the two teeth.
+  //
+  // Loaded once and reused by both checks below.
+  const needsChangedRepeatCheck =
+    (action === 'skip' && (targetStageType === 'artwork' || targetStageType === 'artwork_approval')) ||
+    (action === 'start' && targetStageType === 'printing')
+
+  let changedJob: any = null
+  if (needsChangedRepeatCheck) {
+    const { data } = await supabase.from('jobs' as any)
+      .select('repeat_kind, changed_aspects, change_note, parent_job_id')
+      .eq('id', jobId).eq('company_id', companyId).maybeSingle()
+    if ((data as any)?.repeat_kind === 'changed') changedJob = data
+  }
+
+  // (a) Artwork cannot be SKIPPED when the printed content changed — HARD.
+  //     Completing it still runs through the normal approved-artwork gate
+  //     below; this only closes the "skip it, it's a repeat" shortcut.
+  //
+  //     Not every change touches the printed image though. A heavier board or
+  //     a different lamination leaves the artwork identical, so those alone
+  //     don't force a fresh round — blocking them would train people to tick
+  //     boxes that don't matter. Anything else does, including 'other',
+  //     because an unnamed change is not a safe one.
+  if (changedJob && action === 'skip') {
+    const ARTWORK_SAFE = new Set(['board_gsm', 'finishing'])
+    const aspects: string[] = (changedJob.changed_aspects ?? []) as string[]
+    const touchesArtwork = aspects.length === 0 || aspects.some(a => !ARTWORK_SAFE.has(a))
+    if (touchesArtwork) {
+      return NextResponse.json(
+        {
+          error: `Cannot skip "${targetStageName}" — this is a repeat whose printed content changed`
+            + (aspects.length ? ` (${aspects.join(', ')})` : '')
+            + `. The new artwork has to be approved before it runs.`,
+        },
+        { status: 400 }
+      )
+    }
+  }
+
   // ─── QC gate (migration 092) ────────────────────────────────────────────────
   // The QC stage cannot be marked complete until this job has an inspection on
   // record that passed. 'conditional_pass' counts — the shop legitimately
@@ -163,6 +206,33 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         { error: `Cannot start "${targetStageName}" — no plates have been issued to this job yet. Add plates first.` },
         { status: 400 }
       )
+    }
+
+    // (b) Reused plates on a changed repeat — SOFT, per the precedent set by
+    //     the board-shortfall check right below: warn, record, don't block.
+    //     Often only one plate actually changed (the black text plate carrying
+    //     the expiry), so the rest are legitimately reused and a hard block
+    //     would be wrong. The operator just has to be told.
+    if (changedJob) {
+      const { data: assigned } = await supabase.from('job_plates' as any)
+        .select('is_reused, plates(plate_code, color, origin_job_id)')
+        .eq('job_id', jobId).eq('company_id', companyId)
+        .is('deleted_at', null).is('returned_at', null)
+
+      const reused = ((assigned ?? []) as any[]).filter(p =>
+        p.is_reused === true ||
+        (changedJob.parent_job_id && p.plates?.origin_job_id === changedJob.parent_job_id))
+
+      if (reused.length > 0) {
+        const which = reused.map(p => p.plates?.plate_code || p.plates?.color).filter(Boolean).join(', ')
+        const aspects: string[] = (changedJob.changed_aspects ?? []) as string[]
+        warnings.push(
+          `${reused.length} plate${reused.length > 1 ? 's are' : ' is'} reused from the original job`
+          + (which ? ` (${which})` : '')
+          + `, but this repeat changed${aspects.length ? ' ' + aspects.join(', ') : ''}.`
+          + ` Check every reused plate still matches the approved artwork.`
+        )
+      }
     }
 
     const { data: jobRow } = await supabase.from('jobs' as any)

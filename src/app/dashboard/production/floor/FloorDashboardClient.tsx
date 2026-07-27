@@ -99,7 +99,7 @@ export default function FloorDashboardClient({
   const [assignModal, setAssignModal] = useState(false)
   const [assignForm, setAssignForm] = useState({
     job_id: '', machine_id: '', operator_id: '', stage_progress_id: '',
-    scheduled_start: '', estimated_minutes: '', notes: '',
+    scheduled_start: '', estimated_minutes: '', shift: '', notes: '',
   })
   const selectedJob = pendingJobs.find(j => j.id === assignForm.job_id)
   const pendingStages = selectedJob?.job_stage_progress?.filter(s => ['pending','in_progress'].includes(s.status)) ?? []
@@ -145,7 +145,7 @@ export default function FloorDashboardClient({
       const { data } = await res.json()
       setQueue(prev => [data, ...prev])
       setAssignModal(false)
-      setAssignForm({ job_id: '', machine_id: '', operator_id: '', stage_progress_id: '', scheduled_start: '', estimated_minutes: '', notes: '' })
+      setAssignForm({ job_id: '', machine_id: '', operator_id: '', stage_progress_id: '', scheduled_start: '', estimated_minutes: '', shift: '', notes: '' })
       toast.success('Job assigned to machine')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -491,10 +491,24 @@ export default function FloorDashboardClient({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="floordashboardclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Start</label>
-            <input id="floordashboardclient-6" type="datetime-local" className={inputCls} value={assignForm.scheduled_start}
-              onChange={e => setAssignForm(p => ({ ...p, scheduled_start: e.target.value }))} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="floordashboardclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Scheduled Start</label>
+              <input id="floordashboardclient-6" type="datetime-local" className={inputCls} value={assignForm.scheduled_start}
+                onChange={e => setAssignForm(p => ({ ...p, scheduled_start: e.target.value }))} />
+            </div>
+            {/* Without this, Shift Performance would only ever show wastage and
+                ink — the assignment and run-time columns had no way to be set. */}
+            <div className="space-y-1.5">
+              <label htmlFor="floor-shift" className="text-sm font-medium text-[var(--color-text-primary)]">Shift</label>
+              <select id="floor-shift" className={inputCls} value={assignForm.shift}
+                onChange={e => setAssignForm(p => ({ ...p, shift: e.target.value }))}>
+                <option value="">Not recorded</option>
+                <option value="A">Shift A</option>
+                <option value="B">Shift B</option>
+                <option value="C">Shift C</option>
+              </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">

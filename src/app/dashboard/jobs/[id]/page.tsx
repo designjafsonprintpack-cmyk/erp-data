@@ -11,7 +11,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   const companyId = await getCompanyId(user, supabase)
 
-  const [jobRes, stagesRes, eventsRes, delayReasonsRes, wastageReasonsRes, machinesRes, wastageRes, artworksRes] = await Promise.all([
+  const [jobRes, stagesRes, eventsRes, delayReasonsRes, wastageReasonsRes, machinesRes, wastageRes, artworksRes, inkTypesRes, inkRes] = await Promise.all([
     supabase.from('jobs' as any)
       // box_types / board_types / paper_types / lamination_types / foil_types
       // are read by JobDetailClient's spec grid but were never joined here, so
@@ -39,6 +39,13 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     supabase.from('job_artworks' as any)
       .select('*').eq('job_id', params.id).eq('company_id', companyId).is('deleted_at', null)
       .order('version', { ascending: false }),
+    // Ink usage (migration 102) — same shape as the wastage pair above.
+    supabase.from('ink_types' as any)
+      .select('id,name,color_code').eq('company_id', companyId)
+      .is('deleted_at', null).eq('is_active', true).order('name'),
+    supabase.from('job_ink_usage' as any)
+      .select('*, ink_types(name,color_code), machines(name), users(full_name)')
+      .eq('job_id', params.id).is('deleted_at', null).order('occurred_at', { ascending: false }),
   ])
 
   if (!jobRes.data) notFound()
@@ -57,6 +64,8 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       wastageEntries={(wastageRes.data ?? []) as any[]}
       companyId={companyId}
       artworks={(artworksRes.data ?? []) as any[]}
+      inkTypes={(inkTypesRes.data ?? []) as any[]}
+      inkEntries={(inkRes.data ?? []) as any[]}
       issuedGsm={issuedGsm}
     />
   )

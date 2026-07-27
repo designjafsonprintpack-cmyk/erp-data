@@ -6,7 +6,7 @@ import { createSupabaseClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Printer, PauseCircle, PlayCircle, RefreshCw, CheckCircle2,
   SkipForward, Clock, User, Calendar, Package, ChevronRight, AlertTriangle,
-  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine
+  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatIssuedGsm, hasGsmVariance, type IssuedGsmEntry } from '@/lib/utils/jobIssuedGsm'
@@ -34,10 +34,23 @@ interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
   wastageReasons: WastageReason[]; machines: Machine[]; wastageEntries: JobWastage[]
   companyId: string; artworks: ArtworkVersion[]
+  inkTypes: InkType[]; inkEntries: InkEntry[]
   issuedGsm: IssuedGsmEntry[]
 }
 
-type Tab = 'overview' | 'workflow' | 'artwork' | 'timeline' | 'remarks' | 'wastage'
+interface InkType { id: string; name: string; color_code: string | null }
+interface InkEntry {
+  id: string; quantity_kg: number; shift: string | null; notes: string | null; occurred_at: string
+  ink_types?: { name: string; color_code: string | null } | null
+  machines?: { name: string } | null
+  users?: { full_name: string } | null
+}
+
+/** The shop runs three shifts (migration 102). Nullable everywhere — a record
+ *  made without one is not assigned to a shift by guesswork. */
+const SHIFTS = ['A', 'B', 'C'] as const
+
+type Tab = 'overview' | 'workflow' | 'artwork' | 'timeline' | 'remarks' | 'wastage' | 'ink'
 
 const EVENT_LABELS: Record<string, string> = {
   created: 'Job Created', status_changed: 'Status Changed', stage_started: 'Stage Started',
@@ -45,6 +58,7 @@ const EVENT_LABELS: Record<string, string> = {
   hold_started: 'Put On Hold', hold_ended: 'Resumed', remark_added: 'Remark Added',
   artwork_uploaded: 'Artwork Uploaded', repeat_created: 'Repeat Job Created',
   assigned: 'Assigned', priority_changed: 'Priority Changed', wastage_recorded: 'Wastage Recorded',
+  ink_recorded: 'Ink Recorded',
   plate_assigned: 'Plate Assigned', plate_returned: 'Plate Returned',
 }
 
@@ -67,7 +81,7 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, issuedGsm }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, inkTypes, inkEntries, issuedGsm }: Props) {
   const gsmVariance = hasGsmVariance((initialJob as any).gsm, issuedGsm)
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
@@ -123,8 +137,14 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
   // Wastage modal
   const [wastageModal, setWastageModal] = useState(false)
-  const [wastageForm, setWastageForm] = useState({ wastage_reason_id: '', machine_id: '', quantity: '', notes: '' })
+  const [wastageForm, setWastageForm] = useState({ wastage_reason_id: '', machine_id: '', quantity: '', shift: '', notes: '' })
   const [recordingWastage, setRecordingWastage] = useState(false)
+
+  // Ink modal (migration 102) — same flow as wastage, same screen, on purpose.
+  const [ink, setInk] = useState(inkEntries)
+  const [inkModal, setInkModal] = useState(false)
+  const [inkForm, setInkForm] = useState({ ink_type_id: '', machine_id: '', quantity_kg: '', shift: '', notes: '' })
+  const [recordingInk, setRecordingInk] = useState(false)
 
   const statusCfg = JOB_STATUS_CONFIG[job.status] || JOB_STATUS_CONFIG.new
   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
@@ -248,14 +268,35 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       const { data } = await res.json()
       setWastage(prev => [data, ...prev])
       setWastageModal(false)
-      setWastageForm({ wastage_reason_id: '', machine_id: '', quantity: '', notes: '' })
+      setWastageForm({ wastage_reason_id: '', machine_id: '', quantity: '', shift: '', notes: '' })
       toast.success('Wastage recorded')
       router.refresh()
     } catch (e: any) { toast.error(e.message || 'Failed to record wastage') }
     finally { setRecordingWastage(false) }
   }
 
+  const recordInk = async () => {
+    if (!inkForm.ink_type_id) { toast.error('Please select an ink'); return }
+    if (!inkForm.quantity_kg || parseFloat(inkForm.quantity_kg) <= 0) { toast.error('Quantity must be greater than 0'); return }
+    setRecordingInk(true)
+    try {
+      const res = await fetch(`/api/v1/jobs/${job.id}/ink`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inkForm),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setInk(prev => [data, ...prev])
+      setInkModal(false)
+      setInkForm({ ink_type_id: '', machine_id: '', quantity_kg: '', shift: '', notes: '' })
+      toast.success('Ink usage recorded')
+      router.refresh()
+    } catch (e: any) { toast.error(e.message || 'Failed to record ink usage') }
+    finally { setRecordingInk(false) }
+  }
+
   const totalWastage = wastage.reduce((sum, w) => sum + Number(w.quantity), 0)
+  const totalInk = ink.reduce((sum, i) => sum + Number(i.quantity_kg), 0)
 
   const completedStages = stages.filter(s => s.status === 'completed').length
   const totalStages = stages.length
@@ -429,6 +470,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           { key: 'timeline', label: 'Timeline', icon: Activity },
           { key: 'remarks',  label: 'Remarks',  icon: MessageSquare },
           { key: 'wastage',  label: 'Wastage',  icon: AlertTriangle },
+          { key: 'ink',      label: 'Ink',      icon: Droplet },
         ] as const).map(tab => {
           const Icon = tab.icon
           return (
@@ -446,6 +488,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               )}
               {tab.key === 'wastage' && wastage.length > 0 && (
                 <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{wastage.length}</span>
+              )}
+              {tab.key === 'ink' && ink.length > 0 && (
+                <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{ink.length}</span>
               )}
             </button>
           )
@@ -838,6 +883,107 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       </Modal>
 
       {/* ─── WASTAGE MODAL ───────────────────────────────────────────────────── */}
+      {activeTab === 'ink' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)]">Total Ink Used</p>
+              <p className="text-xl font-bold text-[var(--color-text-primary)] mt-0.5">
+                {totalInk.toLocaleString(undefined, { maximumFractionDigits: 3 })} kg
+              </p>
+            </div>
+            <button onClick={() => setInkModal(true)}
+              className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+              <Droplet size={14} /> Record Ink
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
+            {ink.length === 0 ? (
+              <div className="p-10 text-center text-sm text-[var(--color-text-muted)]">
+                No ink recorded for this job yet.
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--color-border-subtle)]">
+                {ink.map(i => (
+                  <div key={i.id} className="flex items-start gap-4 px-5 py-3.5">
+                    <div className="flex-shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] text-[var(--color-info)]">
+                      {Number(i.quantity_kg).toLocaleString(undefined, { maximumFractionDigits: 3 })} kg
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+                        {i.ink_types?.color_code && (
+                          <span className="w-3 h-3 rounded-full border border-[var(--color-border)] flex-shrink-0"
+                            style={{ background: i.ink_types.color_code }} />
+                        )}
+                        {i.ink_types?.name || 'Ink'}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                        {[i.machines?.name && `Machine: ${i.machines.name}`, i.shift && `Shift ${i.shift}`].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                      {i.notes && <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">{i.notes}</p>}
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-xs text-[var(--color-text-muted)]">{formatDateTime(i.occurred_at)}</p>
+                      {i.users?.full_name && <p className="text-xs text-[var(--color-text-muted)]">{i.users.full_name}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <Modal open={inkModal} onClose={() => setInkModal(false)} title="Record Ink Usage" size="sm"
+        footer={
+          <>
+            <button onClick={() => setInkModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={recordInk} disabled={recordingInk || !inkForm.ink_type_id || !inkForm.quantity_kg}
+              className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              {recordingInk ? 'Saving…' : 'Record'}
+            </button>
+          </>
+        }>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label htmlFor="jd-ink-type" className="text-sm font-medium text-[var(--color-text-primary)]">Ink <span className="text-[var(--color-danger)]">*</span></label>
+            <select id="jd-ink-type" className={inputCls} value={inkForm.ink_type_id} onChange={e => setInkForm(p => ({ ...p, ink_type_id: e.target.value }))}>
+              <option value="">Select ink…</option>
+              {inkTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            {inkTypes.length === 0 && (
+              <p className="text-xs text-[var(--color-text-muted)]">No inks in the master yet — add them in Settings → Materials.</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="jd-ink-qty" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity (kg) <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="jd-ink-qty" type="number" step="0.001" min="0" className={inputCls} value={inkForm.quantity_kg}
+                onChange={e => setInkForm(p => ({ ...p, quantity_kg: e.target.value }))} placeholder="0.000" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="jd-ink-shift" className="text-sm font-medium text-[var(--color-text-primary)]">Shift</label>
+              <select id="jd-ink-shift" className={inputCls} value={inkForm.shift} onChange={e => setInkForm(p => ({ ...p, shift: e.target.value }))}>
+                <option value="">Not recorded</option>
+                {SHIFTS.map(s => <option key={s} value={s}>Shift {s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="jd-ink-machine" className="text-sm font-medium text-[var(--color-text-primary)]">Machine</label>
+            <select id="jd-ink-machine" className={inputCls} value={inkForm.machine_id} onChange={e => setInkForm(p => ({ ...p, machine_id: e.target.value }))}>
+              <option value="">Not specified</option>
+              {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="jd-ink-notes" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="jd-ink-notes" className={inputCls} value={inkForm.notes} onChange={e => setInkForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional details…" />
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={wastageModal} onClose={() => setWastageModal(false)} title="Record Wastage" size="sm"
         footer={
           <>
@@ -866,6 +1012,13 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <select id="jobdetailclient-10" className={inputCls} value={wastageForm.machine_id} onChange={e => setWastageForm(p => ({ ...p, machine_id: e.target.value }))}>
                 <option value="">Not specified</option>
                 {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="jd-wst-shift" className="text-sm font-medium text-[var(--color-text-primary)]">Shift (optional)</label>
+              <select id="jd-wst-shift" className={inputCls} value={wastageForm.shift} onChange={e => setWastageForm(p => ({ ...p, shift: e.target.value }))}>
+                <option value="">Not recorded</option>
+                {SHIFTS.map(s => <option key={s} value={s}>Shift {s}</option>)}
               </select>
             </div>
           </div>

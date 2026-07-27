@@ -95,6 +95,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     status:             'queued',
     scheduled_start:    body.scheduled_start || null,
     estimated_minutes:  body.estimated_minutes ? parseInt(String(body.estimated_minutes)) : null,
+    shift:              body.shift || null,
     notes:              body.notes || null,
   }).select('*, jobs(job_number,job_title,priority,customers(name)), machines(name,machine_type)').single()
 

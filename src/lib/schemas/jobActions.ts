@@ -30,13 +30,33 @@ export const jobRepeatSchema = z.object({
   same_artwork: z.boolean().optional(),
 })
 
+/**
+ * A `<select>` left on its blank option sends '', and z.string().uuid()
+ * rejects that — so "record wastage without picking a machine" was failing
+ * validation with a 400 instead of meaning "no machine". Same class of bug as
+ * the one in src/lib/schemas/job.ts; same fix.
+ */
+const blankToNull = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(v => (v === '' ? null : v), schema)
+
 // Mirrors job_wastage columns — wastage_reason_id is required, matching
 // the route's own existing manual check.
 export const jobWastageSchema = z.object({
   wastage_reason_id: z.string().uuid('Reason is required'),
   quantity: z.union([z.string(), z.number()]),
-  stage_progress_id: z.string().uuid().optional().nullable(),
-  machine_id: z.string().uuid().optional().nullable(),
+  stage_progress_id: blankToNull(z.string().uuid().optional().nullable()),
+  machine_id: blankToNull(z.string().uuid().optional().nullable()),
+  shift: blankToNull(z.enum(['A', 'B', 'C']).optional().nullable()),
+  notes: z.string().optional().nullable(),
+})
+
+// Mirrors job_ink_usage (migration 102), which itself mirrors job_wastage.
+export const jobInkSchema = z.object({
+  ink_type_id: z.string().uuid('Ink is required'),
+  quantity_kg: z.union([z.string(), z.number()]),
+  stage_progress_id: blankToNull(z.string().uuid().optional().nullable()),
+  machine_id: blankToNull(z.string().uuid().optional().nullable()),
+  shift: blankToNull(z.enum(['A', 'B', 'C']).optional().nullable()),
   notes: z.string().optional().nullable(),
 })
 

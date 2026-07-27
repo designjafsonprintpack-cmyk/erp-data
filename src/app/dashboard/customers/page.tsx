@@ -9,8 +9,11 @@ export default async function CustomersPage() {
 
   const companyId = await getCompanyId(user, supabase)
 
+  // jobs(count) is an embedded aggregate — one query instead of a per-customer
+  // round trip. Safe without a deleted_at filter because jobs are hard deleted
+  // in this schema (CLAUDE.md §3), which the live data confirms.
   const { data, count } = await supabase.from('customers' as any)
-    .select('*', { count: 'exact' })
+    .select('*, jobs(count)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)

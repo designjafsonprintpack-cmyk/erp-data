@@ -14,7 +14,12 @@ interface Customer {
   id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string
   email: string | null; phone: string | null; mobile: string | null
   industry: string | null; payment_terms: number; is_active: boolean
+  /** PostgREST returns an embedded aggregate as [{ count }]. Jobs are hard
+   *  deleted in this schema, so this needs no deleted_at filter. */
+  jobs?: { count: number }[]
 }
+
+const jobCount = (c: Customer) => c.jobs?.[0]?.count ?? 0
 
 const BIZ_COLORS: Record<string, string> = {
   company: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
@@ -77,8 +82,21 @@ const CUSTOMER_COLUMNS: DataListColumn<Customer>[] = [
     render: c => <span className="text-sm text-[var(--color-text-secondary)]">{c.mobile || c.phone || '—'}</span>,
   },
   {
-    key: 'email', header: 'Email', span: 2, role: 'meta', label: 'Email',
+    // span 2 → 1 to make room for Jobs; the address was already truncated and
+    // the 12-column total is unchanged.
+    key: 'email', header: 'Email', span: 1, role: 'meta', label: 'Email',
     render: c => <span className="text-sm text-[var(--color-text-secondary)] truncate">{c.email || '—'}</span>,
+  },
+  {
+    key: 'jobs', header: 'Jobs', span: 1, role: 'meta', label: 'Jobs', align: 'right',
+    render: c => {
+      const n = jobCount(c)
+      return (
+        <span className={cn('text-sm font-semibold', n > 0 ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]')}>
+          {n}
+        </span>
+      )
+    },
   },
   {
     key: 'terms', header: 'Terms', span: 1, role: 'meta', label: 'Terms',

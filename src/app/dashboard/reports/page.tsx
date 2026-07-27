@@ -48,7 +48,7 @@ export default async function ReportsPage({ searchParams }: {
     kpiRes, monthlyRes, customerRes, financialRes, machineRes,
     qcRes, overdueRes, costingRes, wastageRes, turnaroundRes, statusRes,
     downtimeRes, boardRes, gsmVarianceRes, reprintRes,
-    funnelRes, profitRes, breakdownRes,
+    funnelRes, profitRes, breakdownRes, inkRes, shiftRes,
   ] = await Promise.all([
     // The *_range functions exist because these three sources could not be
     // date-filtered at all before migration 098 — see its header.
@@ -90,6 +90,9 @@ export default async function ReportsPage({ searchParams }: {
     (supabase as any).rpc('get_customer_profitability', { p_company_id: companyId, p_from: from, p_to: to }),
     // Migration 101 — group jobs by whichever column was picked.
     (supabase as any).rpc('get_job_breakdown', { p_company_id: companyId, p_from: from, p_to: to, p_dimension: dim }),
+    // Migration 102 — the last two things that had no data at all until now.
+    (supabase as any).rpc('get_ink_consumption',  { p_company_id: companyId, p_from: from, p_to: to }),
+    (supabase as any).rpc('get_shift_performance', { p_company_id: companyId, p_from: from, p_to: to }),
   ])
 
   const statusCounts = ((statusRes.data ?? []) as any[]).reduce((acc: Record<string, number>, j: any) => {
@@ -126,6 +129,8 @@ export default async function ReportsPage({ searchParams }: {
         profitability={(profitRes.data ?? []) as any[]}
         breakdown={(breakdownRes.data ?? []) as any[]}
         dimension={dim}
+        inkUsage={(inkRes.data ?? []) as any[]}
+        shifts={(shiftRes.data ?? []) as any[]}
         initialTab={searchParams.tab}
         from={from}
         to={to}

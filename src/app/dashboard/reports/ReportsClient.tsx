@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Briefcase, DollarSign, Cpu, Shield, Users, BarChart3, Activity,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer, Layers
+  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer, Layers, Droplet
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ScrollRow } from '@/components/ui/ScrollRow'
@@ -44,6 +44,8 @@ interface ReprintRow { reprint_id: string; original_job_id: string; original_job
 interface FunnelRow { customer_id: string; customer_name: string; customer_code: string; quotes_raised: number; quotes_value: number; won: number; won_value: number; lost: number; lost_value: number; open_quotes: number; open_value: number; win_rate_pct: number | null }
 interface ProfitRow { customer_id: string; customer_name: string; customer_code: string; costed_jobs: number; uncosted_jobs: number; total_quoted: number; total_cost: number; total_margin: number; margin_pct: number | null }
 interface BreakdownRow { label: string; jobs: number; quantity: number; sheet_qty: number }
+interface InkRow { ink_name: string; color_code: string | null; machine_name: string; entries: number; total_kg: number; jobs_affected: number }
+interface ShiftRow { shift: string; assignments: number; completed: number; run_minutes: number; jobs_worked: number; wastage_events: number; wastage_quantity: number; ink_kg: number }
 
 /** The grouping columns get_job_breakdown (101) understands. Adding one here
  *  and in the SQL CASE is all a new breakdown needs — no new report. */
@@ -136,7 +138,7 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
 type Tab = 'overview' | 'breakdown' | 'production' | 'turnaround' | 'wastage' | 'materials' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
-export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, downtime, board, gsmVariance, reprints, funnel, profitability, breakdown, dimension, initialTab, from, to }: {
+export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, downtime, board, gsmVariance, reprints, funnel, profitability, breakdown, dimension, inkUsage, shifts, initialTab, from, to }: {
   kpi: KPI | null; monthly: MonthlyRow[]; customers: CustomerRow[]
   financial: FinancialRow[]; machines: MachineRow[]; qc: QCRow[]; overdueJobs: OverdueJob[]
   costingVariance: CostingVarianceRow[]
@@ -146,6 +148,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   gsmVariance: GsmVarianceRow[]; reprints: ReprintRow[]
   funnel: FunnelRow[]; profitability: ProfitRow[]
   breakdown: BreakdownRow[]; dimension: string
+  inkUsage: InkRow[]; shifts: ShiftRow[]
   /** Tab is read back off the URL so that changing the breakdown dimension —
    *  which navigates — doesn't bounce the user back to Overview. */
   initialTab?: string
@@ -766,6 +769,51 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             </Section>
           )}
 
+          {/* Ink consumption (migration 102) — nothing recorded a gram of this
+              until now, so an empty state here is expected at first. */}
+          <Section title="Ink Consumption" icon={Droplet}>
+            {inkUsage.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)] py-4">
+                No ink recorded in this range. Operators record it on the job&apos;s Ink tab.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <th className="pb-2 font-medium">Ink</th>
+                      <th className="pb-2 font-medium">Machine</th>
+                      <th className="pb-2 font-medium text-right">Entries</th>
+                      <th className="pb-2 font-medium text-right">Jobs</th>
+                      <th className="pb-2 font-medium text-right">Total kg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inkUsage.map((r, i) => (
+                      <tr key={r.ink_name + r.machine_name + i} className="border-b border-[var(--color-border)] last:border-0">
+                        <td className="py-2 text-[var(--color-text-primary)]">
+                          <span className="inline-flex items-center gap-2">
+                            {r.color_code && (
+                              <span className="w-3 h-3 rounded-full border border-[var(--color-border)] flex-shrink-0"
+                                style={{ background: r.color_code }} />
+                            )}
+                            {r.ink_name}
+                          </span>
+                        </td>
+                        <td className="py-2 text-[var(--color-text-secondary)]">{r.machine_name}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{r.entries}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{r.jobs_affected}</td>
+                        <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">
+                          {Number(r.total_kg).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+
           <Section title={`Planned vs Issued GSM (${gsmVariance.length})`} icon={AlertTriangle}>
             {gsmVariance.length === 0 ? (
               <div className="flex flex-col items-center py-4">
@@ -912,6 +960,52 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Shift performance (migration 102). The three rows always render,
+              even at zero — a shift missing from the table would read as "no
+              data yet" when it might mean nobody is tagging that shift. */}
+          <Section title="Shift Performance (A / B / C)" icon={Clock}>
+            {shifts.every(s => Number(s.assignments) === 0 && Number(s.wastage_events) === 0 && Number(s.ink_kg) === 0) ? (
+              <p className="text-sm text-[var(--color-text-muted)] py-4">
+                Nothing has been tagged to a shift in this range yet. The shift box appears on the
+                Record Wastage and Record Ink forms.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <th className="pb-2 font-medium">Shift</th>
+                      <th className="pb-2 font-medium text-right">Assignments</th>
+                      <th className="pb-2 font-medium text-right">Completed</th>
+                      <th className="pb-2 font-medium text-right">Run time</th>
+                      <th className="pb-2 font-medium text-right">Jobs</th>
+                      <th className="pb-2 font-medium text-right">Wastage</th>
+                      <th className="pb-2 font-medium text-right">Ink (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shifts.map(s => (
+                      <tr key={s.shift} className="border-b border-[var(--color-border)] last:border-0">
+                        <td className="py-2 font-semibold text-[var(--color-text-primary)]">Shift {s.shift}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{s.assignments}</td>
+                        <td className="py-2 text-right text-[var(--color-success)]">{s.completed}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{hrs(Number(s.run_minutes))}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{s.jobs_worked}</td>
+                        <td className="py-2 text-right font-semibold text-[var(--color-warning)]">
+                          {Math.round(Number(s.wastage_quantity)).toLocaleString('en-PK')}
+                          <span className="text-xs text-[var(--color-text-muted)] font-normal ml-1">({s.wastage_events})</span>
+                        </td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">
+                          {Number(s.ink_kg).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </Section>

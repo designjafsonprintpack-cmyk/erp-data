@@ -9,6 +9,9 @@ export const productionAssignmentSchema = z.object({
   operator_id: z.string().uuid().optional().nullable(),
   scheduled_start: z.string().optional().nullable(),
   estimated_minutes: z.union([z.string(), z.number()]).optional().nullable(),
+  // Which shift ran it (migration 102). Blank means "not recorded" — a shift
+  // is never guessed from the clock, because shift boundaries move.
+  shift: z.preprocess(v => (v === '' ? null : v), z.enum(['A', 'B', 'C']).optional().nullable()),
   notes: z.string().optional().nullable(),
 })
 
@@ -29,4 +32,5 @@ export const productionAssignmentUpdateSchema = z.object({
   status: z.string().optional(),
   scheduled_start: z.string().optional().nullable(),
   estimated_minutes: z.union([z.string(), z.number()]).optional().nullable(),
+  shift: z.preprocess(v => (v === '' ? null : v), z.enum(['A', 'B', 'C']).optional().nullable()),
 })

@@ -318,7 +318,8 @@ Test data purged and document counters reset to `0`, then real history loaded.
   must be NULLed first or the `ON DELETE CASCADE` hard-deletes the `users` row.
 - **097** — "Repeat with Changes": `repeat_kind`/`changed_aspects`/`change_note` on
   `jobs`, an editable prefilled copy (vs Repeat's locked one), shouted on the Job Card.
-  Artwork-skip and plate-reuse are **warnings only** — not yet enforced.
+  Artwork **skip is now hard-blocked** on a changed repeat (unless the only changes
+  are board_gsm/finishing, which leave the printed image alone); plate reuse warns.
 
 - **098** — Reports date range (URL `?from=&to=`); the `*_range` functions exist
   because 4 report sources couldn't be date-filtered. Wastage/Turnaround tabs added.
@@ -334,6 +335,10 @@ Test data purged and document counters reset to `0`, then real history loaded.
 - **A field rendering "—" usually means a missing JOIN, not missing data.** Job Detail
   and the Job Card read `box_types/board_types/lamination_types/foil_types` for two years
   without ever selecting them. Check the page's `.select()` before blaming the data.
+
+- **102** — `job_ink_usage` (kg, mirrors `job_wastage`) + A/B/C `shift` on wastage,
+  ink and production assignments. Shift is an explicit column, never derived from a
+  clock — boundaries move, and a rule would re-attribute history retroactively.
 
 ### Open threads
 - **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`

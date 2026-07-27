@@ -25,7 +25,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '25')
   const offset = (page - 1) * limit
 
-  let query = supabase.from('customers' as any).select('*', { count: 'exact' })
+  // jobs(count) matches the server-rendered first page — without it the count
+  // column would blank out the moment anyone searched or paged.
+  let query = supabase.from('customers' as any).select('*, jobs(count)', { count: 'exact' })
     .is('deleted_at', null).eq('is_active', true)
 
   if (stage) query = query.eq('pipeline_stage', stage)
