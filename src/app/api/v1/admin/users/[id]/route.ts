@@ -7,7 +7,7 @@ import { parseBody } from '@/lib/utils/validate'
 import { updateUserSchema } from '@/lib/schemas/adminUser'
 
 const USER_SELECT =
-  'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at'
+  'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at,department_id'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()

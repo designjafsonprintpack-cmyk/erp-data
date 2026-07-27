@@ -1,24 +1,27 @@
 'use client'
 import { useState } from 'react'
-import { Users, Plus, Shield, UserCheck, UserX, Search, Edit2, Key } from 'lucide-react'
+import { Users, Plus, UserCheck, UserX, Edit2, Key, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatTimeAgo } from '@/lib/utils/format'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 
 interface User {
   id: string; full_name: string; email: string; employee_code: string | null
   app_role: string; is_active: boolean; mobile: string | null; created_at: string
+  department_id: string | null
   departments?: { name: string } | null
 }
 interface Department { id: string; name: string }
-interface Role { id: string; name: string; description: string | null }
+interface Role { id: string; name: string; slug: string; description: string | null }
 
 const ROLE_CFG: Record<string, { label: string; color: string }> = {
   superadmin:    { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
   super_admin:   { label: 'Super Admin',    color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  owner:         { label: 'Owner',          color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  ceo:           { label: 'CEO',            color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
+  gm:            { label: 'General Manager',color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
   admin:         { label: 'Admin',          color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
   manager:       { label: 'Manager',        color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
   production:    { label: 'Production',     color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
@@ -28,7 +31,21 @@ const ROLE_CFG: Record<string, { label: string; color: string }> = {
   readonly:      { label: 'Read Only',      color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
 
-const APP_ROLES = ['admin','manager','production','sales','accounts','staff','readonly']
+/**
+ * Fallback only. The Role dropdown is normally built from the `roles` table
+ * (see page.tsx) so anything added in Settings → Roles & Permissions — GM, CEO,
+ * or whatever comes next — shows up with no code change. This list is what
+ * renders if that query ever comes back empty.
+ */
+const FALLBACK_ROLES = ['ceo','gm','admin','manager','production','sales','accounts','staff','readonly']
+
+/** Human label for a role slug: DB name first, then ROLE_CFG, then the slug. */
+function roleLabel(slug: string, roles: Role[]): string {
+  return roles.find(r => r.slug === slug)?.name
+    || ROLE_CFG[slug]?.label
+    || slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 const inputCls = 'w-full h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 /**
@@ -43,6 +60,8 @@ const inputCls = 'w-full h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--co
 const USER_COLUMNS = (
   onEdit: (u: User) => void,
   onToggleActive: (u: User) => void,
+  onResetPassword: ((u: User) => void) | null,
+  roles: Role[],
 ): DataListColumn<User>[] => [
   {
     key: 'name', header: 'Name', span: 3, role: 'identity',
@@ -54,14 +73,16 @@ const USER_COLUMNS = (
     ),
   },
   {
-    key: 'email', header: 'Email', span: 3, role: 'title',
+    // span 3 → 2 to make room for the third action button (Reset Password);
+    // the address was already `truncate`, and 12 columns still total 12.
+    key: 'email', header: 'Email', span: 2, role: 'title',
     render: u => <span className="text-sm text-[var(--color-text-secondary)] truncate block">{u.email}</span>,
   },
   {
     key: 'role', header: 'Role', span: 2, role: 'status',
     render: u => {
       const cfg = ROLE_CFG[u.app_role] || ROLE_CFG.staff
-      return <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap', cfg.color)}>{cfg.label}</span>
+      return <span className={cn('text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap', cfg.color)}>{roleLabel(u.app_role, roles)}</span>
     },
   },
   {
@@ -81,9 +102,15 @@ const USER_COLUMNS = (
     ),
   },
   {
-    key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
+    key: 'actions', header: 'Actions', span: 2, role: 'actions', align: 'right',
     render: u => (
       <div className="flex items-center gap-1.5 justify-end">
+        {onResetPassword && (
+          <button onClick={() => onResetPassword(u)} aria-label={`Reset password for ${u.full_name}`} title="Reset password"
+            className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-warning)] hover:border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] transition-colors">
+            <Key size={13} />
+          </button>
+        )}
         <button onClick={() => onEdit(u)} aria-label={`Edit ${u.full_name}`}
           className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Edit2 size={13} />
@@ -100,24 +127,46 @@ const USER_COLUMNS = (
   },
 ]
 
-export default function UsersClient({ initialUsers, departments, roles }: {
-  initialUsers: User[]; departments: Department[]; roles: Role[]
+export default function UsersClient({ initialUsers, departments, roles, isSuperadmin = false }: {
+  initialUsers: User[]; departments: Department[]; roles: Role[]; isSuperadmin?: boolean
 }) {
+  // Role dropdown options come from the roles table; the hardcoded list is only
+  // a safety net for an empty query.
+  const roleOptions = roles.length
+    ? roles.map(r => ({ value: r.slug, label: r.name }))
+    : FALLBACK_ROLES.map(r => ({ value: r, label: ROLE_CFG[r]?.label || r }))
+
+  // A <select> whose value isn't among its options renders BLANK and then saves
+  // that blank back — the trap that already bit jobs.uv_coating. So a value the
+  // options don't cover (a legacy 'staff', or a role since renamed) is appended
+  // rather than silently dropped.
+  const optionsWith = (selected: string) =>
+    selected && !roleOptions.some(o => o.value === selected)
+      ? [...roleOptions, { value: selected, label: roleLabel(selected, roles) }]
+      : roleOptions
+
   const [users, setUsers] = useState(initialUsers)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // New user modal
+  // New user modal. Defaults to the first real role rather than the old literal
+  // 'staff', which has no row in `roles` — so it granted no permissions and
+  // showed blank in this dropdown.
   const [newModal, setNewModal] = useState(false)
-  const [newForm, setNewForm] = useState({ full_name: '', email: '', password: '', employee_code: '', app_role: 'staff', department_id: '', mobile: '' })
+  const [newForm, setNewForm] = useState({ full_name: '', email: '', password: '', employee_code: '', app_role: roleOptions[0]?.value ?? 'staff', department_id: '', mobile: '' })
 
   // Edit modal
   const [editModal, setEditModal] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ full_name: '', employee_code: '', app_role: '', department_id: '', mobile: '' })
 
-  // Reset password modal
+  // Reset password modal. `issued` holds the password the server actually set —
+  // this is the one and only moment it is readable, so it stays on screen until
+  // the modal is closed rather than disappearing into a toast.
   const [resetModal, setResetModal] = useState<User | null>(null)
   const [newPassword, setNewPassword] = useState('')
+  const [issued, setIssued] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [showNew, setShowNew] = useState(false)
 
   const filtered = users.filter(u =>
     !search ||
@@ -136,13 +185,17 @@ export default function UsersClient({ initialUsers, departments, roles }: {
     try {
       const res = await fetch('/api/v1/admin/users', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newForm),
+        // "No department" sends '' from the <select>, and the request schema
+        // types department_id as a UUID — so an empty string failed validation
+        // with a 400 instead of meaning "none". Send null, per the blankToNull
+        // convention in src/lib/schemas/job.ts.
+        body: JSON.stringify({ ...newForm, department_id: newForm.department_id || null }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setUsers(prev => [...prev, { ...data, departments: departments.find(d => d.id === newForm.department_id) || null }].sort((a, b) => a.full_name.localeCompare(b.full_name)))
       setNewModal(false)
-      setNewForm({ full_name: '', email: '', password: '', employee_code: '', app_role: 'staff', department_id: '', mobile: '' })
+      setNewForm({ full_name: '', email: '', password: '', employee_code: '', app_role: roleOptions[0]?.value ?? 'staff', department_id: '', mobile: '' })
       toast.success(`User ${data.full_name} created`)
     } catch (e: any) { toast.error(e.message || 'Failed to create user') }
     finally { setLoading(false) }
@@ -154,17 +207,50 @@ export default function UsersClient({ initialUsers, departments, roles }: {
     try {
       const res = await fetch(`/api/v1/admin/users/${editModal.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        // Same blank-vs-UUID trap as createUser above.
+        body: JSON.stringify({ ...editForm, department_id: editForm.department_id || null }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       setUsers(prev => prev.map(u => u.id === editModal.id ? {
         ...u, ...editForm,
-        departments: departments.find(d => d.id === editForm.department_id) || u.departments,
+        department_id: editForm.department_id || null,
+        departments: departments.find(d => d.id === editForm.department_id) || null,
       } : u))
       setEditModal(null)
       toast.success('User updated')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
+  }
+
+  const openReset = (u: User) => {
+    setResetModal(u); setNewPassword(''); setIssued(null); setCopied(false); setShowNew(false)
+  }
+
+  const resetPassword = async () => {
+    if (!resetModal) return
+    if (newPassword && newPassword.length < 8) { toast.error('Password must be at least 8 characters'); return }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/admin/users/${resetModal.id}/password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // Blank field = "generate one for me"; the server returns what it set.
+        body: JSON.stringify(newPassword ? { password: newPassword } : {}),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      setIssued(data.password)
+      toast.success(`Password reset for ${resetModal.full_name}`)
+    } catch (e: any) { toast.error(e.message || 'Failed to reset password') }
+    finally { setLoading(false) }
+  }
+
+  const copyIssued = async () => {
+    if (!issued) return
+    try {
+      await navigator.clipboard.writeText(issued)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { toast.error('Could not copy — select the password and copy it manually') }
   }
 
   const toggleActive = async (u: User) => {
@@ -220,9 +306,13 @@ export default function UsersClient({ initialUsers, departments, roles }: {
         columns={USER_COLUMNS(
           u => {
             setEditModal(u)
-            setEditForm({ full_name: u.full_name, employee_code: u.employee_code || '', app_role: u.app_role, department_id: '', mobile: u.mobile || '' })
+            // Was hardcoded to '' — so every save silently cleared the user's
+            // department. Prefill from the row instead.
+            setEditForm({ full_name: u.full_name, employee_code: u.employee_code || '', app_role: u.app_role, department_id: u.department_id || '', mobile: u.mobile || '' })
           },
           toggleActive,
+          isSuperadmin ? openReset : null,
+          roles,
         )}
         getRowId={u => u.id}
         rowClassName={u => (!u.is_active ? 'opacity-50' : undefined)}
@@ -271,7 +361,7 @@ export default function UsersClient({ initialUsers, departments, roles }: {
             <div className="space-y-1.5">
               <label htmlFor="usersclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Role <span className="text-[var(--color-danger)]">*</span></label>
               <select id="usersclient-6" className={inputCls} value={newForm.app_role} onChange={e => setNewForm(p => ({ ...p, app_role: e.target.value }))}>
-                {APP_ROLES.map(r => <option key={r} value={r} className="capitalize">{ROLE_CFG[r]?.label || r}</option>)}
+                {optionsWith(newForm.app_role).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -316,7 +406,7 @@ export default function UsersClient({ initialUsers, departments, roles }: {
             <div className="space-y-1.5">
               <label htmlFor="usersclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Role</label>
               <select id="usersclient-11" className={inputCls} value={editForm.app_role} onChange={e => setEditForm(p => ({ ...p, app_role: e.target.value }))}>
-                {APP_ROLES.map(r => <option key={r} value={r}>{ROLE_CFG[r]?.label || r}</option>)}
+                {optionsWith(editForm.app_role).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -327,6 +417,75 @@ export default function UsersClient({ initialUsers, departments, roles }: {
               </select>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* Reset Password Modal — superadmin only */}
+      {resetModal && (
+        <Modal open={true} onClose={() => setResetModal(null)} title={`Reset Password — ${resetModal.full_name}`} size="md"
+          footer={
+            issued ? (
+              <button onClick={() => setResetModal(null)}
+                className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
+                Done
+              </button>
+            ) : (
+              <>
+                <button onClick={() => setResetModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+                <button onClick={resetPassword} disabled={loading}
+                  className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-md bg-[var(--color-warning)] text-[var(--color-on-warning)] text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
+                  <Key size={14} /> {loading ? 'Resetting…' : newPassword ? 'Set This Password' : 'Generate & Reset'}
+                </button>
+              </>
+            )
+          }>
+          {issued ? (
+            <div className="space-y-4">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Password for <span className="font-medium text-[var(--color-text-primary)]">{resetModal.email}</span> has been changed. Copy it now — it cannot be shown again.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-base font-mono tracking-wider text-[var(--color-text-primary)] break-all select-all">
+                  {issued}
+                </code>
+                <button onClick={copyIssued} aria-label="Copy password"
+                  className="w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors flex-shrink-0">
+                  {copied ? <Check size={16} className="text-[var(--color-success)]" /> : <Copy size={16} />}
+                </button>
+              </div>
+              <div className="rounded-lg border p-3 text-xs
+                bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]
+                border-[color:color-mix(in_srgb,var(--color-warning)_25%,transparent)]
+                text-[var(--color-text-secondary)]">
+                Hand this over on WhatsApp or in person, then ask them to change it themselves from
+                the account menu → Change Password.
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="usersclient-reset-pw" className="text-sm font-medium text-[var(--color-text-primary)]">New Password</label>
+                <div className="relative">
+                  <input id="usersclient-reset-pw" type={showNew ? 'text' : 'password'} className={cn(inputCls, 'pr-11')}
+                    value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Leave blank to generate a strong one" autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowNew(v => !v)} aria-label={showNew ? 'Hide password' : 'Show password'}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
+                    {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)]">Minimum 8 characters if you type your own.</p>
+              </div>
+              <div className="rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-3 text-xs text-[var(--color-text-muted)] space-y-1.5">
+                <p>
+                  The existing password cannot be displayed — logins are stored as a one-way hash,
+                  so nobody, including this system, can read it back. Setting a new one is the only
+                  way in.
+                </p>
+                <p>Any active session this user has will keep working until it expires.</p>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
     </div>

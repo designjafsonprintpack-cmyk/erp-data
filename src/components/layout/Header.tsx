@@ -2,13 +2,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Bell, LogOut, User, Settings, ChevronDown, Sun, Moon, ArrowLeft, Menu } from 'lucide-react'
+import { Bell, LogOut, KeyRound, Settings, ChevronDown, Sun, Moon, ArrowLeft, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { signOut } from '@/modules/auth/services/authService'
 import { toast } from '@/components/ui/Toast'
 import { THEME_KEY, DEFAULT_THEME } from '@/config/app'
 import type { Theme } from '@/types/shared'
 import { GlobalSearch } from '@/components/shared/GlobalSearch'
+import { ChangePasswordModal } from '@/components/shared/ChangePasswordModal'
 import { THEMES } from '@/types/shared'
 import { NAV_ITEMS, isNavLink } from './navConfig'
 
@@ -33,6 +34,7 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [pwModal, setPwModal] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<Theme>(DEFAULT_THEME)
   const [now, setNow] = useState(new Date())
@@ -210,8 +212,11 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
                   <p className="text-xs text-[var(--color-text-muted)] truncate">{user?.email}</p>
                   <p className="text-xs text-[var(--color-text-muted)] capitalize mt-0.5 lg:hidden">{user?.role ?? 'Staff'}</p>
                 </div>
-                <button className="w-full flex items-center gap-2 px-3 min-h-11 lg:min-h-0 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]">
-                  <User size={14} /> Profile
+                {/* Was a dead "Profile" button that did nothing — replaced with
+                    the one account action every user actually needs. */}
+                <button onClick={() => { setProfileOpen(false); setPwModal(true) }}
+                  className="w-full flex items-center gap-2 px-3 min-h-11 lg:min-h-0 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]">
+                  <KeyRound size={14} /> Change Password
                 </button>
                 <Link href="/dashboard/settings" onClick={() => setProfileOpen(false)} className="w-full flex items-center gap-2 px-3 min-h-11 lg:min-h-0 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]">
                   <Settings size={14} /> Settings
@@ -226,6 +231,8 @@ export function Header({ user, company, onMenuClick, menuOpen }: HeaderProps) {
           )}
         </div>
       </div>
+
+      <ChangePasswordModal open={pwModal} onClose={() => setPwModal(false)} />
     </header>
   )
 }

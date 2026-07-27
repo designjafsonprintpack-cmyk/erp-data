@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
+import { getAppRole } from '@/lib/utils/getAppRole'
 import UsersClient from './UsersClient'
 
 export default async function UsersPage() {
@@ -8,15 +9,23 @@ export default async function UsersPage() {
   if (!user) return null // dashboard/layout.tsx already redirects unauthenticated requests to /login
 
   const companyId = await getCompanyId(user, supabase)
+  // Resetting another user's password is superadmin-only (same bar as job
+  // edit/delete) — the API enforces it; this only decides whether the button
+  // is rendered at all.
+  const isSuperadmin = (await getAppRole(user, supabase)) === 'superadmin'
 
   const [usersRes, depsRes, rolesRes] = await Promise.all([
     supabase.from('users' as any)
-      .select('id,full_name,email,employee_code,app_role:role,is_active,mobile:phone,created_at,departments(name)', { count: 'exact' })
+      .select('id,full_name,email,employee_code,app_role:role,is_active,mobile:phone,created_at,department_id,departments(name)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).order('full_name'),
     supabase.from('departments' as any)
       .select('id,name').eq('company_id', companyId).eq('is_active', true).order('name'),
+    // `slug` is what users.role actually stores — the Role dropdown is built
+    // from these rows so a role added in Settings (GM, CEO, or anything added
+    // later) appears with no code change.
     supabase.from('roles' as any)
-      .select('id,name,description').eq('company_id', companyId).eq('is_active', true).order('name'),
+      .select('id,name,slug,description').eq('company_id', companyId)
+      .eq('is_active', true).is('deleted_at', null).order('name'),
   ])
 
   return (
@@ -29,6 +38,7 @@ export default async function UsersPage() {
         initialUsers={(usersRes.data ?? []) as any[]}
         departments={(depsRes.data ?? []) as any[]}
         roles={(rolesRes.data ?? []) as any[]}
+        isSuperadmin={isSuperadmin}
       />
     </div>
   )

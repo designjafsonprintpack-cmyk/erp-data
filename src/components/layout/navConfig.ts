@@ -108,6 +108,8 @@ export const NAV_ITEMS: NavItem[] = [
 export const MOBILE_TAB_PRIORITY: Record<string, string[]> = {
   superadmin: ['dashboard', 'jobs', 'qc', 'reports'],
   owner:      ['dashboard', 'jobs', 'qc', 'reports'],
+  ceo:        ['dashboard', 'reports', 'jobs', 'quotations'],
+  gm:         ['dashboard', 'jobs', 'dispatch', 'reports'],
   admin:      ['dashboard', 'jobs', 'dispatch', 'reports'],
 
   sales:      ['dashboard', 'quotations', 'customers', 'sales_orders'],
@@ -210,6 +212,9 @@ export const HOME_ACTION_POOL: HomeAction[] = [
 export const MOBILE_HOME_PRIORITY: Record<string, string[]> = {
   superadmin: ['jobs', 'floor', 'qc', 'dispatch', 'reports', 'quotations'],
   owner:      ['jobs', 'floor', 'qc', 'dispatch', 'reports', 'quotations'],
+  // CEO watches the numbers first; GM runs the floor, so he leads with work.
+  ceo:        ['reports', 'jobs', 'quotations', 'floor', 'dispatch', 'customers'],
+  gm:         ['jobs', 'floor', 'dispatch', 'qc', 'reports', 'planning'],
   admin:      ['jobs', 'floor', 'dispatch', 'qc', 'reports', 'users'],
 
   sales:      ['quotations', 'sales_orders', 'customers', 'jobs', 'scan', 'dispatch'],

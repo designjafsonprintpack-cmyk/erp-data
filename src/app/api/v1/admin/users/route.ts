@@ -15,7 +15,7 @@ import { createUserSchema } from '@/lib/schemas/adminUser'
 // has_permission(), and RLS policies across the app — we alias them at the API
 // boundary so the frontend never has to change.
 const USER_SELECT =
-  'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at,departments(name),user_roles(roles(name))'
+  'id,full_name,email,employee_code,app_role:role,mobile:phone,is_active,created_at,department_id,departments(name),user_roles(roles(name))'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
