@@ -14,6 +14,9 @@ const iso = (d: Date) => {
   return new Date(d.getTime() - off).toISOString().slice(0, 10)
 }
 
+/** Earlier than any record this company has. Used by the "All time" preset. */
+export const ALL_TIME_FROM = '2000-01-01'
+
 /** Presets resolved fresh on click, so a tab left open overnight isn't stale. */
 export const RANGE_PRESETS: { key: string; label: string; resolve: () => [string, string] }[] = [
   { key: 'today', label: 'Today', resolve: () => { const t = new Date(); return [iso(t), iso(t)] } },
@@ -24,6 +27,10 @@ export const RANGE_PRESETS: { key: string; label: string; resolve: () => [string
   { key: 'quarter', label: 'This quarter', resolve: () => { const t = new Date(); return [iso(new Date(t.getFullYear(), Math.floor(t.getMonth() / 3) * 3, 1)), iso(t)] } },
   { key: 'year', label: 'This year', resolve: () => { const t = new Date(); return [iso(new Date(t.getFullYear(), 0, 1)), iso(t)] } },
   { key: 'lastyear', label: 'Last year', resolve: () => { const t = new Date(); return [iso(new Date(t.getFullYear() - 1, 0, 1)), iso(new Date(t.getFullYear() - 1, 11, 31))] } },
+  // Needed because the imported history is backdated to 2025-01-01: without an
+  // all-time option every range preset hides all 478 legacy jobs, and the
+  // Customers tab looked empty. 2000-01-01 predates the company's records.
+  { key: 'all', label: 'All time', resolve: () => [ALL_TIME_FROM, iso(new Date())] },
 ]
 
 /**
