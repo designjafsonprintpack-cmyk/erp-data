@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Users, Plus, UserCheck, UserX, Edit2, Key, Copy, Check, Eye, EyeOff } from 'lucide-react'
+import { Users, Plus, UserCheck, UserX, Edit2, Key, Copy, Check, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
-import { Modal } from '@/components/ui/Modal'
+import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 
@@ -61,6 +61,7 @@ const USER_COLUMNS = (
   onEdit: (u: User) => void,
   onToggleActive: (u: User) => void,
   onResetPassword: ((u: User) => void) | null,
+  onDelete: ((u: User) => void) | null,
   roles: Role[],
 ): DataListColumn<User>[] => [
   {
@@ -122,13 +123,24 @@ const USER_COLUMNS = (
               : 'border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]')}>
           {u.is_active ? <UserX size={13} /> : <UserCheck size={13} />}
         </button>
+        {onDelete && (
+          <button onClick={() => onDelete(u)} aria-label={`Delete ${u.full_name}`} title="Delete user"
+            className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] transition-colors">
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
     ),
   },
 ]
 
-export default function UsersClient({ initialUsers, departments, roles, isSuperadmin = false }: {
-  initialUsers: User[]; departments: Department[]; roles: Role[]; isSuperadmin?: boolean
+export default function UsersClient({ initialUsers, departments, roles, isSuperadmin = false, canDelete = false, currentUserId = null }: {
+  initialUsers: User[]; departments: Department[]; roles: Role[]
+  isSuperadmin?: boolean
+  /** users → delete permission. The API re-checks; this only hides the button. */
+  canDelete?: boolean
+  /** public.users.id of the signed-in user, so they can't delete themselves. */
+  currentUserId?: string | null
 }) {
   // Role dropdown options come from the roles table; the hardcoded list is only
   // a safety net for an empty query.
@@ -167,6 +179,9 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
   const [issued, setIssued] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [showNew, setShowNew] = useState(false)
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
 
   const filtered = users.filter(u =>
     !search ||
@@ -253,6 +268,19 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
     } catch { toast.error('Could not copy — select the password and copy it manually') }
   }
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/admin/users/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      setUsers(prev => prev.filter(u => u.id !== deleteTarget.id))
+      toast.success(`${deleteTarget.full_name} deleted`)
+      setDeleteTarget(null)
+    } catch (e: any) { toast.error(e.message || 'Failed to delete user') }
+    finally { setLoading(false) }
+  }
+
   const toggleActive = async (u: User) => {
     try {
       const res = await fetch(`/api/v1/admin/users/${u.id}`, {
@@ -312,6 +340,9 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
           },
           toggleActive,
           isSuperadmin ? openReset : null,
+          // Never offer "delete" on your own row — locking yourself out of the
+          // system you administer has no undo from inside the app.
+          canDelete ? (u: User) => { if (u.id === currentUserId) { toast.error('You cannot delete your own account'); return } setDeleteTarget(u) } : null,
           roles,
         )}
         getRowId={u => u.id}
@@ -488,6 +519,16 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
           )}
         </Modal>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Delete ${deleteTarget?.full_name} (${deleteTarget?.email})? They will lose access immediately and disappear from this list. Everything they created — jobs, quotations, approvals — stays intact and still shows their name. If you only want to stop them logging in for now, use Deactivate instead; that one can be undone from here.`}
+        confirmLabel="Delete User"
+        loading={loading}
+      />
     </div>
   )
 }

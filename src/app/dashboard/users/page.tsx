@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getAppRole } from '@/lib/utils/getAppRole'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { hasPermission } from '@/lib/utils/requirePermission'
 import UsersClient from './UsersClient'
 
 export default async function UsersPage() {
@@ -13,6 +15,12 @@ export default async function UsersPage() {
   // edit/delete) — the API enforces it; this only decides whether the button
   // is rendered at all.
   const isSuperadmin = (await getAppRole(user, supabase)) === 'superadmin'
+
+  // Delete goes through the normal permission matrix (users → delete), so the
+  // owner and anyone Mehboob grants it to can delete; GM deliberately cannot,
+  // per migration 095. The API re-checks — this only hides the button.
+  const currentUserId = await getUserTableId(user, supabase)
+  const canDelete = await hasPermission(currentUserId, 'users', 'delete', supabase)
 
   const [usersRes, depsRes, rolesRes] = await Promise.all([
     supabase.from('users' as any)
@@ -39,6 +47,8 @@ export default async function UsersPage() {
         departments={(depsRes.data ?? []) as any[]}
         roles={(rolesRes.data ?? []) as any[]}
         isSuperadmin={isSuperadmin}
+        canDelete={canDelete}
+        currentUserId={currentUserId}
       />
     </div>
   )

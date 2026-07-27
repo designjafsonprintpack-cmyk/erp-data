@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
@@ -52,10 +53,39 @@ export const DELETE = withErrorHandling(async function DELETE(_: NextRequest, { 
   const denied = await requirePermission(userTableId, 'users', 'delete', supabase)
   if (denied) return denied
 
-  // Soft-delete only — never hard delete users
+  // There is no way back in from inside the app once you've deleted the account
+  // you're signed in with, so this is refused server-side and not just hidden
+  // in the UI.
+  if (userTableId && params.id === userTableId) {
+    return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 400 })
+  }
+
+  const { data: target } = await supabase.from('users' as any)
+    .select('id, auth_user_id').eq('id', params.id).is('deleted_at', null).maybeSingle()
+  const authUserId = (target as any)?.auth_user_id as string | null
+
+  // Soft-delete only — never hard delete users. auth_user_id is cleared in the
+  // SAME update, before the login account is removed below: users.auth_user_id
+  // is declared REFERENCES auth.users(id) ON DELETE CASCADE (migration 002), so
+  // deleting the auth account while it is still linked would CASCADE and hard
+  // delete this row — taking the audit trail and every user_roles row with it.
   const { error } = await supabase.from('users' as any)
-    .update({ is_active: false, deleted_at: new Date().toISOString() })
+    .update({ is_active: false, deleted_at: new Date().toISOString(), auth_user_id: null })
     .eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Remove the Supabase Auth account itself. Without this the address stays
+  // registered forever and re-creating the same person later fails with
+  // "email already registered" — a delete you can't undo AND can't redo.
+  // Best-effort: the row is already soft-deleted and the login route filters on
+  // deleted_at, so a failure here cannot leave the account usable.
+  if (authUserId) {
+    try {
+      await createSupabaseAdminClient().auth.admin.deleteUser(authUserId)
+    } catch {
+      // swallowed deliberately — see above
+    }
+  }
+
   return NextResponse.json({ success: true })
 })
