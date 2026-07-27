@@ -37,6 +37,8 @@ export default async function ReportsPage({ searchParams }: {
   const [
     kpiRes, monthlyRes, customerRes, financialRes, machineRes,
     qcRes, overdueRes, costingRes, wastageRes, turnaroundRes, statusRes,
+    downtimeRes, boardRes, gsmVarianceRes, reprintRes,
+    funnelRes, profitRes,
   ] = await Promise.all([
     // The *_range functions exist because these three sources could not be
     // date-filtered at all before migration 098 — see its header.
@@ -67,6 +69,15 @@ export default async function ReportsPage({ searchParams }: {
       .order('order_date', { ascending: false }).limit(300),
     supabase.from('jobs' as any).select('status').eq('company_id', companyId)
       .is('deleted_at', null).gte('created_at', from).lt('created_at', toNext),
+    // Migration 099 — four things whose data has always been captured and was
+    // never reportable. See its header.
+    (supabase as any).rpc('get_downtime_breakdown', { p_company_id: companyId, p_from: from, p_to: to }),
+    (supabase as any).rpc('get_board_consumption',  { p_company_id: companyId, p_from: from, p_to: to }),
+    (supabase as any).rpc('get_gsm_variance',       { p_company_id: companyId, p_from: from, p_to: to }),
+    (supabase as any).rpc('get_reprint_cost',       { p_company_id: companyId, p_from: from, p_to: to }),
+    // Migration 100 — win rate and margin-per-customer.
+    (supabase as any).rpc('get_quotation_funnel',       { p_company_id: companyId, p_from: from, p_to: to }),
+    (supabase as any).rpc('get_customer_profitability', { p_company_id: companyId, p_from: from, p_to: to }),
   ])
 
   const statusCounts = ((statusRes.data ?? []) as any[]).reduce((acc: Record<string, number>, j: any) => {
@@ -95,6 +106,12 @@ export default async function ReportsPage({ searchParams }: {
         wastage={(wastageRes.data ?? []) as any[]}
         turnaround={(turnaroundRes.data ?? []) as any[]}
         statusCounts={statusCounts}
+        downtime={(downtimeRes.data ?? []) as any[]}
+        board={(boardRes.data ?? []) as any[]}
+        gsmVariance={(gsmVarianceRes.data ?? []) as any[]}
+        reprints={(reprintRes.data ?? []) as any[]}
+        funnel={(funnelRes.data ?? []) as any[]}
+        profitability={(profitRes.data ?? []) as any[]}
         from={from}
         to={to}
       />

@@ -323,6 +323,12 @@ Test data purged and document counters reset to `0`, then real history loaded.
 - **098** — Reports date range (URL `?from=&to=`); the `*_range` functions exist
   because 4 report sources couldn't be date-filtered. Wastage/Turnaround tabs added.
 
+- **099** — downtime / board consumption / planned-vs-issued GSM / reprint cost, all
+  from data captured for years and never read. Materials tab; open downtime runs to now.
+
+- **100** — quotation win rate (latest revision only, decided-only denominator) and
+  customer margin from `job_costings`, both on the Customers tab.
+
 ### Open threads
 - **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`
   was never run, yet `src/app/api/v1/jobs/[id]/plates/generate-set/route.ts`

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Briefcase, DollarSign, Cpu, Shield, Users, BarChart3, Activity,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer
+  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer, Layers
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ScrollRow } from '@/components/ui/ScrollRow'
@@ -36,6 +36,12 @@ interface OverdueJob { id: string; job_number: string; job_title: string; requir
 interface CostingVarianceRow { costing_id: string; job_id: string; job_number: string; job_title: string; customer_name: string | null; order_date: string; quantity: number; quoted_amount: number | null; total_cost: number; margin_amount: number | null; margin_pct: number | null; variance_amount: number | null; variance_pct: number | null; budget_status: 'not_quoted' | 'over_budget' | 'under_budget' | 'on_budget'; costed_at: string | null }
 
 interface WastageRow { reason_category: string; reason_name: string; machine_name: string; wastage_events: number; total_quantity: number; jobs_affected: number }
+interface DowntimeRow { machine_name: string; category: string; events: number; total_minutes: number; avg_minutes: number; still_down: number }
+interface BoardRow { board_name: string; gsm: number | null; sheets_issued: number; jobs_count: number; issue_count: number; est_value: number }
+interface GsmVarianceRow { job_id: string; job_number: string; job_title: string; customer_name: string | null; order_date: string; planned_gsm: number; issued_gsm: number; sheets_issued: number; gsm_diff: number }
+interface ReprintRow { reprint_id: string; original_job_id: string; original_job_number: string; original_job_title: string; customer_name: string | null; reprint_job_number: string | null; reason: string | null; status: string; quantity: number; reprint_cost: number | null; requested_at: string }
+interface FunnelRow { customer_id: string; customer_name: string; customer_code: string; quotes_raised: number; quotes_value: number; won: number; won_value: number; lost: number; lost_value: number; open_quotes: number; open_value: number; win_rate_pct: number | null }
+interface ProfitRow { customer_id: string; customer_name: string; customer_code: string; costed_jobs: number; uncosted_jobs: number; total_quoted: number; total_cost: number; total_margin: number; margin_pct: number | null }
 interface TurnaroundRow {
   id: string; job_number: string; job_title: string; status: string; customer_name: string | null
   order_date: string; required_date: string | null; completed_date: string | null
@@ -105,15 +111,18 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
   )
 }
 
-type Tab = 'overview' | 'production' | 'turnaround' | 'wastage' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
+type Tab = 'overview' | 'production' | 'turnaround' | 'wastage' | 'materials' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
-export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, from, to }: {
+export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, downtime, board, gsmVariance, reprints, funnel, profitability, from, to }: {
   kpi: KPI | null; monthly: MonthlyRow[]; customers: CustomerRow[]
   financial: FinancialRow[]; machines: MachineRow[]; qc: QCRow[]; overdueJobs: OverdueJob[]
   costingVariance: CostingVarianceRow[]
   wastage: WastageRow[]; turnaround: TurnaroundRow[]
   statusCounts: Record<string, number>
+  downtime: DowntimeRow[]; board: BoardRow[]
+  gsmVariance: GsmVarianceRow[]; reprints: ReprintRow[]
+  funnel: FunnelRow[]; profitability: ProfitRow[]
   from: string; to: string
 }) {
   const [tab, setTab] = useState<Tab>('overview')
@@ -156,21 +165,26 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   // ways — "which reason is costing us most" and "which press is worst" — so
   // both are rolled up here rather than making anyone add it up by eye.
   const wastageTotal = wastage.reduce((s, w) => s + Number(w.total_quantity || 0), 0)
-  const rollup = (rows: WastageRow[], key: (w: WastageRow) => string) => {
+  // Generic so the downtime tab can reuse it — the shape is the same question
+  // asked of a different number ("group these rows and total them").
+  // The trailing comma in <T,> is required in a .tsx file, or it parses as JSX.
+  const rollup = <T,>(rows: T[], key: (r: T) => string, qty: (r: T) => number, events: (r: T) => number) => {
     const map = new Map<string, { label: string; qty: number; events: number }>()
-    for (const w of rows) {
-      const label = key(w)
+    for (const r of rows) {
+      const label = key(r)
       const cur = map.get(label) ?? { label, qty: 0, events: 0 }
-      cur.qty += Number(w.total_quantity || 0)
-      cur.events += Number(w.wastage_events || 0)
+      cur.qty += Number(qty(r) || 0)
+      cur.events += Number(events(r) || 0)
       map.set(label, cur)
     }
     // Array.from, not [...map.values()] — the repo's tsconfig target predates
     // downlevelIteration, so spreading a Map iterator does not compile.
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
   }
-  const wastageByReason  = rollup(wastage, w => w.reason_name)
-  const wastageByMachine = rollup(wastage, w => w.machine_name)
+  const wq = (w: WastageRow) => Number(w.total_quantity)
+  const we = (w: WastageRow) => Number(w.wastage_events)
+  const wastageByReason  = rollup(wastage, w => w.reason_name, wq, we)
+  const wastageByMachine = rollup(wastage, w => w.machine_name, wq, we)
   const maxWastageReason  = Math.max(...wastageByReason.map(r => r.qty), 1)
   const maxWastageMachine = Math.max(...wastageByMachine.map(r => r.qty), 1)
 
@@ -189,6 +203,58 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
 
   const statusTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
 
+  // ─── Downtime ─────────────────────────────────────────────────────────────
+  // The split that matters: a breakdown is a maintenance problem, but
+  // material_shortage / no_operator mean the press was fine and we failed to
+  // feed it. Those are ours to fix and they get called out separately.
+  const NOT_MACHINE_FAULT = new Set(['material_shortage', 'no_operator'])
+  const downtimeMinutes = downtime.reduce((s, d) => s + Number(d.total_minutes || 0), 0)
+  const avoidableMinutes = downtime.filter(d => NOT_MACHINE_FAULT.has(d.category))
+    .reduce((s, d) => s + Number(d.total_minutes || 0), 0)
+  const stillDown = downtime.reduce((s, d) => s + Number(d.still_down || 0), 0)
+  const downtimeByCategory = rollup(
+    downtime, d => d.category, d => Number(d.total_minutes), d => Number(d.events),
+  )
+  const maxDowntimeCat = Math.max(...downtimeByCategory.map(d => d.qty), 1)
+  const hrs = (min: number) => `${Math.round((min / 60) * 10) / 10} h`
+
+  // ─── Materials ────────────────────────────────────────────────────────────
+  const boardSheets = board.reduce((s, b) => s + Number(b.sheets_issued || 0), 0)
+  const boardValue  = board.reduce((s, b) => s + Number(b.est_value || 0), 0)
+  const maxBoardSheets = Math.max(...board.map(b => Number(b.sheets_issued || 0)), 1)
+  // A negative diff means a LIGHTER board than planned actually ran.
+  const lighterCount = gsmVariance.filter(g => Number(g.gsm_diff) < 0).length
+
+  // ─── Reprints ─────────────────────────────────────────────────────────────
+  const reprintCost = reprints.reduce((s, r) => s + Number(r.reprint_cost || 0), 0)
+  const reprintQty  = reprints.reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const uncosted    = reprints.filter(r => r.reprint_cost == null).length
+
+  // ─── Quotation funnel ─────────────────────────────────────────────────────
+  const fSum = (k: keyof FunnelRow) => funnel.reduce((s, f) => s + Number(f[k] || 0), 0)
+  const quotesRaised = fSum('quotes_raised')
+  const quotesWon    = fSum('won')
+  const quotesLost   = fSum('lost')
+  const quotesOpen   = fSum('open_quotes')
+  // Open quotes are excluded from the denominator — nothing has been lost yet.
+  const decided      = quotesWon + quotesLost
+  const winRate      = decided ? Math.round((quotesWon / decided) * 1000) / 10 : null
+  const wonValue     = fSum('won_value')
+  const openValue    = fSum('open_value')
+
+  // ─── Customer profitability ───────────────────────────────────────────────
+  const pSum = (k: keyof ProfitRow) => profitability.reduce((s, p) => s + Number(p[k] || 0), 0)
+  const totalMargin   = pSum('total_margin')
+  const totalCost     = pSum('total_cost')
+  const totalQuotedP  = pSum('total_quoted')
+  const uncostedJobs  = pSum('uncosted_jobs')
+  const overallMarginPct = totalQuotedP ? Math.round((totalMargin / totalQuotedP) * 1000) / 10 : null
+  const lossMakers = profitability.filter(p => p.costed_jobs > 0 && Number(p.total_margin) < 0)
+  // "Biggest by revenue" and "biggest by margin" being different customers is
+  // the entire reason this report exists — so both are named.
+  const topByRevenue = profitability.slice().sort((a, b) => Number(b.total_quoted) - Number(a.total_quoted))[0]
+  const topByMargin  = profitability.find(p => p.costed_jobs > 0)   // already ordered by margin DESC
+
   // Returns an export function for the given tab, or null if that tab has
   // nothing meaningful to export (overview is a KPI dashboard, not a table).
   const exportForTab = (t: Tab): (() => void) | null => {
@@ -198,9 +264,22 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           monthly.map(m => ({ Month: m.month_label, 'Jobs Created': m.jobs_created, 'Jobs Completed': m.jobs_completed, 'Jobs Dispatched': m.jobs_dispatched, 'Jobs Cancelled': m.jobs_cancelled, 'On Hold': m.jobs_on_hold, 'Total Quantity': m.total_quantity, 'Quoted Value (PKR)': m.total_quoted_value, 'Avg Turnaround (days)': m.avg_turnaround_days, 'On-Time %': m.on_time_pct })),
           'production-report', 'Monthly Production')
       case 'customers':
+        // One sheet, so revenue and margin are merged per customer rather than
+        // exported as two files that have to be matched up by hand.
         return () => exportToExcel(
-          customers.map(c => ({ Customer: c.customer_name, Code: c.customer_code, 'Total Jobs': c.total_jobs, 'Completed Jobs': c.completed_jobs, 'Invoiced (PKR)': c.total_invoiced, 'Paid (PKR)': c.total_paid, 'Outstanding (PKR)': c.total_outstanding })),
-          'customer-report', 'Customer Sales')
+          customers.map(c => {
+            const p = profitability.find(x => x.customer_id === c.customer_id)
+            const f = funnel.find(x => x.customer_id === c.customer_id)
+            return {
+              Customer: c.customer_name, Code: c.customer_code,
+              'Total Jobs': c.total_jobs, 'Completed Jobs': c.completed_jobs,
+              'Invoiced (PKR)': c.total_invoiced, 'Paid (PKR)': c.total_paid, 'Outstanding (PKR)': c.total_outstanding,
+              'Costed Jobs': p?.costed_jobs ?? 0, 'Uncosted Jobs': p?.uncosted_jobs ?? 0,
+              'Cost (PKR)': p?.total_cost ?? 0, 'Margin (PKR)': p?.total_margin ?? 0, 'Margin %': p?.margin_pct ?? '',
+              'Quotes Raised': f?.quotes_raised ?? 0, 'Quotes Won': f?.won ?? 0, 'Win %': f?.win_rate_pct ?? '',
+            }
+          }),
+          `customer-report-${from}-to-${to}`, 'Customer Sales')
       case 'financial':
         return () => exportToExcel(
           financial.map(f => ({ Month: f.month_label, Invoices: f.invoice_count, 'Invoiced (PKR)': f.total_invoiced, 'Collected (PKR)': f.total_collected, 'Outstanding (PKR)': f.total_outstanding, 'Overdue Count': f.overdue_count, 'Overdue Amount (PKR)': f.overdue_amount })),
@@ -217,6 +296,10 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         return () => exportToExcel(
           wastage.map(w => ({ Category: w.reason_category, Reason: w.reason_name, Machine: w.machine_name, Events: w.wastage_events, 'Total Quantity': w.total_quantity, 'Jobs Affected': w.jobs_affected })),
           `wastage-report-${from}-to-${to}`, 'Wastage')
+      case 'materials':
+        return () => exportToExcel(
+          board.map(b => ({ Board: b.board_name, GSM: b.gsm ?? '—', 'Sheets Issued': b.sheets_issued, Jobs: b.jobs_count, Issues: b.issue_count, 'Est. Value (PKR)': b.est_value })),
+          `board-consumption-${from}-to-${to}`, 'Board Consumption')
       case 'turnaround':
         return () => exportToExcel(
           turnaround.map(t => ({ 'Job #': t.job_number, Title: t.job_title, Customer: t.customer_name ?? '—', Status: t.status, 'Order Date': t.order_date, 'Required Date': t.required_date ?? '—', 'Completed Date': t.completed_date ?? '—', 'Turnaround (days)': t.turnaround_days, 'Days Early/Late': t.days_variance, 'On Time': t.delivered_on_time === null ? '—' : t.delivered_on_time ? 'Yes' : 'No', 'QC Result': t.qc_result ?? '—' })),
@@ -236,6 +319,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             ['production', 'Production',  Cpu],
             ['turnaround', 'Turnaround',  Timer],
             ['wastage',    'Wastage',     Trash2],
+            ['materials',  'Materials',   Package],
             ['customers',  'Customers',   Users],
             ['financial',  'Financial',   DollarSign],
             ['quality',    'Quality',     Shield],
@@ -507,6 +591,107 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         </div>
       )}
 
+      {/* ── MATERIALS TAB ────────────────────────────────────────────────────── */}
+      {tab === 'materials' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <StatCard label="Sheets Issued" value={Math.round(boardSheets).toLocaleString('en-PK')}
+              sub="From store to jobs" icon={Package} color="var(--color-accent)" />
+            <StatCard label="Board Value" value={PKR(boardValue)}
+              sub="At stock unit cost" icon={DollarSign} color="var(--color-info)" />
+            <StatCard label="GSM Mismatches" value={gsmVariance.length}
+              sub={gsmVariance.length ? `${lighterCount} ran lighter than planned` : 'Plan matched every time'}
+              icon={AlertTriangle} color={gsmVariance.length ? 'var(--color-warning)' : 'var(--color-success)'} />
+            <StatCard label="Board Types Used" value={board.length}
+              sub="Type × GSM combinations" icon={Layers} color="var(--color-text-muted)" />
+          </div>
+
+          {board.length === 0 ? (
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-8 text-center">
+              <Package size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+              <p className="text-sm text-[var(--color-text-muted)]">No board issued in this range.</p>
+            </div>
+          ) : (
+            <Section title="Board Consumption — by type and weight" icon={Package}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <th className="pb-2 font-medium">Board</th>
+                      <th className="pb-2 font-medium text-right">GSM</th>
+                      <th className="pb-2 font-medium">Share</th>
+                      <th className="pb-2 font-medium text-right">Sheets</th>
+                      <th className="pb-2 font-medium text-right">Jobs</th>
+                      <th className="pb-2 font-medium text-right">Est. Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {board.map((b, i) => (
+                      <tr key={`${b.board_name}-${b.gsm}-${i}`} className="border-b border-[var(--color-border)] last:border-0">
+                        <td className="py-2 text-[var(--color-text-primary)]">{b.board_name}</td>
+                        <td className="py-2 text-right font-mono text-xs text-[var(--color-text-secondary)]">{b.gsm ?? '—'}</td>
+                        <td className="py-2 pr-4 w-[22%]"><MiniBar value={Number(b.sheets_issued)} max={maxBoardSheets} /></td>
+                        <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">{Math.round(Number(b.sheets_issued)).toLocaleString('en-PK')}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{b.jobs_count}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{PKR(Number(b.est_value))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
+
+          <Section title={`Planned vs Issued GSM (${gsmVariance.length})`} icon={AlertTriangle}>
+            {gsmVariance.length === 0 ? (
+              <div className="flex flex-col items-center py-4">
+                <CheckCircle2 size={24} className="text-[var(--color-success)] mb-1" />
+                <p className="text-sm text-[var(--color-text-muted)]">Every job ran on the weight it was planned for.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-[var(--color-text-muted)] mb-3 leading-relaxed">
+                  The customer approved one weight and a different one ran. Not necessarily wrong —
+                  purchasing may have substituted deliberately — but each row is a quoted cost that
+                  no longer matches what was used.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[640px]">
+                    <thead>
+                      <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                        <th className="pb-2 font-medium">Job</th>
+                        <th className="pb-2 font-medium">Customer</th>
+                        <th className="pb-2 font-medium text-right">Planned</th>
+                        <th className="pb-2 font-medium text-right">Issued</th>
+                        <th className="pb-2 font-medium text-right">Diff</th>
+                        <th className="pb-2 font-medium text-right">Sheets</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gsmVariance.slice(0, 50).map(g => (
+                        <tr key={`${g.job_id}-${g.issued_gsm}`} className="border-b border-[var(--color-border)] last:border-0">
+                          <td className="py-2">
+                            <Link href={`/dashboard/jobs/${g.job_id}`} className="font-mono text-xs text-[var(--color-accent)] hover:underline">{g.job_number}</Link>
+                            <span className="block text-xs text-[var(--color-text-muted)] truncate max-w-[200px]">{g.job_title}</span>
+                          </td>
+                          <td className="py-2 text-[var(--color-text-secondary)]">{g.customer_name ?? '—'}</td>
+                          <td className="py-2 text-right font-mono text-xs text-[var(--color-text-secondary)]">{g.planned_gsm}</td>
+                          <td className="py-2 text-right font-mono text-xs text-[var(--color-text-primary)] font-semibold">{g.issued_gsm}</td>
+                          <td className={cn('py-2 text-right font-semibold', Number(g.gsm_diff) < 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-info)]')}>
+                            {Number(g.gsm_diff) > 0 ? '+' : ''}{g.gsm_diff}
+                          </td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">{Math.round(Number(g.sheets_issued)).toLocaleString('en-PK')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </Section>
+        </div>
+      )}
+
       {/* ── PRODUCTION TAB ───────────────────────────────────────────────────── */}
       {tab === 'production' && (
         <div className="space-y-4">
@@ -606,11 +791,86 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
               </div>
             )}
           </Section>
+
+          {/* Machine downtime — machine_downtime_log has existed since 050 and
+              nothing has ever read it. */}
+          <Section title="Machine Downtime" icon={AlertTriangle}>
+            {downtime.length === 0 ? (
+              <div className="flex flex-col items-center py-4">
+                <CheckCircle2 size={24} className="text-[var(--color-success)] mb-1" />
+                <p className="text-sm text-[var(--color-text-muted)]">No downtime recorded in this range.</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)]">Total downtime</p>
+                    <p className="text-xl font-bold text-[var(--color-text-primary)]">{hrs(downtimeMinutes)}</p>
+                  </div>
+                  <div className="rounded-lg border p-3
+                    bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]
+                    border-[color:color-mix(in_srgb,var(--color-warning)_25%,transparent)]">
+                    <p className="text-xs text-[var(--color-text-muted)]">Not a machine fault</p>
+                    <p className="text-xl font-bold text-[var(--color-warning)]">{hrs(avoidableMinutes)}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Material shortage or no operator</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)]">Still down now</p>
+                    <p className={cn('text-xl font-bold', stillDown > 0 ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]')}>{stillDown}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {downtimeByCategory.map(d => (
+                    <div key={d.label}>
+                      <div className="flex items-baseline justify-between gap-3 mb-1">
+                        <span className="text-sm text-[var(--color-text-primary)] capitalize">{d.label.replace(/_/g, ' ')}</span>
+                        <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                          {hrs(d.qty)}
+                          <span className="text-xs text-[var(--color-text-muted)] font-normal ml-1.5">{d.events}×</span>
+                        </span>
+                      </div>
+                      <MiniBar value={d.qty} max={maxDowntimeCat}
+                        color={NOT_MACHINE_FAULT.has(d.label) ? 'var(--color-warning)' : 'var(--color-danger)'} />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[560px]">
+                    <thead>
+                      <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                        <th className="pb-2 font-medium">Machine</th>
+                        <th className="pb-2 font-medium">Category</th>
+                        <th className="pb-2 font-medium text-right">Events</th>
+                        <th className="pb-2 font-medium text-right">Total</th>
+                        <th className="pb-2 font-medium text-right">Avg</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {downtime.map((d, i) => (
+                        <tr key={`${d.machine_name}-${d.category}-${i}`} className="border-b border-[var(--color-border)] last:border-0">
+                          <td className="py-2 text-[var(--color-text-primary)]">{d.machine_name}</td>
+                          <td className="py-2 text-[var(--color-text-secondary)] capitalize">{d.category?.replace(/_/g, ' ')}</td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">
+                            {d.events}{Number(d.still_down) > 0 && <span className="text-[var(--color-danger)] ml-1">({d.still_down} open)</span>}
+                          </td>
+                          <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">{hrs(Number(d.total_minutes))}</td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">{hrs(Number(d.avg_minutes))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </Section>
         </div>
       )}
 
       {/* ── CUSTOMERS TAB ────────────────────────────────────────────────────── */}
       {tab === 'customers' && (
+        <div className="space-y-4">
         <Section title="Customer Sales Report" icon={Users}>
           {customers.length === 0 ? (
             <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No customer data</p>
@@ -653,6 +913,139 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             </div>
           )}
         </Section>
+
+        {/* Profitability — the point being that this ranking and the revenue
+            ranking above are usually NOT the same order. */}
+        <Section title="Customer Profitability" icon={TrendingUp}>
+          {profitability.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No jobs in this range</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Total margin</p>
+                  <p className={cn('text-xl font-bold', totalMargin >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>{PKR(totalMargin)}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                    {overallMarginPct != null ? `${overallMarginPct}% of quoted` : 'Nothing costed yet'} · cost {PKR(totalCost)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Biggest by revenue vs by margin</p>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">{topByRevenue?.customer_name ?? '—'}</p>
+                  <p className="text-sm font-semibold text-[var(--color-success)] truncate">{topByMargin?.customer_name ?? '—'}</p>
+                </div>
+                <div className={cn('rounded-lg border p-3',
+                  uncostedJobs > 0
+                    ? 'bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_25%,transparent)]'
+                    : 'bg-[var(--color-bg-elevated)] border-[var(--color-border)]')}>
+                  <p className="text-xs text-[var(--color-text-muted)]">Jobs not costed</p>
+                  <p className={cn('text-xl font-bold', uncostedJobs > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-primary)]')}>{uncostedJobs}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Margin above excludes these</p>
+                </div>
+              </div>
+
+              {lossMakers.length > 0 && (
+                <div className="rounded-lg border p-3 text-sm
+                  bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]
+                  border-[color:color-mix(in_srgb,var(--color-danger)_25%,transparent)]">
+                  <span className="font-semibold text-[var(--color-danger)]">{lossMakers.length} customer{lossMakers.length > 1 ? 's' : ''} at a loss:</span>
+                  <span className="text-[var(--color-text-secondary)]"> {lossMakers.map(l => l.customer_name).join(', ')}</span>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border)]">
+                      {['Customer','Costed Jobs','Quoted','Cost','Margin','Margin %'].map(h => (
+                        <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                    {profitability.map((p, i) => (
+                      <tr key={p.customer_id} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
+                        <td className="py-2.5 px-3 font-medium text-[var(--color-text-primary)]">
+                          {p.customer_name}
+                          {p.uncosted_jobs > 0 && <span className="text-xs text-[var(--color-text-muted)] ml-2">({p.uncosted_jobs} uncosted)</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{p.costed_jobs}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{PKR(Number(p.total_quoted))}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{PKR(Number(p.total_cost))}</td>
+                        <td className={cn('py-2.5 px-3 font-semibold', Number(p.total_margin) >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]')}>
+                          {PKR(Number(p.total_margin))}
+                        </td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{PCT(p.margin_pct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Section>
+
+        {/* Quotation win rate — quotations.status has been recorded since 013
+            and never counted. */}
+        <Section title="Quotation Win Rate" icon={Briefcase}>
+          {funnel.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No quotations raised in this range</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Win rate</p>
+                  <p className="text-xl font-bold text-[var(--color-text-primary)]">{winRate != null ? `${winRate}%` : '—'}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{quotesWon} of {decided} decided</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Quotes raised</p>
+                  <p className="text-xl font-bold text-[var(--color-text-primary)]">{quotesRaised}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Latest revision only</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Won value</p>
+                  <p className="text-xl font-bold text-[var(--color-success)]">{PKR(wonValue)}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                  <p className="text-xs text-[var(--color-text-muted)]">Still open</p>
+                  <p className="text-xl font-bold text-[var(--color-warning)]">{quotesOpen}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{PKR(openValue)} in play</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border)]">
+                      {['Customer','Quotes','Won','Lost','Open','Won Value','Win %'].map(h => (
+                        <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                    {funnel.map((f, i) => (
+                      <tr key={f.customer_id} className={cn('hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_30%,transparent)]', i % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
+                        <td className="py-2.5 px-3 font-medium text-[var(--color-text-primary)]">{f.customer_name}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-secondary)]">{f.quotes_raised}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-success)]">{f.won}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-danger)]">{f.lost}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-warning)]">{f.open_quotes}</td>
+                        <td className="py-2.5 px-3 text-[var(--color-text-primary)]">{PKR(Number(f.won_value))}</td>
+                        <td className="py-2.5 px-3">
+                          <span className={cn('font-semibold', f.win_rate_pct != null && f.win_rate_pct >= 50 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>
+                            {PCT(f.win_rate_pct)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Section>
+        </div>
       )}
 
       {/* ── FINANCIAL TAB ────────────────────────────────────────────────────── */}
@@ -798,6 +1191,72 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </Section>
+
+          {/* What reprints cost. QC has always counted them; nothing ever put a
+              number on them. */}
+          <Section title={`Reprint Cost (${reprints.length})`} icon={RefreshCw}>
+            {reprints.length === 0 ? (
+              <div className="flex flex-col items-center py-4">
+                <CheckCircle2 size={24} className="text-[var(--color-success)] mb-1" />
+                <p className="text-sm text-[var(--color-text-muted)]">No reprints in this range.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-lg border p-3
+                    bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)]
+                    border-[color:color-mix(in_srgb,var(--color-danger)_25%,transparent)]">
+                    <p className="text-xs text-[var(--color-text-muted)]">Cost of reprints</p>
+                    <p className="text-xl font-bold text-[var(--color-danger)]">{PKR(reprintCost)}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Work done twice, billed once</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)]">Units reprinted</p>
+                    <p className="text-xl font-bold text-[var(--color-text-primary)]">{Math.round(reprintQty).toLocaleString('en-PK')}</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
+                    <p className="text-xs text-[var(--color-text-muted)]">Not costed yet</p>
+                    <p className="text-xl font-bold text-[var(--color-text-primary)]">{uncosted}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Real cost is higher than shown</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[720px]">
+                    <thead>
+                      <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                        <th className="pb-2 font-medium">Original Job</th>
+                        <th className="pb-2 font-medium">Customer</th>
+                        <th className="pb-2 font-medium">Reason</th>
+                        <th className="pb-2 font-medium">Reprint Job</th>
+                        <th className="pb-2 font-medium">Status</th>
+                        <th className="pb-2 font-medium text-right">Qty</th>
+                        <th className="pb-2 font-medium text-right">Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reprints.map(r => (
+                        <tr key={r.reprint_id} className="border-b border-[var(--color-border)] last:border-0">
+                          <td className="py-2">
+                            <Link href={`/dashboard/jobs/${r.original_job_id}`} className="font-mono text-xs text-[var(--color-accent)] hover:underline">{r.original_job_number}</Link>
+                            <span className="block text-xs text-[var(--color-text-muted)] truncate max-w-[180px]">{r.original_job_title}</span>
+                          </td>
+                          <td className="py-2 text-[var(--color-text-secondary)]">{r.customer_name ?? '—'}</td>
+                          <td className="py-2 text-[var(--color-text-secondary)] max-w-[200px] truncate" title={r.reason ?? ''}>{r.reason ?? '—'}</td>
+                          <td className="py-2 font-mono text-xs text-[var(--color-text-secondary)]">{r.reprint_job_number ?? 'Not raised'}</td>
+                          <td className="py-2 text-[var(--color-text-secondary)] capitalize">{r.status?.replace(/_/g, ' ')}</td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">{Math.round(Number(r.quantity)).toLocaleString('en-PK')}</td>
+                          <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">
+                            {r.reprint_cost != null ? PKR(Number(r.reprint_cost)) : <span className="text-[var(--color-text-muted)] font-normal">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </Section>
