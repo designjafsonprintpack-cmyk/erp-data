@@ -77,12 +77,8 @@ order.** Code deployed before its migration means a 500 on save.
   file-by-file; removing it properly is a dedicated typed-client refactor.
 - Every component: named export **and** default export. `'use client'` on
   interactive ones.
-- Print pages live in `src/app/print/` — server-rendered plain HTML/CSS, no
-  Tailwind, and **hardcoded hex, never CSS variables** (all 6 pages, 260
-  values, zero `var(--color-*)`). Output goes on paper: a theme variable would
-  make the same job card print differently depending on which of the eight
-  themes the shop happens to be running, and a dark theme would print a black
-  sheet. Match the file you're editing. See also the hex note in §5.
+- Print pages live in `src/app/print/` — plain HTML/CSS, no Tailwind, and
+  **hardcoded hex, never CSS variables** (paper output must not follow the theme).
 - Customer-facing links (quotation approval, customer portal, artwork approval)
   use the token-link pattern: crypto-random token + expiry column on the row,
   service-role client, validated server-side. No separate auth.
@@ -90,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **094**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **097**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -175,12 +171,10 @@ deliberately left empty. Never read from it.
   what mainstream products ship. Closing it properly means separate darker
   *fill* tokens (Primer's `bgColor-accent-emphasis` pattern), not a label swap.
   Don't "fix" it by flipping those labels to ink.
-- **Hardcoded hex is deliberate on the four customer-facing pages only** —
-  `artwork/approve/[token]/*`, `portal/[token]/*`, `approve/[token]/*` (242
-  values). A customer opening a token link must not inherit whichever internal
-  theme the shop happens to be running, so those pages carry their own fixed
-  palette and `text-white` on their own fills is correct there. Everywhere else
-  the rule stands: CSS variables only.
+- **Hardcoded hex is deliberate in two places only** — the token pages
+  (`artwork/approve`, `portal`, `approve`; `text-white` is correct there) and all
+  of `src/app/print/`. Both leave the building, so neither may follow the theme.
+  Everywhere else: CSS variables only.
 - **`cn()` is tailwind-merge.** Class order matters — a class passed in later
   silently cancels an earlier conflicting one. Caught only by render assertions.
 - **Empty string vs Postgres.** A blank form control sends `''`, and Postgres
@@ -312,6 +306,22 @@ Test data purged and document counters reset to `0`, then real history loaded.
   `restore.mjs` (dry-run by default, `--go` to write). Tested against the live
   DB. **Passwords can't be backed up** — a new project needs auth accounts
   recreated and `users.auth_user_id` re-pointed.
+
+### Roles, passwords & changed repeats (migrations 095 + 096 + 097)
+- **095** — added `gm` + `ceo` roles, and fixed `user_roles` never being written by
+  anything (so every role but superadmin/owner had silently had zero permissions).
+- **096** — seeded the `plates` permission module, which 005 had missed entirely,
+  plus default permissions for `admin` / `artwork` / `planning` (also unseeded).
+- **Passwords can't be shown, only reset** — bcrypt hash, one-way. Superadmin-only
+  reset route returns the new one once; anyone can change their own from the Header.
+- **Deleting a user also deletes the auth account** to free the email — `auth_user_id`
+  must be NULLed first or the `ON DELETE CASCADE` hard-deletes the `users` row.
+- **097** — "Repeat with Changes": `repeat_kind`/`changed_aspects`/`change_note` on
+  `jobs`, an editable prefilled copy (vs Repeat's locked one), shouted on the Job Card.
+  Artwork-skip and plate-reuse are **warnings only** — not yet enforced.
+
+- **098** — Reports date range (URL `?from=&to=`); the `*_range` functions exist
+  because 4 report sources couldn't be date-filtered. Wastage/Turnaround tabs added.
 
 ### Open threads
 - **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`

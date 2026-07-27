@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Briefcase, DollarSign, Cpu, Shield, Users, BarChart3, Activity,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders
+  ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ScrollRow } from '@/components/ui/ScrollRow'
@@ -14,10 +14,17 @@ import { Modal } from '@/components/ui/Modal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface KPI {
-  period_days: number
+  /** Present on the old get_dashboard_kpis; the ranged one sends from/to. */
+  period_days?: number
+  from?: string
+  to?: string
   jobs: { total: number; completed: number; in_progress: number; on_hold: number; overdue: number }
   revenue: { invoiced: number; collected: number; outstanding: number; overdue: number }
   production: { machines_running: number; dispatched_today: number; qc_pass_rate: number }
+  /** Both added by get_dashboard_kpis_range (migration 098) — optional so a
+   *  response from the older function still type-checks. */
+  wastage?: { total_quantity: number; events: number }
+  on_time?: { delivered: number; on_time: number }
   top_customers: { name: string; job_count: number; value: number }[] | null
 }
 interface MonthlyRow { month: string; month_label: string; jobs_created: number; jobs_completed: number; jobs_dispatched: number; jobs_cancelled: number; jobs_on_hold: number; total_quantity: number; total_quoted_value: number; avg_turnaround_days: number | null; on_time_pct: number | null }
@@ -27,6 +34,24 @@ interface MachineRow { machine_id: string; machine_name: string; machine_type: s
 interface QCRow { month: string; month_label: string; total_inspections: number; passed: number; failed: number; conditional: number; pass_rate_pct: number; total_defects: number; reprint_requests: number }
 interface OverdueJob { id: string; job_number: string; job_title: string; required_date: string; status: string; priority: string; customers?: { name: string } | null }
 interface CostingVarianceRow { costing_id: string; job_id: string; job_number: string; job_title: string; customer_name: string | null; order_date: string; quantity: number; quoted_amount: number | null; total_cost: number; margin_amount: number | null; margin_pct: number | null; variance_amount: number | null; variance_pct: number | null; budget_status: 'not_quoted' | 'over_budget' | 'under_budget' | 'on_budget'; costed_at: string | null }
+
+interface WastageRow { reason_category: string; reason_name: string; machine_name: string; wastage_events: number; total_quantity: number; jobs_affected: number }
+interface TurnaroundRow {
+  id: string; job_number: string; job_title: string; status: string; customer_name: string | null
+  order_date: string; required_date: string | null; completed_date: string | null
+  turnaround_days: number | null; days_variance: number | null; delivered_on_time: boolean | null
+  qc_result: string | null
+}
+
+/** Bar colours for the jobs-by-status breakdown, matching JOB_STATUS_CONFIG. */
+const STATUS_COLOR: Record<string, string> = {
+  new: 'var(--color-accent)',
+  in_progress: 'var(--color-warning)',
+  on_hold: 'var(--color-danger)',
+  completed: 'var(--color-success)',
+  dispatched: 'var(--color-info)',
+  cancelled: 'var(--color-text-muted)',
+}
 
 const PKR = (n: number) => `PKR ${Math.round(n).toLocaleString('en-PK')}`
 const PCT = (n: number | null) => n != null ? `${n}%` : '—'
@@ -80,13 +105,16 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
   )
 }
 
-type Tab = 'overview' | 'production' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
+type Tab = 'overview' | 'production' | 'turnaround' | 'wastage' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
-export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance }: {
+export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, from, to }: {
   kpi: KPI | null; monthly: MonthlyRow[]; customers: CustomerRow[]
   financial: FinancialRow[]; machines: MachineRow[]; qc: QCRow[]; overdueJobs: OverdueJob[]
   costingVariance: CostingVarianceRow[]
+  wastage: WastageRow[]; turnaround: TurnaroundRow[]
+  statusCounts: Record<string, number>
+  from: string; to: string
 }) {
   const [tab, setTab] = useState<Tab>('overview')
   const [drillDown, setDrillDown] = useState<{ title: string; kind: 'invoices' | 'defects'; rows: any[]; loading: boolean } | null>(null)
@@ -123,6 +151,44 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   const maxMachineAsgn  = Math.max(...machines.map(m => m.total_assignments), 1)
   const maxFinancial    = Math.max(...financial.map(f => f.total_invoiced), 1)
 
+  // ─── Wastage roll-ups ─────────────────────────────────────────────────────
+  // The function returns one row per reason × machine. The shop reads it two
+  // ways — "which reason is costing us most" and "which press is worst" — so
+  // both are rolled up here rather than making anyone add it up by eye.
+  const wastageTotal = wastage.reduce((s, w) => s + Number(w.total_quantity || 0), 0)
+  const rollup = (rows: WastageRow[], key: (w: WastageRow) => string) => {
+    const map = new Map<string, { label: string; qty: number; events: number }>()
+    for (const w of rows) {
+      const label = key(w)
+      const cur = map.get(label) ?? { label, qty: 0, events: 0 }
+      cur.qty += Number(w.total_quantity || 0)
+      cur.events += Number(w.wastage_events || 0)
+      map.set(label, cur)
+    }
+    // Array.from, not [...map.values()] — the repo's tsconfig target predates
+    // downlevelIteration, so spreading a Map iterator does not compile.
+    return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
+  }
+  const wastageByReason  = rollup(wastage, w => w.reason_name)
+  const wastageByMachine = rollup(wastage, w => w.machine_name)
+  const maxWastageReason  = Math.max(...wastageByReason.map(r => r.qty), 1)
+  const maxWastageMachine = Math.max(...wastageByMachine.map(r => r.qty), 1)
+
+  // ─── Turnaround / on-time ─────────────────────────────────────────────────
+  // Only jobs that actually finished AND had a promised date can be judged, so
+  // everything else is excluded rather than counted as on-time.
+  const judged     = turnaround.filter(t => t.delivered_on_time !== null)
+  const onTimeCount = judged.filter(t => t.delivered_on_time).length
+  const onTimePct  = judged.length ? Math.round((onTimeCount / judged.length) * 1000) / 10 : null
+  const completedT = turnaround.filter(t => t.turnaround_days != null)
+  const avgTurnaround = completedT.length
+    ? Math.round((completedT.reduce((s, t) => s + Number(t.turnaround_days), 0) / completedT.length) * 10) / 10
+    : null
+  const lateJobs = judged.filter(t => !t.delivered_on_time)
+    .sort((a, b) => Number(b.days_variance ?? 0) - Number(a.days_variance ?? 0))
+
+  const statusTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+
   // Returns an export function for the given tab, or null if that tab has
   // nothing meaningful to export (overview is a KPI dashboard, not a table).
   const exportForTab = (t: Tab): (() => void) | null => {
@@ -147,6 +213,14 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         return () => exportToExcel(
           costingVariance.map(c => ({ 'Job #': c.job_number, Title: c.job_title, Customer: c.customer_name ?? '—', 'Order Date': c.order_date, Quoted: c.quoted_amount, 'Actual Cost': c.total_cost, Margin: c.margin_amount, 'Margin %': c.margin_pct, 'Variance': c.variance_amount, 'Variance %': c.variance_pct, Status: c.budget_status })),
           'costing-variance-report', 'Costing Variance')
+      case 'wastage':
+        return () => exportToExcel(
+          wastage.map(w => ({ Category: w.reason_category, Reason: w.reason_name, Machine: w.machine_name, Events: w.wastage_events, 'Total Quantity': w.total_quantity, 'Jobs Affected': w.jobs_affected })),
+          `wastage-report-${from}-to-${to}`, 'Wastage')
+      case 'turnaround':
+        return () => exportToExcel(
+          turnaround.map(t => ({ 'Job #': t.job_number, Title: t.job_title, Customer: t.customer_name ?? '—', Status: t.status, 'Order Date': t.order_date, 'Required Date': t.required_date ?? '—', 'Completed Date': t.completed_date ?? '—', 'Turnaround (days)': t.turnaround_days, 'Days Early/Late': t.days_variance, 'On Time': t.delivered_on_time === null ? '—' : t.delivered_on_time ? 'Yes' : 'No', 'QC Result': t.qc_result ?? '—' })),
+          `turnaround-report-${from}-to-${to}`, 'Turnaround')
       default:
         return null
     }
@@ -160,6 +234,8 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           {([
             ['overview',   'Overview',    BarChart3],
             ['production', 'Production',  Cpu],
+            ['turnaround', 'Turnaround',  Timer],
+            ['wastage',    'Wastage',     Trash2],
             ['customers',  'Customers',   Users],
             ['financial',  'Financial',   DollarSign],
             ['quality',    'Quality',     Shield],
@@ -172,7 +248,11 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
               <Icon size={13} />{label}
             </button>
           ))}
-          <span className="hidden md:inline text-xs text-[var(--color-text-muted)] ml-2 flex-shrink-0">Last 30 days</span>
+          {/* Was a hardcoded "Last 30 days" — the range is now whatever the
+              picker above says, so it echoes that instead of lying. */}
+          <span className="hidden md:inline text-xs text-[var(--color-text-muted)] ml-2 flex-shrink-0 whitespace-nowrap">
+            {from === to ? from : `${from} → ${to}`}
+          </span>
         </ScrollRow>
         {exportForTab(tab) && (
           <button onClick={() => exportForTab(tab)!()}
@@ -248,6 +328,182 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
               )}
             </Section>
           </div>
+
+          {/* Jobs by status — the `jobs_status` report existed in the API since
+              the start but was never rendered anywhere. */}
+          {statusTotal > 0 && (
+            <Section title={`Jobs by Status (${statusTotal})`} icon={Briefcase}>
+              <div className="space-y-3">
+                {Object.entries(statusCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([status, count]) => {
+                    const cfg = STATUS_COLOR[status] ?? 'var(--color-text-muted)'
+                    return (
+                      <div key={status}>
+                        <div className="flex items-baseline justify-between gap-3 mb-1">
+                          <span className="text-sm text-[var(--color-text-primary)] capitalize">{status.replace(/_/g, ' ')}</span>
+                          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                            {count}
+                            <span className="text-xs text-[var(--color-text-muted)] font-normal ml-1.5">
+                              {Math.round((count / statusTotal) * 100)}%
+                            </span>
+                          </span>
+                        </div>
+                        <MiniBar value={count} max={statusTotal} color={cfg} />
+                      </div>
+                    )
+                  })}
+              </div>
+            </Section>
+          )}
+        </div>
+      )}
+
+      {/* ── TURNAROUND TAB ───────────────────────────────────────────────────── */}
+      {tab === 'turnaround' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <StatCard label="On-Time Delivery" value={onTimePct != null ? `${onTimePct}%` : '—'}
+              sub={judged.length ? `${onTimeCount} of ${judged.length} judged` : 'Nothing finished yet'}
+              icon={CheckCircle2} color="var(--color-success)" />
+            <StatCard label="Avg Turnaround" value={avgTurnaround != null ? `${avgTurnaround} days` : '—'}
+              sub="Order date to completion" icon={Timer} color="var(--color-accent)" />
+            <StatCard label="Delivered Late" value={lateJobs.length}
+              sub="Past the promised date" icon={AlertTriangle} color="var(--color-danger)" />
+            <StatCard label="Jobs in Range" value={turnaround.length}
+              sub="By order date" icon={Briefcase} color="var(--color-info)" />
+          </div>
+
+          {judged.length === 0 && (
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5 text-sm text-[var(--color-text-muted)]">
+              On-time % only counts jobs that have both a required date and a completed date.
+              Nothing in this range has both yet.
+            </div>
+          )}
+
+          {lateJobs.length > 0 && (
+            <Section title="Late Deliveries — worst first" icon={AlertTriangle}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <th className="pb-2 font-medium">Job</th>
+                      <th className="pb-2 font-medium">Customer</th>
+                      <th className="pb-2 font-medium text-right">Promised</th>
+                      <th className="pb-2 font-medium text-right">Delivered</th>
+                      <th className="pb-2 font-medium text-right">Days Late</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lateJobs.slice(0, 25).map(t => (
+                      <tr key={t.id} className="border-b border-[var(--color-border)] last:border-0">
+                        <td className="py-2">
+                          <Link href={`/dashboard/jobs/${t.id}`} className="font-mono text-xs text-[var(--color-accent)] hover:underline">{t.job_number}</Link>
+                          <span className="block text-xs text-[var(--color-text-muted)] truncate max-w-[220px]">{t.job_title}</span>
+                        </td>
+                        <td className="py-2 text-[var(--color-text-secondary)]">{t.customer_name ?? '—'}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{t.required_date ? formatDate(t.required_date) : '—'}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{t.completed_date ? formatDate(t.completed_date) : '—'}</td>
+                        <td className="py-2 text-right font-semibold text-[var(--color-danger)]">+{t.days_variance}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
+        </div>
+      )}
+
+      {/* ── WASTAGE TAB ──────────────────────────────────────────────────────── */}
+      {tab === 'wastage' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <StatCard label="Total Wastage" value={Math.round(wastageTotal).toLocaleString('en-PK')}
+              sub="Sheets / units recorded" icon={Trash2} color="var(--color-danger)" />
+            <StatCard label="Wastage Events" value={wastage.reduce((s, w) => s + Number(w.wastage_events || 0), 0)}
+              sub="Times it was recorded" icon={Activity} color="var(--color-warning)" />
+            <StatCard label="Reasons" value={wastageByReason.length}
+              sub="Distinct causes" icon={AlertTriangle} color="var(--color-info)" />
+            <StatCard label="Worst Reason" value={wastageByReason[0]?.label ?? '—'}
+              sub={wastageByReason[0] ? `${Math.round(wastageByReason[0].qty).toLocaleString('en-PK')} units` : 'Nothing recorded'}
+              icon={TrendingDown} color="var(--color-danger)" />
+          </div>
+
+          {wastage.length === 0 ? (
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-8 text-center">
+              <Trash2 size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+              <p className="text-sm text-[var(--color-text-muted)]">No wastage recorded in this range.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Section title="By Reason" icon={AlertTriangle}>
+                <div className="space-y-3">
+                  {wastageByReason.map(r => (
+                    <div key={r.label}>
+                      <div className="flex items-baseline justify-between gap-3 mb-1">
+                        <span className="text-sm text-[var(--color-text-primary)] truncate">{r.label}</span>
+                        <span className="text-sm font-semibold text-[var(--color-text-primary)] flex-shrink-0">
+                          {Math.round(r.qty).toLocaleString('en-PK')}
+                          <span className="text-xs text-[var(--color-text-muted)] font-normal ml-1.5">
+                            {wastageTotal > 0 ? `${Math.round((r.qty / wastageTotal) * 100)}%` : ''}
+                          </span>
+                        </span>
+                      </div>
+                      <MiniBar value={r.qty} max={maxWastageReason} color="var(--color-danger)" />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="By Machine" icon={Cpu}>
+                <div className="space-y-3">
+                  {wastageByMachine.map(r => (
+                    <div key={r.label}>
+                      <div className="flex items-baseline justify-between gap-3 mb-1">
+                        <span className="text-sm text-[var(--color-text-primary)] truncate">{r.label}</span>
+                        <span className="text-sm font-semibold text-[var(--color-text-primary)] flex-shrink-0">
+                          {Math.round(r.qty).toLocaleString('en-PK')}
+                        </span>
+                      </div>
+                      <MiniBar value={r.qty} max={maxWastageMachine} color="var(--color-warning)" />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            </div>
+          )}
+
+          {wastage.length > 0 && (
+            <Section title="Reason × Machine detail" icon={BarChart3}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <th className="pb-2 font-medium">Category</th>
+                      <th className="pb-2 font-medium">Reason</th>
+                      <th className="pb-2 font-medium">Machine</th>
+                      <th className="pb-2 font-medium text-right">Events</th>
+                      <th className="pb-2 font-medium text-right">Jobs</th>
+                      <th className="pb-2 font-medium text-right">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wastage.map((w, i) => (
+                      <tr key={`${w.reason_name}-${w.machine_name}-${i}`} className="border-b border-[var(--color-border)] last:border-0">
+                        <td className="py-2 text-[var(--color-text-muted)] capitalize">{w.reason_category?.replace(/_/g, ' ')}</td>
+                        <td className="py-2 text-[var(--color-text-primary)]">{w.reason_name}</td>
+                        <td className="py-2 text-[var(--color-text-secondary)]">{w.machine_name}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{w.wastage_events}</td>
+                        <td className="py-2 text-right text-[var(--color-text-secondary)]">{w.jobs_affected}</td>
+                        <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">{Math.round(Number(w.total_quantity)).toLocaleString('en-PK')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
         </div>
       )}
 
@@ -255,7 +511,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
       {tab === 'production' && (
         <div className="space-y-4">
           {/* Monthly production bar chart */}
-          <Section title="Monthly Job Volume (last 6 months)" icon={BarChart3}>
+          <Section title="Monthly Job Volume" icon={BarChart3}>
             {monthly.length === 0 ? (
               <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No data yet</p>
             ) : (
