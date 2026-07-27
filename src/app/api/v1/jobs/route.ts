@@ -79,6 +79,36 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     }
   }
 
+  // ─── "Repeat with Changes" linkage (migration 097) ─────────────────────────
+  // Ordinary create unless parent_job_id came in. The parent is verified
+  // against this company before anything is linked to it — the id arrives from
+  // a client dropdown, so it can't be trusted on its own.
+  let parentJob: any = null
+  let repeatSequence: number | null = null
+  if (body.parent_job_id) {
+    const { data: parent } = await supabase.from('jobs' as any)
+      .select('id, job_number, job_title')
+      .eq('id', body.parent_job_id).eq('company_id', companyId)
+      .is('deleted_at', null).maybeSingle()
+    if (!parent) {
+      return NextResponse.json({ error: 'The job you are repeating was not found.' }, { status: 404 })
+    }
+    parentJob = parent
+    // Same counting rule as the /repeat route: existing children + 2, so the
+    // original itself reads as #1.
+    const { count } = await supabase.from('jobs' as any)
+      .select('*', { count: 'exact', head: true }).eq('parent_job_id', parentJob.id)
+    repeatSequence = (count ?? 0) + 2
+  }
+
+  const isChanged = !!parentJob && body.repeat_kind === 'changed'
+  if (isChanged && !(body.changed_aspects ?? []).length) {
+    return NextResponse.json(
+      { error: 'Select at least one thing that changed on this repeat.' },
+      { status: 400 }
+    )
+  }
+
   // Generate job number
   const { data: jobNumber } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId,
@@ -120,6 +150,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     quoted_amount:        body.quoted_amount ? parseFloat(String(body.quoted_amount)) : null,
     internal_remarks:     body.internal_remarks || null,
     status:               'new',
+    parent_job_id:        parentJob?.id ?? null,
+    is_repeat:            !!parentJob,
+    repeat_sequence:      repeatSequence,
+    repeat_kind:          parentJob ? (body.repeat_kind || 'changed') : null,
+    changed_aspects:      isChanged ? body.changed_aspects : [],
+    change_note:          isChanged ? (body.change_note || null) : null,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -137,8 +173,24 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     job_id: jobData.id,
     event_type: 'created',
     new_value: jobData.job_number,
-    notes: `Job created: ${jobData.job_title}`,
+    notes: parentJob
+      ? `Repeat with changes, created from ${parentJob.job_number}`
+      : `Job created: ${jobData.job_title}`,
   }, supabase)
+
+  // The parent's own history has to show it too, otherwise the only way to
+  // learn that a changed repeat exists is to already know its number.
+  if (parentJob) {
+    await recordJobEvent({
+      company_id: companyId,
+      job_id: parentJob.id,
+      event_type: 'repeat_created',
+      new_value: jobData.job_number,
+      notes: body.change_note
+        ? `Changed repeat ${jobData.job_number} created — ${body.change_note}`
+        : `Changed repeat ${jobData.job_number} created`,
+    }, supabase)
+  }
 
   return NextResponse.json({ data: jobData })
 })

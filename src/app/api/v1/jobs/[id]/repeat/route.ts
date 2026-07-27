@@ -54,6 +54,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     parent_job_id:        params.id,
     is_repeat:            true,
     repeat_sequence:      (repeatCount ?? 0) + 2,
+    // This route is the EXACT repeat path — every spec is copied and only
+    // quantity/date can differ. A repeat whose printed content changed goes
+    // through POST /api/v1/jobs with parent_job_id instead (migration 097).
+    repeat_kind:          'exact',
     customer_id:          orig.customer_id,
     sales_order_id:       null, // Repeat jobs start fresh
     job_title:            `${orig.job_title} (Repeat ${(repeatCount ?? 0) + 2})`,

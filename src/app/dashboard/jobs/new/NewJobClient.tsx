@@ -2,10 +2,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Briefcase, History, X, RefreshCw, Search, Sparkles } from 'lucide-react'
+import { ArrowLeft, Save, History, X, RefreshCw, Search, Sparkles, FilePenLine, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
+import { CHANGE_ASPECTS } from '@/modules/jobs/constants/changeAspects'
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
 import { formatTimeAgo } from '@/lib/utils/format'
 
@@ -15,7 +16,7 @@ interface Props {
   salesOrders: any[]; repeatableJobs: any[]; stockGsm: any[]; defaultWorkflowId: string
 }
 
-type JobMode = 'new' | 'repeat'
+type JobMode = 'new' | 'repeat' | 'changed'
 
 const EMPTY_REPEAT = { parent_job_id: '', quantity: '', required_date: '', notes: '', same_artwork: true }
 
@@ -46,6 +47,56 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   const [repeat, setRepeat] = useState({ ...EMPTY_REPEAT })
   const [repeatSearch, setRepeatSearch] = useState('')
   const setRep = (k: keyof typeof EMPTY_REPEAT, v: any) => setRepeat(p => ({ ...p, [k]: v }))
+
+  // ─── Repeat with Changes ──────────────────────────────────────────────────
+  // Unlike exact repeat, this one drives the SAME full spec form as New Job —
+  // that is the whole difference between the two: repeat is a locked copy,
+  // changed is an editable one. So it posts to /api/v1/jobs (which understands
+  // parent_job_id since migration 097), not to the /repeat endpoint.
+  const [changedParentId, setChangedParentId] = useState('')
+  const [changedAspects, setChangedAspects] = useState<string[]>([])
+  const [changeNote, setChangeNote] = useState('')
+  const toggleAspect = (v: string) =>
+    setChangedAspects(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v])
+
+  /** Numeric columns come back as numbers; every form field is a string. */
+  const s = (v: any) => (v === null || v === undefined ? '' : String(v))
+
+  const selectChangedParent = (id: string) => {
+    setChangedParentId(id)
+    const p = repeatableJobs.find((j: any) => j.id === id)
+    if (!p) return
+    // Every field stays editable afterwards — this is a starting point, the
+    // same way applyLineItem() works for a sales order.
+    setForm(prev => ({
+      ...prev,
+      customer_id:          p.customer_id || '',
+      job_title:            p.job_title || '',
+      description:          p.description || '',
+      sales_order_id:       '',   // a repeat starts fresh, same as /repeat does
+      sales_order_item_id:  '',
+      size_l: s(p.size_l), size_w: s(p.size_w), size_h: s(p.size_h),
+      sheet_width_in: s(p.sheet_width_in), sheet_height_in: s(p.sheet_height_in),
+      box_type_id:          p.box_type_id || '',
+      quantity:             s(p.quantity),
+      no_of_colors:         s(p.no_of_colors),
+      die_number:           p.die_number || '',
+      gsm:                  s(p.gsm),
+      ups:                  s(p.ups),
+      board_type_id:        p.board_type_id || '',
+      paper_type_id:        p.paper_type_id || '',
+      lamination_type_id:   p.lamination_type_id || '',
+      uv_coating:           p.uv_coating || '',
+      foil_type_id:         p.foil_type_id || '',
+      special_finishing:    p.special_finishing || '',
+      pasting:              p.pasting || '',
+      workflow_template_id: p.workflow_template_id || defaultWorkflowId,
+      quoted_amount:        s(p.quoted_amount),
+      required_date:        '',   // the new order has its own date
+    }))
+  }
+
+  const changedParent = repeatableJobs.find((j: any) => j.id === changedParentId)
 
   const q = repeatSearch.trim().toLowerCase()
   const filteredJobs = q
@@ -125,20 +176,31 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   const selectedSOItems = selectedSO?.sales_order_items ?? []
 
   const save = async () => {
+    const isChanged = mode === 'changed'
+    if (isChanged && !changedParentId) { toast.error('Select the job this repeats'); return }
     if (!form.customer_id) { toast.error('Please select a customer'); return }
     if (!form.job_title) { toast.error('Job title is required'); return }
     if (!form.quantity || parseFloat(form.quantity) <= 0) { toast.error('Quantity must be greater than 0'); return }
+    // Required on purpose: this list is what prints on the job card, and it is
+    // the whole reason the operator doesn't reach for the old plate.
+    if (isChanged && !changedAspects.length) { toast.error('Tick what changed on this repeat'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/v1/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(isChanged ? {
+          ...form,
+          parent_job_id:   changedParentId,
+          repeat_kind:     'changed',
+          changed_aspects: changedAspects,
+          change_note:     changeNote || null,
+        } : form),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       clearDraft()
-      toast.success(`Job ${data.job_number} created!`)
+      toast.success(isChanged ? `Changed repeat ${data.job_number} created!` : `Job ${data.job_number} created!`)
       router.push(`/dashboard/jobs/${data.id}`)
     } catch (e: any) { toast.error(e.message || 'Failed to create job') }
     finally { setLoading(false) }
@@ -188,11 +250,13 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            {mode === 'repeat' ? 'Repeat Job' : 'New Job'}
+            {mode === 'repeat' ? 'Repeat Job' : mode === 'changed' ? 'Repeat with Changes' : 'New Job'}
           </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
             {mode === 'repeat'
               ? 'Copies every spec from the original job — only change what differs'
+              : mode === 'changed'
+              ? 'Same job, but the printed content changed — every spec stays editable'
               : 'Job number will be auto-generated'}
           </p>
         </div>
@@ -201,17 +265,22 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       {/* New vs Repeat */}
       <div className="inline-flex p-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] w-full sm:w-auto">
         {([
-          { id: 'new' as JobMode, label: 'New Job', icon: Sparkles },
-          { id: 'repeat' as JobMode, label: 'Repeat Job', icon: RefreshCw },
+          { id: 'new' as JobMode, label: 'New Job', short: 'New', icon: Sparkles },
+          { id: 'repeat' as JobMode, label: 'Repeat Job', short: 'Repeat', icon: RefreshCw },
+          { id: 'changed' as JobMode, label: 'Repeat + Changes', short: 'Changed', icon: FilePenLine },
         ]).map(t => (
           <button key={t.id} onClick={() => setMode(t.id)}
             className={cn(
-              'flex items-center justify-center gap-2 px-4 h-9 rounded-md text-sm font-medium transition-colors flex-1 sm:flex-none',
+              // px-4 → px-3 below md: three tabs have to fit a 360px phone, and
+              // the third label is the long one, so it also shortens there.
+              'flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 h-9 rounded-md text-sm font-medium transition-colors flex-1 sm:flex-none whitespace-nowrap',
               mode === t.id
                 ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
             )}>
-            <t.icon size={14} /> {t.label}
+            <t.icon size={14} className="flex-shrink-0" />
+            <span className="md:hidden">{t.short}</span>
+            <span className="hidden md:inline">{t.label}</span>
           </button>
         ))}
       </div>
@@ -283,6 +352,90 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
         </Section>
       ) : (
       <>
+      {mode === 'changed' && (
+        <>
+          <Section title="Which job is this a repeat of?">
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className={labelCls}>Original job <span className="text-[var(--color-danger)]">*</span></label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                  <input className={cn(inputCls, 'pl-9')} value={repeatSearch} onChange={e => setRepeatSearch(e.target.value)}
+                    placeholder="Search by job number, title, customer or die number…" />
+                </div>
+                <select className={inputCls} value={changedParentId} onChange={e => selectChangedParent(e.target.value)}>
+                  <option value="">Select the job being repeated…</option>
+                  {filteredJobs.map((j: any) => (
+                    <option key={j.id} value={j.id}>
+                      {j.job_number} — {j.job_title} ({j.customers?.name || 'No customer'})
+                    </option>
+                  ))}
+                </select>
+                {filteredJobs.length === 0 && (
+                  <p className="text-xs text-[var(--color-text-muted)]">No jobs match that search.</p>
+                )}
+              </div>
+
+              {changedParent && (
+                <div className="rounded-lg border p-3 text-sm
+                  bg-[color:color-mix(in_srgb,var(--color-accent)_8%,transparent)]
+                  border-[color:color-mix(in_srgb,var(--color-accent)_25%,transparent)]">
+                  <p className="text-[var(--color-text-primary)]">
+                    Everything below is filled in from <span className="font-semibold">{changedParent.job_number}</span>.
+                    Change whatever is different — nothing is locked.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Section>
+
+          <Section title="What changed?">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {CHANGE_ASPECTS.map(a => {
+                  const on = changedAspects.includes(a.value)
+                  return (
+                    <button key={a.value} type="button" onClick={() => toggleAspect(a.value)}
+                      title={a.hint}
+                      aria-pressed={on}
+                      className={cn(
+                        'px-3 h-11 md:h-9 rounded-md border text-sm font-medium transition-colors',
+                        on
+                          ? 'bg-[var(--color-warning)] text-[var(--color-on-warning)] border-transparent'
+                          : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:text-[var(--color-text-primary)]'
+                      )}>
+                      {a.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="newjobclient-change-note" className={labelCls}>Details</label>
+                <input id="newjobclient-change-note" className={inputCls} value={changeNote}
+                  onChange={e => setChangeNote(e.target.value)}
+                  placeholder="e.g. Expiry 03/27 ki jagah 09/27 — baqi sab same" />
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Printed on the Job Card, so the floor reads it before mounting a plate.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5 rounded-lg border p-3 text-xs
+                bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]
+                border-[color:color-mix(in_srgb,var(--color-warning)_25%,transparent)]
+                text-[var(--color-text-secondary)]">
+                <AlertTriangle size={15} className="text-[var(--color-warning)] flex-shrink-0 mt-px" />
+                <span>
+                  The old artwork is <strong>not</strong> carried over and the old plates must not be
+                  reused for whatever changed. This job needs a fresh artwork round and customer
+                  approval before printing.
+                </span>
+              </div>
+            </div>
+          </Section>
+        </>
+      )}
+
       {/* Customer & SO */}
       <Section title="Customer & Sales Order">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,9 +647,12 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <RefreshCw size={15} /> {loading ? 'Creating…' : 'Create Repeat Job'}
           </button>
         ) : (
-          <button onClick={save} disabled={loading || !form.customer_id || !form.job_title}
+          <button onClick={save}
+            disabled={loading || !form.customer_id || !form.job_title
+              || (mode === 'changed' && (!changedParentId || !changedAspects.length))}
             className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-            <Save size={15} /> {loading ? 'Creating…' : 'Create Job'}
+            {mode === 'changed' ? <FilePenLine size={15} /> : <Save size={15} />}
+            {loading ? 'Creating…' : mode === 'changed' ? 'Create Changed Repeat' : 'Create Job'}
           </button>
         )}
       </div>

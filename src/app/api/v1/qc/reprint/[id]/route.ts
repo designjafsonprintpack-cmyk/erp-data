@@ -45,6 +45,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       parent_job_id:        origJob.id,
       is_repeat:            true,
       repeat_sequence:      99, // reprint flag
+      // A QC reprint reruns the SAME artwork — QC failed, the design didn't
+      // change. So it is an exact repeat, not a changed one (migration 097).
+      repeat_kind:          'exact',
       customer_id:          origJob.customer_id,
       job_title:            `${origJob.job_title} (Re-print)`,
       description:          `Re-print: ${req_.reason}`,

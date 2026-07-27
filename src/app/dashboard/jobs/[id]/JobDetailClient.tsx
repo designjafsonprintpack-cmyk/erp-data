@@ -6,7 +6,7 @@ import { createSupabaseClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Printer, PauseCircle, PlayCircle, RefreshCw, CheckCircle2,
   SkipForward, Clock, User, Calendar, Package, ChevronRight, AlertTriangle,
-  MessageSquare, Layers, Activity, FileText, Pencil, Trash2
+  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatIssuedGsm, hasGsmVariance, type IssuedGsmEntry } from '@/lib/utils/jobIssuedGsm'
@@ -19,6 +19,7 @@ import {
   type Job, type JobStageProgress, type JobEvent, type JobStatus,
   type WastageReason, type JobWastage
 } from '@/modules/jobs/types/job.types'
+import { changeAspectLabels } from '@/modules/jobs/constants/changeAspects'
 import JobArtworkTab from './JobArtworkTab'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 
@@ -128,6 +129,12 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   const statusCfg = JOB_STATUS_CONFIG[job.status] || JOB_STATUS_CONFIG.new
   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
   const urgency = daysUrgency(job.required_date, job.status)
+
+  // A repeat whose printed content changed (migration 097). `repeat_kind` is
+  // NULL on every job created before that migration, so this is false for all
+  // of them — which is correct: they were all exact repeats.
+  const isChangedRepeat = (job as any).repeat_kind === 'changed'
+  const changedAspectLabels = changeAspectLabels((job as any).changed_aspects)
 
   // ─── Actions ────────────────────────────────────────────────────────────────
   const holdJob = async () => {
@@ -293,9 +300,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 </span>
               )}
               {job.is_repeat && (
-                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] flex items-center gap-1.5">
-                  <RefreshCw size={11} /> Repeat #{job.repeat_sequence}
-                </span>
+                isChangedRepeat ? (
+                  <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] flex items-center gap-1.5">
+                    <FilePenLine size={11} /> Changed Repeat #{job.repeat_sequence}
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] flex items-center gap-1.5">
+                    <RefreshCw size={11} /> Repeat #{job.repeat_sequence}
+                  </span>
+                )
               )}
               {urgency && (
                 <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium flex items-center gap-1.5', urgency.cls)}>
@@ -341,6 +354,38 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           )}
         </div>
       </div>
+
+      {/* ─── Changed-repeat warning (migration 097) ──────────────────────────── */}
+      {/* Loud on purpose. This job looks like a repeat everyone has run before,
+          which is exactly how an old plate gets mounted and a whole lot is
+          printed with the wrong expiry. */}
+      {isChangedRepeat && (
+        <div className="rounded-xl border p-4 flex items-start gap-3
+          bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]
+          border-[color:color-mix(in_srgb,var(--color-warning)_35%,transparent)]">
+          <AlertTriangle size={18} className="text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
+          <div className="min-w-0 space-y-2">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+              This is a repeat, but the printed content has CHANGED — do not reuse the old plates or artwork.
+            </p>
+            {changedAspectLabels.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {changedAspectLabels.map(label => (
+                  <span key={label} className="text-xs px-2 py-0.5 rounded-full border font-medium
+                    text-[var(--color-warning)]
+                    bg-[color:color-mix(in_srgb,var(--color-warning)_12%,transparent)]
+                    border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(job as any).change_note && (
+              <p className="text-sm text-[var(--color-text-secondary)]">{(job as any).change_note}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── Progress bar ────────────────────────────────────────────────────── */}
       {totalStages > 0 && (

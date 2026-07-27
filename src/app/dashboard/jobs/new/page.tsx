@@ -22,8 +22,11 @@ export default async function NewJobPage() {
     supabase.from('sales_orders' as any).select('id,so_number,customer_id,customers(name),sales_order_items(id,product_desc,size_l,size_w,size_h,quantity,no_of_colors,board_type_id,gsm)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
     // Candidates for "Repeat Job". Capped at 200 — the picker has a search box,
     // and an unbounded jobs select would grow without limit on a live shop.
+    // "Repeat with Changes" pre-fills the whole spec form from the parent, so
+    // this select carries every field that form binds to — not just the four
+    // shown in the exact-repeat summary card.
     supabase.from('jobs' as any)
-      .select('id,job_number,job_title,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,customer_id,customers(name)')
+      .select('id,job_number,job_title,description,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,gsm,board_type_id,paper_type_id,lamination_type_id,foil_type_id,uv_coating,special_finishing,pasting,workflow_template_id,quoted_amount,customer_id,customers(name)')
       .eq('company_id', companyId).is('deleted_at', null)
       .order('created_at', { ascending: false }).limit(200),
     // Real GSMs that actually exist in stock, per board type. GSM is a property

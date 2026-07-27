@@ -62,6 +62,19 @@ export const jobSchema = z.object({
   required_date: blankToNull(z.string().optional().nullable()),
   quoted_amount: blankToNull(z.union([z.string(), z.number()]).optional().nullable()),
   internal_remarks: blankToNull(z.string().optional().nullable()),
+
+  // ─── "Repeat with Changes" (migration 097) ────────────────────────────────
+  // A changed repeat is created through THIS route, not /jobs/[id]/repeat:
+  // that route copies the parent's specs and only accepts a quantity and date
+  // override, whereas the whole point here is that every spec is editable.
+  // Passing parent_job_id turns an ordinary create into a linked repeat.
+  parent_job_id: blankToNull(z.string().uuid().optional().nullable()),
+  repeat_kind: blankToNull(z.enum(['exact', 'changed']).optional().nullable()),
+  changed_aspects: z.array(z.enum([
+    'design', 'expiry', 'printed_rate', 'size',
+    'board_gsm', 'colors', 'die', 'finishing', 'other',
+  ])).optional(),
+  change_note: blankToNull(z.string().optional().nullable()),
 })
 
 // PATCH accepts everything create does (all optional here) plus `status`,

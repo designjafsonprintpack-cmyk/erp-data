@@ -3,6 +3,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 import { getIssuedGsm, formatIssuedGsm, hasGsmVariance } from '@/lib/utils/jobIssuedGsm'
+import { changeAspectPrintLabels } from '@/modules/jobs/constants/changeAspects'
 
 /** Same extension set as isPreviewable() in ArtworkThumb.tsx, duplicated
  *  because this page renders plain HTML/CSS (no Tailwind, no client
@@ -50,6 +51,18 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     }
   }
 
+  // A repeat whose printed content changed (migration 097). The parent's number
+  // is looked up so the card can say which job this differs FROM — the operator
+  // has almost certainly run that one before.
+  const isChangedRepeat = j.repeat_kind === 'changed'
+  const changedLabels = isChangedRepeat ? changeAspectPrintLabels(j.changed_aspects) : []
+  let parentJobNumber: string | null = null
+  if (isChangedRepeat && j.parent_job_id) {
+    const { data: parent } = await supabase.from('jobs' as any)
+      .select('job_number').eq('id', j.parent_job_id).maybeSingle()
+    parentJobNumber = (parent as any)?.job_number ?? null
+  }
+
   const specs = [
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
     { label: 'Sheet Size', value: j.sheet_width_in && j.sheet_height_in ? `${j.sheet_width_in} × ${j.sheet_height_in} in` : '—' },
@@ -95,6 +108,16 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 10px; color: #57606a; }
           .signature-line { border-bottom: 1px solid #1f2328; width: 150px; height: 36px; }
           .artwork-thumb { width: 30mm; height: 38mm; object-fit: cover; border: 1px solid #d0d7de; border-radius: 4px; flex-shrink: 0; }
+          /* Changed-repeat banner. Deliberately the loudest thing on the sheet:
+             the operator has run this job before and will reach for the old
+             plate out of habit unless something stops them. Heavy border rather
+             than a colour fill so it survives a black-and-white printer. */
+          .changed-banner { border: 3px solid #cf222e; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; background: #ffebe9; }
+          .changed-title { font-size: 16px; font-weight: 800; color: #82071e; letter-spacing: 0.02em; }
+          .changed-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; }
+          .changed-tag { border: 2px solid #cf222e; border-radius: 4px; padding: 2px 8px; font-size: 13px; font-weight: 800; color: #82071e; }
+          .changed-note { margin-top: 7px; font-size: 12px; color: #1f2328; }
+          .changed-sub { margin-top: 6px; font-size: 11px; font-weight: 600; color: #82071e; }
           @media print { .page { margin: 0; } @page { size: A4; margin: 0; } }
           /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
              Reflow it to the screen for READING only — the printed output above
@@ -133,6 +156,26 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               <img src={`/api/v1/print/qr?data=${encodeURIComponent(j.job_number)}`} width={64} height={64} alt={`QR code for ${j.job_number}`} />
             </div>
           </div>
+
+          {/* Changed-repeat warning — sits above everything else on purpose */}
+          {isChangedRepeat && (
+            <div className="changed-banner">
+              <div className="changed-title">
+                ⚠ REPEAT WITH CHANGES — DO NOT USE OLD PLATES OR ARTWORK
+              </div>
+              {changedLabels.length > 0 && (
+                <div className="changed-tags">
+                  {changedLabels.map(label => (
+                    <span key={label} className="changed-tag">{label} CHANGED</span>
+                  ))}
+                </div>
+              )}
+              {j.change_note && <div className="changed-note">{j.change_note}</div>}
+              {parentJobNumber && (
+                <div className="changed-sub">Repeat of {parentJobNumber} — check every change against the approved artwork before printing.</div>
+              )}
+            </div>
+          )}
 
           {/* Customer & Dates */}
           <div className="section">

@@ -78,7 +78,11 @@ order.** Code deployed before its migration means a 500 on save.
 - Every component: named export **and** default export. `'use client'` on
   interactive ones.
 - Print pages live in `src/app/print/` — server-rendered plain HTML/CSS, no
-  Tailwind. CSS variables only, never hardcoded hex.
+  Tailwind, and **hardcoded hex, never CSS variables** (all 6 pages, 260
+  values, zero `var(--color-*)`). Output goes on paper: a theme variable would
+  make the same job card print differently depending on which of the eight
+  themes the shop happens to be running, and a dark theme would print a black
+  sheet. Match the file you're editing. See also the hex note in §5.
 - Customer-facing links (quotation approval, customer portal, artwork approval)
   use the token-link pattern: crypto-random token + expiry column on the row,
   service-role client, validated server-side. No separate auth.
