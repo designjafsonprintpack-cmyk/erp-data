@@ -480,7 +480,9 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 { label: 'No. of Colors', value: job.no_of_colors || '—' },
                 { label: 'Die Number', value: job.die_number || '—' },
                 { label: 'Priority', value: <span className={cn('font-semibold', priorityCfg.color)}>{priorityCfg.label}</span> },
-                { label: 'Board Type', value: (job as any).board_types?.name || '—' },
+                // A job carries EITHER a board type or a paper type, never both
+                // — reading only board_types left every paper job blank.
+                { label: 'Board / Paper', value: (job as any).board_types?.name || (job as any).paper_types?.name || '—' },
                 { label: 'Lamination', value: (job as any).lamination_types?.name || '—' },
                 { label: 'UV Coating', value: job.uv_coating || '—' },
                 { label: 'Hot Foil', value: (job as any).foil_types?.name || '—' },

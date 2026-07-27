@@ -13,7 +13,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   const [jobRes, stagesRes, eventsRes, delayReasonsRes, wastageReasonsRes, machinesRes, wastageRes, artworksRes] = await Promise.all([
     supabase.from('jobs' as any)
-      .select('*, customers(name,customer_code,email,phone,mobile), workflow_templates(name), sales_orders(so_number)')
+      // box_types / board_types / paper_types / lamination_types / foil_types
+      // are read by JobDetailClient's spec grid but were never joined here, so
+      // every one of those five fields rendered "—" no matter what the job
+      // actually had saved.
+      .select('*, customers(name,customer_code,email,phone,mobile), workflow_templates(name), sales_orders(so_number), box_types(name), board_types(name), paper_types(name), lamination_types(name), foil_types(name)')
       .eq('id', params.id).maybeSingle(),
     supabase.from('job_stage_progress' as any)
       .select('*, workflow_stages(name,is_optional,estimated_hours)')

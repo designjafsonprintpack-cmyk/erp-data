@@ -14,7 +14,10 @@ const PREVIEWABLE_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'SV
 export default async function PrintJobCard({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: job } = await supabase.from('jobs' as any)
-    .select('*, customers(name,customer_code,phone), box_types(name)')
+    // lamination_types / foil_types were rendered below but never joined, so
+    // Lamination and Hot Foil printed as "—" on every card. board/paper too,
+    // which the card did not show at all — see the specs list.
+    .select('*, customers(name,customer_code,phone), box_types(name), board_types(name), paper_types(name), lamination_types(name), foil_types(name)')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -67,6 +70,9 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     { label: 'Size (L×W×H)', value: [j.size_l, j.size_w, j.size_h].filter(Boolean).join(' × ') + (j.size_l ? ' mm' : '') || '—' },
     { label: 'Sheet Size', value: j.sheet_width_in && j.sheet_height_in ? `${j.sheet_width_in} × ${j.sheet_height_in} in` : '—' },
     { label: 'Box Type', value: j.box_types?.name || '—' },
+    // The card told the floor the GSM but never which board to draw — the one
+    // thing the store needs off this sheet.
+    { label: 'Board / Paper', value: j.board_types?.name || j.paper_types?.name || '—' },
     { label: 'GSM (planned)', value: j.gsm ? String(j.gsm) : '—' },
     { label: 'GSM (issued)', value: issuedGsmText || 'Not issued yet', flag: gsmVariance },
     { label: 'Ups', value: j.ups || '—' },

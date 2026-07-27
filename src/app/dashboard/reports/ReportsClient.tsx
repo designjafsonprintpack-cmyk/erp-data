@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Briefcase, DollarSign, Cpu, Shield, Users, BarChart3, Activity,
@@ -42,6 +43,27 @@ interface GsmVarianceRow { job_id: string; job_number: string; job_title: string
 interface ReprintRow { reprint_id: string; original_job_id: string; original_job_number: string; original_job_title: string; customer_name: string | null; reprint_job_number: string | null; reason: string | null; status: string; quantity: number; reprint_cost: number | null; requested_at: string }
 interface FunnelRow { customer_id: string; customer_name: string; customer_code: string; quotes_raised: number; quotes_value: number; won: number; won_value: number; lost: number; lost_value: number; open_quotes: number; open_value: number; win_rate_pct: number | null }
 interface ProfitRow { customer_id: string; customer_name: string; customer_code: string; costed_jobs: number; uncosted_jobs: number; total_quoted: number; total_cost: number; total_margin: number; margin_pct: number | null }
+interface BreakdownRow { label: string; jobs: number; quantity: number; sheet_qty: number }
+
+/** The grouping columns get_job_breakdown (101) understands. Adding one here
+ *  and in the SQL CASE is all a new breakdown needs — no new report. */
+const DIMENSIONS: { value: string; label: string }[] = [
+  { value: 'box_type',   label: 'Box Type' },
+  { value: 'customer',   label: 'Customer' },
+  { value: 'board',      label: 'Board / Paper' },
+  { value: 'gsm',        label: 'GSM' },
+  { value: 'board_gsm',  label: 'Board + GSM' },
+  { value: 'colors',     label: 'No. of Colours' },
+  { value: 'uv_coating', label: 'UV Coating' },
+  { value: 'lamination', label: 'Lamination' },
+  { value: 'pasting',    label: 'Pasting' },
+  { value: 'die',        label: 'Die Number' },
+  { value: 'qty_band',   label: 'Quantity Band' },
+  { value: 'repeat',     label: 'New vs Repeat' },
+  { value: 'workflow',   label: 'Workflow' },
+  { value: 'status',     label: 'Status' },
+  { value: 'month',      label: 'Month' },
+]
 interface TurnaroundRow {
   id: string; job_number: string; job_title: string; status: string; customer_name: string | null
   order_date: string; required_date: string | null; completed_date: string | null
@@ -111,10 +133,10 @@ function Section({ title, icon: Icon, children, className }: { title: string; ic
   )
 }
 
-type Tab = 'overview' | 'production' | 'turnaround' | 'wastage' | 'materials' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
+type Tab = 'overview' | 'breakdown' | 'production' | 'turnaround' | 'wastage' | 'materials' | 'customers' | 'financial' | 'quality' | 'costing' | 'custom'
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
-export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, downtime, board, gsmVariance, reprints, funnel, profitability, from, to }: {
+export default function ReportsClient({ kpi, monthly, customers, financial, machines, qc, overdueJobs, costingVariance, wastage, turnaround, statusCounts, downtime, board, gsmVariance, reprints, funnel, profitability, breakdown, dimension, initialTab, from, to }: {
   kpi: KPI | null; monthly: MonthlyRow[]; customers: CustomerRow[]
   financial: FinancialRow[]; machines: MachineRow[]; qc: QCRow[]; overdueJobs: OverdueJob[]
   costingVariance: CostingVarianceRow[]
@@ -123,9 +145,22 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
   downtime: DowntimeRow[]; board: BoardRow[]
   gsmVariance: GsmVarianceRow[]; reprints: ReprintRow[]
   funnel: FunnelRow[]; profitability: ProfitRow[]
+  breakdown: BreakdownRow[]; dimension: string
+  /** Tab is read back off the URL so that changing the breakdown dimension —
+   *  which navigates — doesn't bounce the user back to Overview. */
+  initialTab?: string
   from: string; to: string
 }) {
-  const [tab, setTab] = useState<Tab>('overview')
+  const router = useRouter()
+  const pathname = usePathname()
+  const [tab, setTab] = useState<Tab>(
+    (initialTab && ['overview','breakdown','production','turnaround','wastage','materials',
+      'customers','financial','quality','costing','custom'].includes(initialTab))
+      ? initialTab as Tab : 'overview'
+  )
+
+  const setDimension = (d: string) =>
+    router.push(`${pathname}?from=${from}&to=${to}&tab=breakdown&dim=${d}`)
   const [drillDown, setDrillDown] = useState<{ title: string; kind: 'invoices' | 'defects'; rows: any[]; loading: boolean } | null>(null)
 
   // Drill-down: click a chart segment to see the underlying records instead
@@ -296,6 +331,13 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         return () => exportToExcel(
           wastage.map(w => ({ Category: w.reason_category, Reason: w.reason_name, Machine: w.machine_name, Events: w.wastage_events, 'Total Quantity': w.total_quantity, 'Jobs Affected': w.jobs_affected })),
           `wastage-report-${from}-to-${to}`, 'Wastage')
+      case 'breakdown':
+        return () => exportToExcel(
+          breakdown.map(b => ({
+            [DIMENSIONS.find(d => d.value === dimension)?.label ?? 'Group']: b.label,
+            Jobs: b.jobs, Quantity: b.quantity, 'Sheet Qty': b.sheet_qty,
+          })),
+          `jobs-by-${dimension}-${from}-to-${to}`, 'Job Breakdown')
       case 'materials':
         return () => exportToExcel(
           board.map(b => ({ Board: b.board_name, GSM: b.gsm ?? '—', 'Sheets Issued': b.sheets_issued, Jobs: b.jobs_count, Issues: b.issue_count, 'Est. Value (PKR)': b.est_value })),
@@ -316,6 +358,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
         <ScrollRow className="md:flex-1" wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={tab} contentClassName="gap-1 -mx-1 px-1">
           {([
             ['overview',   'Overview',    BarChart3],
+            ['breakdown',  'Breakdown',   Layers],
             ['production', 'Production',  Cpu],
             ['turnaround', 'Turnaround',  Timer],
             ['wastage',    'Wastage',     Trash2],
@@ -590,6 +633,87 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           )}
         </div>
       )}
+
+      {/* ── BREAKDOWN TAB ────────────────────────────────────────────────────── */}
+      {/* One report, any grouping (migration 101). "Kitne Box, kitne HL" and
+          "kis customer ke kitne jobs" are the same question asked of a
+          different column, so they share one implementation. */}
+      {tab === 'breakdown' && (() => {
+        const totJobs = breakdown.reduce((s, b) => s + Number(b.jobs || 0), 0)
+        const totQty  = breakdown.reduce((s, b) => s + Number(b.quantity || 0), 0)
+        const maxJobs = Math.max(...breakdown.map(b => Number(b.jobs || 0)), 1)
+        const dimLabel = DIMENSIONS.find(d => d.value === dimension)?.label ?? dimension
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="rpt-dim" className="text-sm text-[var(--color-text-muted)]">Group jobs by</label>
+              <select id="rpt-dim" value={dimension} onChange={e => setDimension(e.target.value)}
+                className="h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]">
+                {DIMENSIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+              <span className="text-xs text-[var(--color-text-muted)]">
+                {totJobs} jobs · {Math.round(totQty).toLocaleString('en-PK')} units
+              </span>
+            </div>
+
+            {breakdown.length === 0 ? (
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-8 text-center">
+                <Layers size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+                <p className="text-sm text-[var(--color-text-muted)]">No jobs in this range.</p>
+              </div>
+            ) : (
+              <Section title={`Jobs by ${dimLabel}`} icon={Layers}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[640px]">
+                    <thead>
+                      <tr className="text-left text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                        <th className="pb-2 font-medium">{dimLabel}</th>
+                        <th className="pb-2 font-medium">Share</th>
+                        <th className="pb-2 font-medium text-right">Jobs</th>
+                        <th className="pb-2 font-medium text-right">%</th>
+                        <th className="pb-2 font-medium text-right">Quantity</th>
+                        <th className="pb-2 font-medium text-right">Sheet Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {breakdown.map((b, i) => (
+                        <tr key={b.label + i} className="border-b border-[var(--color-border)] last:border-0">
+                          <td className={cn('py-2', b.label === 'Not specified'
+                            ? 'text-[var(--color-text-muted)] italic' : 'text-[var(--color-text-primary)] font-medium')}>
+                            {b.label}
+                          </td>
+                          <td className="py-2 pr-4 w-[26%]"><MiniBar value={Number(b.jobs)} max={maxJobs} /></td>
+                          <td className="py-2 text-right font-semibold text-[var(--color-text-primary)]">{b.jobs}</td>
+                          <td className="py-2 text-right text-[var(--color-text-muted)]">
+                            {totJobs ? Math.round((Number(b.jobs) / totJobs) * 100) : 0}%
+                          </td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">{Math.round(Number(b.quantity)).toLocaleString('en-PK')}</td>
+                          <td className="py-2 text-right text-[var(--color-text-secondary)]">{Math.round(Number(b.sheet_qty)).toLocaleString('en-PK')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-[var(--color-border)] font-bold">
+                        <td colSpan={2} className="py-2.5 text-[var(--color-text-muted)]">TOTAL</td>
+                        <td className="py-2.5 text-right text-[var(--color-text-primary)]">{totJobs}</td>
+                        <td />
+                        <td className="py-2.5 text-right text-[var(--color-text-primary)]">{Math.round(totQty).toLocaleString('en-PK')}</td>
+                        <td className="py-2.5 text-right text-[var(--color-text-primary)]">
+                          {Math.round(breakdown.reduce((s, b) => s + Number(b.sheet_qty || 0), 0)).toLocaleString('en-PK')}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)] mt-3">
+                  &ldquo;Not specified&rdquo; is shown rather than hidden — those jobs have no value saved for this field,
+                  so leaving them out would make the percentages wrong.
+                </p>
+              </Section>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── MATERIALS TAB ────────────────────────────────────────────────────── */}
       {tab === 'materials' && (

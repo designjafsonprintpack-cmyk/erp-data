@@ -329,6 +329,12 @@ Test data purged and document counters reset to `0`, then real history loaded.
 - **100** — quotation win rate (latest revision only, decided-only denominator) and
   customer margin from `job_costings`, both on the Customers tab.
 
+- **101** — `get_job_breakdown(…, p_dimension)` groups jobs by any column (box type,
+  customer, colours, qty band, repeat…) — one Breakdown tab instead of a report each.
+- **A field rendering "—" usually means a missing JOIN, not missing data.** Job Detail
+  and the Job Card read `box_types/board_types/lamination_types/foil_types` for two years
+  without ever selecting them. Check the page's `.select()` before blaming the data.
+
 ### Open threads
 - **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`
   was never run, yet `src/app/api/v1/jobs/[id]/plates/generate-set/route.ts`

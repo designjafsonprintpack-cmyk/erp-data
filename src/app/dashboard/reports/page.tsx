@@ -10,8 +10,13 @@ function iso(d: Date) {
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
+/** Grouping columns get_job_breakdown accepts (migration 101). Anything else
+ *  is ignored rather than passed through to Postgres. */
+const DIMENSIONS = new Set(['box_type','customer','board','gsm','board_gsm','colors',
+  'uv_coating','lamination','pasting','die','workflow','status','repeat','qty_band','month'])
+
 export default async function ReportsPage({ searchParams }: {
-  searchParams: { from?: string; to?: string }
+  searchParams: { from?: string; to?: string; tab?: string; dim?: string }
 }) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,11 +39,16 @@ export default async function ReportsPage({ searchParams }: {
   // start of that month instead.
   const fromMonth = iso(new Date(new Date(from).getFullYear(), new Date(from).getMonth(), 1))
 
+  // The breakdown dimension rides in the URL alongside the date range, so the
+  // server component can fetch it. `tab` comes along too — without it, changing
+  // the dimension would navigate and bounce the user back to the Overview tab.
+  const dim = DIMENSIONS.has(searchParams.dim ?? '') ? searchParams.dim! : 'box_type'
+
   const [
     kpiRes, monthlyRes, customerRes, financialRes, machineRes,
     qcRes, overdueRes, costingRes, wastageRes, turnaroundRes, statusRes,
     downtimeRes, boardRes, gsmVarianceRes, reprintRes,
-    funnelRes, profitRes,
+    funnelRes, profitRes, breakdownRes,
   ] = await Promise.all([
     // The *_range functions exist because these three sources could not be
     // date-filtered at all before migration 098 — see its header.
@@ -78,6 +88,8 @@ export default async function ReportsPage({ searchParams }: {
     // Migration 100 — win rate and margin-per-customer.
     (supabase as any).rpc('get_quotation_funnel',       { p_company_id: companyId, p_from: from, p_to: to }),
     (supabase as any).rpc('get_customer_profitability', { p_company_id: companyId, p_from: from, p_to: to }),
+    // Migration 101 — group jobs by whichever column was picked.
+    (supabase as any).rpc('get_job_breakdown', { p_company_id: companyId, p_from: from, p_to: to, p_dimension: dim }),
   ])
 
   const statusCounts = ((statusRes.data ?? []) as any[]).reduce((acc: Record<string, number>, j: any) => {
@@ -112,6 +124,9 @@ export default async function ReportsPage({ searchParams }: {
         reprints={(reprintRes.data ?? []) as any[]}
         funnel={(funnelRes.data ?? []) as any[]}
         profitability={(profitRes.data ?? []) as any[]}
+        breakdown={(breakdownRes.data ?? []) as any[]}
+        dimension={dim}
+        initialTab={searchParams.tab}
         from={from}
         to={to}
       />
