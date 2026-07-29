@@ -10,12 +10,21 @@ export default async function QCPage() {
 
   const companyId = await getCompanyId(user, supabase)
 
-  const [inspectionsRes, defectsRes, reprintsRes, templatesRes, jobsRes, boardInventoryRes] = await Promise.all([
+  // Pass/fail are counted by Postgres, not by filtering the array below —
+  // that array is capped at 200 rows, so deriving the stat cards from it made
+  // them "pass rate of the last 200 inspections" and stopped being true on
+  // inspection 201. head:true fetches no rows at all, just the number.
+  const countInspections = (result: string) =>
+    supabase.from('qc_inspections' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId).is('deleted_at', null)
+      .eq('result', result)
+
+  const [inspectionsRes, defectsRes, reprintsRes, templatesRes, jobsRes, boardInventoryRes, passRes, failRes] = await Promise.all([
     supabase.from('qc_inspections' as any)
       .select('*, jobs(job_number,job_title,customers(name)), qc_templates(name), qc_defects(id,severity,resolved)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // The pass/fail counts below are computed from THIS array, so the limit
-      // caps the stats as well as the list. Raised 40 -> 200.
+      // The LIST only — the stat cards no longer read this array.
       .order('created_at', { ascending: false }).limit(200),
     supabase.from('qc_defects' as any)
       .select('*, jobs(job_number,job_title)', { count: 'exact' })
@@ -34,10 +43,16 @@ export default async function QCPage() {
     supabase.from('board_inventory' as any)
       .select('id,description,current_stock').eq('company_id', companyId)
       .is('deleted_at', null).eq('is_active', true).order('description'),
+    countInspections('pass'),
+    countInspections('fail'),
   ])
 
-  const passCount = (inspectionsRes.data ?? []).filter((i: any) => i.result === 'pass').length
-  const failCount = (inspectionsRes.data ?? []).filter((i: any) => i.result === 'fail').length
+  const counts = {
+    inspections: inspectionsRes.count ?? 0,
+    pass:        passRes.count ?? 0,
+    fail:        failRes.count ?? 0,
+    openDefects: defectsRes.count ?? 0,
+  }
 
   // Jobs standing at the QC stage with no passing inspection — the work QC
   // owns right now. Migration 092 made QC a real stage; this surfaces it.
@@ -48,7 +63,7 @@ export default async function QCPage() {
       <div>
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Quality Control</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-          {inspectionsRes.count ?? 0} inspections · {passCount} passed · {failCount} failed · {defectsRes.count ?? 0} open defects
+          {counts.inspections} inspections · {counts.pass} passed · {counts.fail} failed · {counts.openDefects} open defects
         </p>
       </div>
       <QCClient
@@ -58,6 +73,7 @@ export default async function QCPage() {
         templates={(templatesRes.data ?? []) as any[]}
         jobs={(jobsRes.data ?? []) as any[]}
         awaitingQC={awaitingQC}
+        counts={counts}
         boardInventory={(boardInventoryRes.data ?? []) as any[]}
         companyId={companyId}
       />

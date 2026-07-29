@@ -9,16 +9,18 @@ export default async function FinancePage() {
 
   const companyId = await getCompanyId(user, supabase)
 
-  const [invRes, payRes, customersRes, jobsRes, taxesRes] = await Promise.all([
+  const [invRes, summaryRes, customersRes, jobsRes, taxesRes] = await Promise.all([
     supabase.from('invoices' as any)
       .select('*, customers(name,customer_code), invoice_items(id), payments(id,amount)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // The billed/received/overdue totals below are summed from THIS array,
-      // so the limit caps the stats as well as the list. Raised 50 -> 200.
+      // This array is the LIST only. The headline totals no longer come from
+      // it — see get_finance_summary below — so the limit caps what's shown,
+      // not what's counted.
       .order('invoice_date', { ascending: false }).limit(200),
-    supabase.from('payments' as any)
-      .select('amount,payment_date').eq('company_id', companyId).is('deleted_at', null)
-      .gte('payment_date', new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)),
+    // Migration 103. Sums every invoice and the last 30 days of payments in
+    // Postgres and returns one row, so the four stat cards stay exact however
+    // many invoices exist.
+    (supabase as any).rpc('get_finance_summary', { p_company_id: companyId }),
     supabase.from('customers' as any).select('id,name,customer_code')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('jobs' as any)
@@ -30,10 +32,21 @@ export default async function FinancePage() {
   ])
 
   const invoices = invRes.data ?? []
-  const totalBilled   = invoices.reduce((s: number, i: any) => s + (i.total_amount || 0), 0)
-  const totalReceived = invoices.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0)
-  const totalOverdue  = invoices.filter((i: any) => i.status === 'overdue' || (i.due_date && new Date(i.due_date) < new Date() && i.balance_due > 0)).reduce((s: number, i: any) => s + (i.balance_due || 0), 0)
-  const monthlyCollected = (payRes.data ?? []).reduce((s: number, p: any) => s + (p.amount || 0), 0)
+
+  // If 103 hasn't been run yet the RPC just errors, and zeroed stat cards would
+  // read as "no money billed" rather than "migration pending". Falling back to
+  // the old in-page sum keeps the figures approximately right (capped at the
+  // 200 rows above) until the migration lands.
+  const summary = (summaryRes.data as any[] | null)?.[0]
+  const num = (v: any) => Number(v) || 0
+
+  const totalBilled = summary ? num(summary.total_billed)
+    : invoices.reduce((s: number, i: any) => s + (i.total_amount || 0), 0)
+  const totalReceived = summary ? num(summary.total_received)
+    : invoices.reduce((s: number, i: any) => s + (i.paid_amount || 0), 0)
+  const totalOverdue = summary ? num(summary.total_overdue)
+    : invoices.filter((i: any) => i.status === 'overdue' || (i.due_date && new Date(i.due_date) < new Date() && i.balance_due > 0)).reduce((s: number, i: any) => s + (i.balance_due || 0), 0)
+  const monthlyCollected = num(summary?.monthly_collected)
 
   return (
     <div className="space-y-5">

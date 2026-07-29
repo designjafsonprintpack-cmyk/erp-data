@@ -62,13 +62,36 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 interface BoardInventoryItem { id: string; description: string; current_stock: number }
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
-export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId, awaitingQC = [] }: {
+/**
+ * Exact totals from Postgres (see page.tsx). The lists below are capped at 200
+ * rows, so these can be far larger than the arrays — never recompute them with
+ * inspections.filter(...), which is the bug this prop exists to fix.
+ */
+export interface QCCounts {
+  inspections: number
+  pass: number
+  fail: number
+  openDefects: number
+}
+
+export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId, awaitingQC = [], counts }: {
   initialInspections: Inspection[]; openDefects: Defect[]; reprintRequests: ReprintReq[]
   templates: Template[]; jobs: Job[]; boardInventory: BoardInventoryItem[]; companyId: string
   awaitingQC?: JobAwaitingQC[]
+  counts: QCCounts
 }) {
   const [inspections, setInspections] = useState(initialInspections)
   const [defects,     setDefects]     = useState(openDefects)
+
+  // Server counts are a snapshot, so recording an inspection here has to move
+  // them by hand — otherwise the card sits one behind until the next reload.
+  const [tally, setTally] = useState<QCCounts>(counts)
+  const shiftTally = (from: string | null | undefined, to: string | null | undefined) =>
+    setTally(t => ({
+      ...t,
+      pass: t.pass + (to === 'pass' ? 1 : 0) - (from === 'pass' ? 1 : 0),
+      fail: t.fail + (to === 'fail' ? 1 : 0) - (from === 'fail' ? 1 : 0),
+    }))
   const [reprints,    setReprints]    = useState(reprintRequests)
   const [tab, setTab] = useState<'inspections'|'defects'|'reprints'|'trends'>('inspections')
   const [loading, setLoading] = useState(false)
@@ -131,6 +154,8 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       const { data } = await res.json()
       const job = jobs.find(j => j.id === inspJob)
       setInspections(prev => [{ ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title, customers: job.customers } : null, qc_templates: selectedTemplate ? { name: selectedTemplate.name } : null, qc_defects: [] }, ...prev])
+      setTally(t => ({ ...t, inspections: t.inspections + 1 }))
+      shiftTally(null, data.result)
       setInspectModal(false)
       setInspJob(''); setInspNotes(''); setSampleSize(''); setResponses({})
       toast.success(`Inspection #${data.inspection_no} recorded — ${data.result?.toUpperCase()}`)
@@ -203,6 +228,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         body: JSON.stringify({ action: 'signoff', result: signoffResult, notes: signoffNotes }),
       })
       if (!res.ok) throw new Error()
+      shiftTally(inspections.find(i => i.id === signoffModal.id)?.result, signoffResult)
       setInspections(prev => prev.map(i => i.id === signoffModal.id ? { ...i, result: signoffResult, signed_off_at: new Date().toISOString() } : i))
       setSignoffModal(null)
       toast.success(`QC Sign-off: ${signoffResult.toUpperCase()}`)
@@ -220,6 +246,7 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       })
       if (!res.ok) throw new Error()
       setDefects(prev => prev.filter(d => d.id !== resolveModal.id))
+      setTally(t => ({ ...t, openDefects: Math.max(0, t.openDefects - 1) }))
       setResolveModal(null)
       toast.success('Defect resolved')
     } catch { toast.error('Failed') }
@@ -251,18 +278,17 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   }
 
   /* ─── Render ────────────────────────────────────────────────────────────────── */
-  const passCount = inspections.filter(i => i.result === 'pass').length
-  const failCount = inspections.filter(i => i.result === 'fail').length
 
   return (
     <div className="space-y-4">
-      {/* Stat cards */}
+      {/* Stat cards — every value comes from `tally` (exact, whole table), never
+          from the capped arrays the tabs below render. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: 'Inspections',   value: inspections.length, icon: ClipboardList, color: 'var(--color-accent)' },
-          { label: 'Passed',        value: passCount,          icon: CheckCircle2,  color: 'var(--color-success)' },
-          { label: 'Failed',        value: failCount,          icon: XCircle,       color: 'var(--color-danger)' },
-          { label: 'Open Defects',  value: defects.length,     icon: AlertTriangle, color: defects.length > 0 ? 'var(--color-warning)' : 'var(--color-success)' },
+          { label: 'Inspections',   value: tally.inspections, icon: ClipboardList, color: 'var(--color-accent)' },
+          { label: 'Passed',        value: tally.pass,        icon: CheckCircle2,  color: 'var(--color-success)' },
+          { label: 'Failed',        value: tally.fail,        icon: XCircle,       color: 'var(--color-danger)' },
+          { label: 'Open Defects',  value: tally.openDefects, icon: AlertTriangle, color: tally.openDefects > 0 ? 'var(--color-warning)' : 'var(--color-success)' },
         ].map(s => (
           <div key={s.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
