@@ -14,6 +14,11 @@ export default async function JobsPage() {
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
+    // Press proof runs (migration 104) are real jobs, so without this they
+    // would sit in the main list between the jobs they belong to. They belong
+    // under their parent instead — Job Detail shows them, and the list can ask
+    // for them explicitly via ?kind=proofing on GET /api/v1/jobs.
+    .eq('job_kind', 'production')
     .order('created_at', { ascending: false })
     // Tiebreaker, not decoration: all 478 legacy jobs share one backdated
     // created_at, and Postgres does not promise a stable order among ties —

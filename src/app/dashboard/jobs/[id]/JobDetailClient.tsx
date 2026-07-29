@@ -6,7 +6,7 @@ import { createSupabaseClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Printer, PauseCircle, PlayCircle, RefreshCw, CheckCircle2,
   SkipForward, Clock, User, Calendar, Package, ChevronRight, AlertTriangle,
-  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet
+  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet, Stamp
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatIssuedGsm, hasGsmVariance, type IssuedGsmEntry } from '@/lib/utils/jobIssuedGsm'
@@ -21,6 +21,7 @@ import {
 } from '@/modules/jobs/types/job.types'
 import { changeAspectLabels } from '@/modules/jobs/constants/changeAspects'
 import JobArtworkTab from './JobArtworkTab'
+import JobProofingTab from './JobProofingTab'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface DelayReason { id: string; name: string; category: string }
@@ -50,7 +51,7 @@ interface InkEntry {
  *  made without one is not assigned to a shift by guesswork. */
 const SHIFTS = ['A', 'B', 'C'] as const
 
-type Tab = 'overview' | 'workflow' | 'artwork' | 'timeline' | 'remarks' | 'wastage' | 'ink'
+type Tab = 'overview' | 'workflow' | 'artwork' | 'proofing' | 'timeline' | 'remarks' | 'wastage' | 'ink'
 
 const EVENT_LABELS: Record<string, string> = {
   created: 'Job Created', status_changed: 'Status Changed', stage_started: 'Stage Started',
@@ -60,6 +61,7 @@ const EVENT_LABELS: Record<string, string> = {
   assigned: 'Assigned', priority_changed: 'Priority Changed', wastage_recorded: 'Wastage Recorded',
   ink_recorded: 'Ink Recorded',
   plate_assigned: 'Plate Assigned', plate_returned: 'Plate Returned',
+  proof_created: 'Press Proof Pulled', proof_decided: 'Press Proof Decision',
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -466,15 +468,18 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       {/* Underline tabs share a single baseline with the border, so this row
           scrolls rather than wraps. */}
       <ScrollRow className="border-b border-[var(--color-border)]" role="tablist" activeSelector="[data-tab-active='true']" activeKey={activeTab} contentClassName="gap-1 -mx-1 px-1">
-        {([
+        {(([
           { key: 'overview', label: 'Overview', icon: FileText },
           { key: 'workflow', label: 'Workflow', icon: Layers },
           { key: 'artwork',  label: 'Artwork',  icon: Package },
+          // A proof run is itself a job, so it opens this same page — but a
+          // proof of a proof is not a thing, so the tab is hidden there.
+          { key: 'proofing', label: 'Proofing', icon: Stamp },
           { key: 'timeline', label: 'Timeline', icon: Activity },
           { key: 'remarks',  label: 'Remarks',  icon: MessageSquare },
           { key: 'wastage',  label: 'Wastage',  icon: AlertTriangle },
           { key: 'ink',      label: 'Ink',      icon: Droplet },
-        ] as const).map(tab => {
+        ] as const).filter(t => t.key !== 'proofing' || (job as any).job_kind !== 'proofing')).map(tab => {
           const Icon = tab.icon
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key} data-tab-active={activeTab === tab.key}
@@ -737,6 +742,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       {/* ─── Tab: Artwork ────────────────────────────────────────────────────── */}
       {activeTab === 'artwork' && (
         <JobArtworkTab jobId={job.id} companyId={companyId} initialArtworks={artworks as any[]} />
+      )}
+
+      {/* ─── Tab: Proofing ───────────────────────────────────────────────────── */}
+      {activeTab === 'proofing' && (
+        <JobProofingTab jobId={job.id} artworks={artworks as any[]} />
       )}
 
       {/* ─── Tab: Timeline ───────────────────────────────────────────────────── */}

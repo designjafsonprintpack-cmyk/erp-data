@@ -126,10 +126,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     (action === 'start' && targetStageType === 'printing')
 
   let changedJob: any = null
+  // The same row also answers "is this a proof run?" for the press-proof gate
+  // below, so it is kept whatever repeat_kind turns out to be.
+  let jobForChecks: any = null
   if (needsChangedRepeatCheck) {
     const { data } = await supabase.from('jobs' as any)
-      .select('repeat_kind, changed_aspects, change_note, parent_job_id')
+      .select('repeat_kind, changed_aspects, change_note, parent_job_id, job_kind')
       .eq('id', jobId).eq('company_id', companyId).maybeSingle()
+    jobForChecks = data
     if ((data as any)?.repeat_kind === 'changed') changedJob = data
   }
 
@@ -206,6 +210,37 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         { error: `Cannot start "${targetStageName}" — no plates have been issued to this job yet. Add plates first.` },
         { status: 400 }
       )
+    }
+
+    // (a2) Press proof — HARD block (migration 104). If this job has proof
+    //      runs, the customer must have approved one before the main run
+    //      starts; that approval IS the go-ahead. A job with no proof runs is
+    //      completely unaffected — proofing is per-job, not mandatory, because
+    //      an unchanged repeat legitimately needs no proof.
+    //
+    //      Scoped to production jobs: a proof run's OWN Printing stage is how
+    //      the proof gets printed in the first place, so it must never be
+    //      blocked by the absence of an approved proof of itself.
+    if (jobForChecks?.job_kind !== 'proofing') {
+      const { data: proofRuns } = await supabase.from('jobs' as any)
+        .select('job_number, proof_round, proof_result')
+        .eq('parent_job_id', jobId).eq('company_id', companyId)
+        .eq('job_kind', 'proofing').is('deleted_at', null)
+
+      const runs = (proofRuns ?? []) as any[]
+      if (runs.length > 0 && !runs.some(r => r.proof_result === 'approved')) {
+        const latest = runs.reduce((a, b) => ((b.proof_round ?? 0) > (a.proof_round ?? 0) ? b : a))
+        const state = latest.proof_result === 'changes_required'
+          ? 'is waiting on changes'
+          : 'is still with the customer'
+        return NextResponse.json(
+          {
+            error: `Cannot start "${targetStageName}" — no press proof has been approved yet. `
+              + `${latest.job_number} (round ${latest.proof_round}) ${state}.`,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // (b) Reused plates on a changed repeat — SOFT, per the precedent set by

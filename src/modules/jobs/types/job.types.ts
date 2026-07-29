@@ -8,6 +8,9 @@ export type EventType =
   | 'artwork_uploaded' | 'repeat_created' | 'assigned' | 'priority_changed'
   | 'wastage_recorded' | 'plate_assigned' | 'plate_returned' | 'artwork_status_changed'
   | 'ink_recorded'
+  // Press proofing (104): 'proof_created' when a round is pulled,
+  // 'proof_decided' when the customer approves it or asks for changes.
+  | 'proof_created' | 'proof_decided'
 
 export const GRAIN_DIRECTION_CONFIG: Record<GrainDirection, { label: string }> = {
   long_grain:  { label: 'Long Grain' },

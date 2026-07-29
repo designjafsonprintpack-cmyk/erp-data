@@ -60,6 +60,29 @@ export const jobInkSchema = z.object({
   notes: z.string().optional().nullable(),
 })
 
+/**
+ * Press proof (migration 104). A proof run is ordered in SHEETS — "100, 200 ya
+ * 500 sheets" — never in boxes, so sheet_qty is the only quantity asked for.
+ * artwork_id records WHICH version went on the press, which is the one thing a
+ * colour dispute later turns on; it is optional because a job may have no
+ * artwork row yet when the first proof is pulled.
+ */
+export const proofCreateSchema = z.object({
+  sheet_qty: z.union([z.string(), z.number()]),
+  artwork_id: blankToNull(z.string().uuid().optional().nullable()),
+  notes: z.string().optional().nullable(),
+})
+
+/**
+ * The customer's verdict on a proof round. 'pending' is not accepted here —
+ * that is the state a proof is created in, not something anyone sets by hand.
+ */
+export const proofVerdictSchema = z.object({
+  proof_job_id: z.string().uuid('proof_job_id is required'),
+  result: z.enum(['approved', 'changes_required']),
+  notes: z.string().optional().nullable(),
+})
+
 export const jobWorkflowActionSchema = z.object({
   stage_progress_id: z.string().uuid('stage_progress_id is required'),
   action: z.enum(['start', 'complete', 'skip']),

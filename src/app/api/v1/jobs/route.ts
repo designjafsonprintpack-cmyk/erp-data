@@ -23,13 +23,27 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const page     = parseInt(searchParams.get('page') || '1')
   const limit    = parseInt(searchParams.get('limit') || '25')
   const offset   = (page - 1) * limit
+  // Press proof runs (104) are jobs too, so the list defaults to production
+  // only and callers opt in explicitly. 'all' is here for reports/debugging
+  // that genuinely want both; anything else is treated as production.
+  const kindParam = searchParams.get('kind') || 'production'
+  const kind = ['production', 'proofing', 'all'].includes(kindParam) ? kindParam : 'production'
+
+  // Resolved before the query, not after it. This used to be read further down
+  // purely to enrich stage names, leaving the list itself scoped by RLS alone.
+  // RLS does hold — but every other route in this codebase also filters
+  // company_id explicitly, and a list route is the wrong place to depend on a
+  // single layer. Costs nothing: the same call was already being made.
+  const companyId = await getCompanyId(user, supabase)
 
   let q = supabase
     .from('jobs' as any)
     .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,current_stage_id,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
 
+  if (kind !== 'all') q = q.eq('job_kind', kind)
   if (status)   q = q.eq('status', status)
   if (priority) q = q.eq('priority', priority)
   if (customer) q = q.eq('customer_id', customer)
@@ -47,7 +61,6 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   // Same current-stage enrichment the server-rendered first page does, so
   // filtering or searching doesn't blank out the Stage column.
-  const companyId = await getCompanyId(user, supabase)
   const rows = await withCurrentStageNames(supabase, companyId, (data ?? []) as any[])
 
   return NextResponse.json({ data: rows, total: count ?? 0, page, limit })
