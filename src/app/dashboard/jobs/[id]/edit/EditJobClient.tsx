@@ -103,7 +103,19 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
         body: JSON.stringify(editable),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      toast.success('Job updated')
+
+      // The PATCH also builds the workflow's stages now. Two of its outcomes are
+      // worth saying out loud rather than letting the user guess from a silent
+      // "Job updated": the stages having just been created, and a template swap
+      // being refused because the shop has already worked the job.
+      const { workflow } = await res.json()
+      if (workflow?.reason === 'work_started') {
+        toast.error(`Workflow not changed — ${workflow.startedStages} stage(s) already started. The job keeps its current stages.`)
+      } else if (workflow?.changed) {
+        toast.success(workflow.reason === 'replaced' ? 'Job updated — workflow stages rebuilt' : 'Job updated — workflow stages created')
+      } else {
+        toast.success('Job updated')
+      }
       router.push(`/dashboard/jobs/${job.id}`)
     } catch (e: any) { toast.error(e.message || 'Failed to update job') }
     finally { setLoading(false) }

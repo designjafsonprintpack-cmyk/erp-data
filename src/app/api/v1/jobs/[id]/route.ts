@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { requireSuperadmin } from '@/lib/utils/requireSuperadmin'
-import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { recordJobEvent, applyWorkflowTemplateOnEdit } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobUpdateSchema } from '@/lib/schemas/job'
@@ -103,7 +103,20 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     }, supabase)
   }
 
-  return NextResponse.json({ data })
+  // Build the stages for whatever workflow the job now carries. Until this was
+  // added, choosing a workflow on the Edit Job form set the column and nothing
+  // else — no stages, so the job never reached a department queue and there was
+  // no way to fix it short of deleting the job and raising it again. Reads the
+  // saved row rather than `body` so it also covers an edit that changed the box
+  // type, or a job whose workflow was set some earlier time and never built.
+  const workflow = await applyWorkflowTemplateOnEdit(
+    params.id, (data as any)?.workflow_template_id, companyId, supabase
+  )
+
+  // A refused swap is the one outcome the user has to hear about — the job keeps
+  // the stages it already has, which will not match the template now shown on
+  // the form.
+  return NextResponse.json({ data, workflow })
 })
 
 export const DELETE = withErrorHandling(async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {

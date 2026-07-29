@@ -91,3 +91,69 @@ export async function initializeJobWorkflow(
   // (New Job, Repeat, and both QC reprint paths).
   await syncJobCurrentStage(supabase, companyId, jobId).catch(() => null)
 }
+
+/** What applyWorkflowTemplateOnEdit() did, so the route can tell the user. */
+export type WorkflowEditOutcome =
+  | { changed: false; reason: 'no_template' | 'unchanged' }
+  | { changed: true;  reason: 'initialized' | 'replaced' }
+  | { changed: false; reason: 'work_started'; startedStages: number }
+
+/**
+ * Attaches (or swaps) a job's workflow after an EDIT.
+ *
+ * initializeJobWorkflow() only ever ran on create, so picking a workflow on the
+ * Edit Job form set jobs.workflow_template_id and stopped there — no instance,
+ * no stage rows, and the job stayed invisible in every department queue with
+ * nothing to indicate anything was wrong. JOB-2026-00001, the shop's first real
+ * job, was created that way and could not be rescued from the UI at all.
+ *
+ * The one thing this must never do is destroy work already recorded. So:
+ *
+ *   · no template on the job          → nothing to do
+ *   · template set, no instance yet   → build the stages (the rescue case)
+ *   · same template as the instance   → nothing to do
+ *   · different template, every stage still 'pending' → rebuild cleanly
+ *   · different template, ANY stage started/completed/skipped → refuse, and
+ *     say so. Rebuilding there would silently erase who did what and when.
+ *
+ * job_stage_progress has no deleted_at (it is a child table, same as the other
+ * line-item tables), so a rebuild is a real delete — which is exactly why it is
+ * only allowed while nothing has been started.
+ */
+export async function applyWorkflowTemplateOnEdit(
+  jobId: string,
+  templateId: string | null | undefined,
+  companyId: string,
+  supabase: SupabaseClient
+): Promise<WorkflowEditOutcome> {
+  if (!templateId) return { changed: false, reason: 'no_template' }
+
+  const { data: instance } = await supabase.from('job_workflow_instances' as any)
+    .select('workflow_template_id').eq('company_id', companyId).eq('job_id', jobId).maybeSingle()
+
+  const currentTemplateId = (instance as any)?.workflow_template_id as string | undefined
+
+  if (!currentTemplateId) {
+    await initializeJobWorkflow(jobId, templateId, companyId, supabase)
+    return { changed: true, reason: 'initialized' }
+  }
+
+  if (currentTemplateId === templateId) return { changed: false, reason: 'unchanged' }
+
+  // Swapping templates — only safe while the shop hasn't touched a stage yet.
+  const { count: startedStages } = await supabase.from('job_stage_progress' as any)
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', companyId).eq('job_id', jobId).neq('status', 'pending')
+
+  if ((startedStages ?? 0) > 0) {
+    return { changed: false, reason: 'work_started', startedStages: startedStages ?? 0 }
+  }
+
+  await supabase.from('job_stage_progress' as any)
+    .delete().eq('company_id', companyId).eq('job_id', jobId)
+  await supabase.from('job_workflow_instances' as any)
+    .delete().eq('company_id', companyId).eq('job_id', jobId)
+
+  await initializeJobWorkflow(jobId, templateId, companyId, supabase)
+  return { changed: true, reason: 'replaced' }
+}
