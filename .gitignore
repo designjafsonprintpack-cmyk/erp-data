@@ -40,3 +40,6 @@ whatsapp.txt
 
 # supabase database
 /data
+
+# claude code — personal, machine-specific settings
+.claude/settings.local.json

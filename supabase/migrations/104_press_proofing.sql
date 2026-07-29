@@ -33,6 +33,26 @@
 --     DROP COLUMN proof_decided_at, DROP COLUMN proof_decided_by;
 --   Additive: every existing job defaults to job_kind='production' and is
 --   untouched in every other respect.
+--
+-- MIGRATION RISK
+--   Backward compatible — deployed code never reads these columns, so the
+--     migration can be run before or after the deploy without a 500.
+--   Locking — ADD COLUMN with a constant DEFAULT does not rewrite the table
+--     on PG 11+. The CHECK constraints and the FK do take a brief ACCESS
+--     EXCLUSIVE lock to validate existing rows, and the indexes are built
+--     non-CONCURRENTLY; at ~478 jobs all of that is instant. Revisit if
+--     `jobs` ever reaches six figures.
+--   No backfill — the DEFAULT covers every existing row.
+--   No new table, so no new RLS policies. jobs already carries its tenant
+--     policy and trg_audit_jobs, so proof rounds and customer verdicts land
+--     in the audit log for free.
+--   KNOWN CONSEQUENCE — jobs.parent_job_id is REFERENCES jobs(id) with no
+--     ON DELETE clause (014). A job that has proof runs therefore cannot be
+--     hard-deleted until those proof runs are deleted first. That is already
+--     true today for repeat jobs; proofing just makes it common. Job delete
+--     is superadmin-only, so the error surfaces to the right person.
+--   src/types/database.types.ts goes stale until regenerated. Harmless here
+--     because Supabase calls are cast `(supabase as any)` codebase-wide.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─── 1. THE TAG ──────────────────────────────────────────────────────────────
@@ -42,7 +62,15 @@ ALTER TABLE jobs
   ADD COLUMN IF NOT EXISTS proof_result     TEXT,
   ADD COLUMN IF NOT EXISTS proof_notes      TEXT,
   ADD COLUMN IF NOT EXISTS proof_decided_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS proof_decided_by UUID REFERENCES users(id);
+  ADD COLUMN IF NOT EXISTS proof_decided_by UUID REFERENCES users(id),
+  -- WHICH artwork version actually went on the press for this round.
+  -- Without it, "the customer approved proof 2" cannot be tied back to a
+  -- specific file six months later, which is the one question a colour
+  -- dispute always turns on. job_artworks is already immutably versioned
+  -- (UNIQUE (company_id, job_id, version)), so this points at a fixed row.
+  -- SET NULL rather than NO ACTION: a job is HARD-deleted here, which
+  -- cascade-deletes its job_artworks — a proof row must not block that.
+  ADD COLUMN IF NOT EXISTS proof_artwork_id UUID REFERENCES job_artworks(id) ON DELETE SET NULL;
 
 DO $$
 BEGIN
@@ -64,6 +92,16 @@ COMMENT ON COLUMN jobs.job_kind IS
   'production (default) or proofing. A proofing row is a real job — board, plates, press time all flow through it — tagged so it stays out of production lists and counts.';
 COMMENT ON COLUMN jobs.proof_round IS
   'Which press proof this is for the parent job: 1, 2, 3... NULL on production jobs.';
+
+-- UNITS — "quantity" is ambiguous in this trade, so state it once, here.
+-- A press proof is ordered in SHEETS ("100, 200 ya 500 sheets"), not boxes.
+-- So on a proofing job sheet_qty carries the proof run size and quantity
+-- stays 0 — the same convention the legacy import (093) used for jobs whose
+-- box count was unknown. The locked rule Sheet Qty = ceil(Box Qty / Ups)
+-- runs the other way and does NOT apply to a proof: nobody derives a proof
+-- run from a box count, the press minder just asks for N sheets.
+COMMENT ON COLUMN jobs.sheet_qty IS
+  'Sheets. On a proofing job (job_kind = proofing) this is the proof run size and quantity stays 0; on a production job it is ceil(quantity / ups).';
 
 -- Every proofing lookup is "the proof runs of this job", so index that shape.
 CREATE INDEX IF NOT EXISTS idx_jobs_proof_parent
