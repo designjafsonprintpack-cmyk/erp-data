@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { createInvoiceSchema } from '@/lib/schemas/invoice'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -20,7 +21,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const from       = searchParams.get('from') || ''
   const to         = searchParams.get('to') || ''
   const page       = parseInt(searchParams.get('page') || '1')
-  const limit      = 25; const offset = (page - 1) * limit
+  // Was a hard 25 — the Finance list asks for LIST_PAGE_SIZE (50).
+  const limit      = Math.min(parseInt(searchParams.get('limit') || '25') || 25, 200)
+  const offset     = (page - 1) * limit
 
   let q = supabase.from('invoices' as any)
     .select('*, customers(name,customer_code), invoice_items(*), payments(id,amount,payment_date)', { count: 'exact' })
@@ -35,10 +38,15 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { data, error, count } = await q
     .order('invoice_date', { ascending: false })
+    // Tiebreaker — several invoices share an invoice_date, and an unstable
+    // order makes page 2 repeat rows page 1 already showed.
+    .order('id', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, page })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {

@@ -7,6 +7,7 @@ import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { createPurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -18,7 +19,10 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const status = searchParams.get('status') || ''
   const search = searchParams.get('search') || ''
   const page   = parseInt(searchParams.get('page') || '1')
-  const limit  = 25; const offset = (page - 1) * limit
+  // Was a hard 25 — the list pages ask for LIST_PAGE_SIZE (50) and Export
+  // walks the pages in chunks of 200.
+  const limit  = Math.min(parseInt(searchParams.get('limit') || '25') || 25, 200)
+  const offset = (page - 1) * limit
 
   let q = supabase.from('purchase_orders' as any)
     .select('*, vendors(name,vendor_code), purchase_order_items(*)', { count: 'exact' })
@@ -29,9 +33,14 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (search) q = q.or(`po_number.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q
-    .order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+    .order('created_at', { ascending: false })
+    // Tiebreaker — without it page 2 can repeat rows from page 1.
+    .order('id', { ascending: false })
+    .range(offset, offset + limit - 1)
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, page })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {

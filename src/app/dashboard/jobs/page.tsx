@@ -25,8 +25,8 @@ export default async function JobsPage() {
     // so without this, page 2 re-served rows page 1 had already shown and
     // silently dropped others. Must match the ORDER BY in GET /api/v1/jobs.
     .order('id', { ascending: false })
-    // Matches PAGE_SIZE in JobsClient so "Load More" can ask for page 2 cleanly.
-    .range(0, 99)
+    // Matches PAGE_SIZE in JobsClient so page 2 starts exactly where this ends.
+    .range(0, 49)
 
   // "Yeh job abhi kis stage par hai" as a real column in the list, instead of
   // having to open each job to find out.

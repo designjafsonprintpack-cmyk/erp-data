@@ -9,6 +9,8 @@ import { formatDate, formatDateTime, planLabel } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import type { BoardIssueJob } from '@/lib/utils/jobsAwaitingBoardIssue'
 import Link from 'next/link'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
 interface MRNItem { id: string; material_name: string; material_type: string | null; specification: string | null; quantity_required: number; quantity_issued: number; unit_id: string | null; board_item_id: string | null; notes?: string | null }
 interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string; gsm?: number | null } | null; material_requisition_items?: MRNItem[] }
@@ -28,13 +30,25 @@ const MATERIAL_TYPES = ['board','paper','ink','lamination','foil','glue','chemic
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', quantity_required: '1', unit_id: '', notes: '' }
 
-export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, boardInventory }: { initialMRNs: MRN[]; boardIssueJobs: BoardIssueJob[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
-  const [mrns, setMRNs] = useState(initialMRNs)
+export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs, jobs, units, boardInventory }: { initialMRNs: MRN[]; initialTotal: number; boardIssueJobs: BoardIssueJob[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
   // Local copy so a row's button follows what just happened (MRN created,
   // approved, issued) without waiting for a server render.
   const [boardIssueRows, setBoardIssueRows] = useState(boardIssueJobs)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState('')
+
+  // Status tab filters in the query now, so it sees every requisition instead
+  // of only the newest 200 this page had loaded.
+  const list = useServerPagedList<MRN>({
+    endpoint: '/api/v1/store',
+    initialRows: initialMRNs,
+    initialTotal,
+    errorMessage: 'Failed to load requisitions',
+  })
+  const mrns = list.rows
+  const setMRNs = list.setRows
+
+  const changeStatus = (s: string) => { setFilterStatus(s); list.applyFilter({ status: s }) }
   const [newMRNModal, setNewMRNModal] = useState(false)
   const [issueModal, setIssueModal] = useState<MRN | null>(null)
   const [loading, setLoading] = useState(false)
@@ -52,7 +66,6 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
     return next
   })
 
-  const filtered = filterStatus ? mrns.filter(m => m.status === filterStatus) : mrns
 
   const addLine = () => setLineItems(p => [...p, { ...EMPTY_ITEM }])
   const removeLine = (idx: number) => setLineItems(p => p.filter((_, i) => i !== idx))
@@ -252,7 +265,7 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
             label: s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label || s,
           }))}
           active={filterStatus}
-          onChange={setFilterStatus}
+          onChange={changeStatus}
         />
         <button onClick={() => setNewMRNModal(true)}
           className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors md:ml-auto flex-shrink-0">
@@ -262,14 +275,14 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
 
       {/* MRN list */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        {filtered.length === 0 ? (
+        {mrns.length === 0 ? (
           <div className="p-12 text-center">
             <Package size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">No material requisitions found</p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--color-border-subtle)]">
-            {filtered.map(mrn => {
+            {mrns.map(mrn => {
               const statusCfg = STATUS_CFG[mrn.status as keyof typeof STATUS_CFG] || STATUS_CFG.pending
               const isOpen = expanded.has(mrn.id)
               const items = mrn.material_requisition_items || []
@@ -352,6 +365,10 @@ export default function StoreClient({ initialMRNs, boardIssueJobs, jobs, units, 
           </div>
         )}
       </div>
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading} onPageChange={p => list.goToPage(p, { status: filterStatus })}
+        noun="requisitions" />
 
       {/* New MRN Modal */}
       <Modal open={newMRNModal} onClose={() => setNewMRNModal(false)} title="New Material Requisition" size="lg"

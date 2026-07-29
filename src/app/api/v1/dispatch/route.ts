@@ -8,17 +8,24 @@ import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { dispatchSchema } from '@/lib/schemas/dispatch'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const companyId = await getCompanyId(user, supabase)
+
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || ''
+  // The Dispatch page's "Pending" tab is two statuses, so a single `status`
+  // could not express it and the tab had to filter in the browser instead.
+  const statuses = (searchParams.get('statuses') || '').split(',').filter(Boolean)
   const search = searchParams.get('search') || ''
   const page   = parseInt(searchParams.get('page') || '1')
-  const limit  = 25; const offset = (page - 1) * limit
+  const limit  = Math.min(parseInt(searchParams.get('limit') || '25') || 25, 200)
+  const offset = (page - 1) * limit
 
   let q = supabase.from('dispatch_orders' as any)
     .select(`
@@ -27,17 +34,26 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
       dispatch_items(*, jobs(job_number,job_title)),
       proof_of_delivery(id,received_by,received_at,condition)
     `, { count: 'exact' })
+    // Explicit, like every other route here. RLS holds on its own, but a list
+    // route is the wrong place to depend on a single layer.
+    .eq('company_id', companyId)
     .is('deleted_at', null)
 
-  if (status) q = q.eq('status', status)
+  if (statuses.length) q = q.in('status', statuses)
+  else if (status)     q = q.eq('status', status)
   if (search) q = q.or(`dispatch_number.ilike."%${escapeFilterValue(search)}%",delivery_contact.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })
+    // Tiebreaker — rows sharing a created_at have no guaranteed order, and an
+    // unstable one makes page 2 repeat rows page 1 already showed.
+    .order('id', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, page })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {

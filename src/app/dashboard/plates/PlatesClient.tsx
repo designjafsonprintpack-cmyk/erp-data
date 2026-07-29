@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { formatTimeAgo, formatDateTime, planLabel } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import type { JobNeedingPlates } from '@/lib/utils/jobsNeedingPlates'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
 interface Plate {
   id: string; color: string; plate_size: string | null; status: string
@@ -42,8 +44,7 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 type ColorRow = { color: string; mode: 'new' | 'old'; existing_plate_id: string }
 
-export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, colorSpecs = [] }: { initialPlates: Plate[]; jobs: Job[]; jobsNeedingPlates: JobNeedingPlates[]; colorSpecs?: ColorSpecOption[] }) {
-  const [plates, setPlates] = useState(initialPlates)
+export default function PlatesClient({ initialPlates, initialTotal, jobs, jobsNeedingPlates, colorSpecs = [], reusablePlates = [], platedJobNumbers = [] }: { initialPlates: Plate[]; initialTotal: number; jobs: Job[]; jobsNeedingPlates: JobNeedingPlates[]; colorSpecs?: ColorSpecOption[]; reusablePlates?: Plate[]; platedJobNumbers?: string[] }) {
   // Local copy so a job disappears from "Plates Needed" the moment its plates
   // are added, without waiting for a server render.
   const [needPlates, setNeedPlates] = useState(jobsNeedingPlates)
@@ -65,19 +66,41 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
 
   const [jobFilter, setJobFilter] = useState('') // '', '__unassigned__', or a job_number
 
+  // Search, status and job all filter in the query now, so the registry can be
+  // read past the old 200-row cap.
+  const list = useServerPagedList<Plate>({
+    endpoint: '/api/v1/plates',
+    initialRows: initialPlates,
+    initialTotal,
+    errorMessage: 'Failed to load plates',
+  })
+  const plates = list.rows
+  const setPlates = list.setRows
+
+  const queryFor = (q: string, st: string, jf: string) => ({
+    search: q, status: st,
+    ...(jf === '__unassigned__' ? { assigned: 'none' } : jf ? { job_number: jf } : {}),
+  })
+  const changeSearch = (v: string) => {
+    setSearch(v)
+    clearTimeout((window as any)._plTimer)
+    ;(window as any)._plTimer = setTimeout(() => list.applyFilter(queryFor(v, statusFilter, jobFilter)), 350)
+  }
+  const changeStatusFilter = (v: string) => { setStatusFilter(v); list.applyFilter(queryFor(search, v, jobFilter)) }
+  const changeJob    = (v: string) => { setJobFilter(v);    list.applyFilter(queryFor(search, statusFilter, v)) }
+
   const [returnModal, setReturnModal] = useState<Plate | null>(null)
   const [returnCondition, setReturnCondition] = useState<'good' | 'worn' | 'damaged'>('good')
   const [returning, setReturning] = useState(false)
 
-  const availableForReuse = plates.filter(p => p.status === 'in_storage' && (!addSize || p.plate_size === addSize))
+  // Every in-storage plate, fetched separately — this feeds the "reuse an
+  // existing plate" dropdown, which must not shrink to whatever is on the
+  // current page.
+  const availableForReuse = reusablePlates.filter(p => !addSize || p.plate_size === addSize)
 
-  const filtered = plates.filter(p => {
-    if (statusFilter && p.status !== statusFilter) return false
-    if (search && !p.color.toLowerCase().includes(search.toLowerCase())) return false
-    if (jobFilter === '__unassigned__' && p.current_job) return false
-    if (jobFilter && jobFilter !== '__unassigned__' && p.current_job?.job_number !== jobFilter) return false
-    return true
-  })
+  // No browser-side filtering left — the rows in hand already match the
+  // search, the status and the job filter.
+  const filtered = plates
 
   // Job-wise grouping — plates for the same job sit together under one
   // header instead of one flat list where the job is just another column,
@@ -100,7 +123,10 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
   // Active-job groups first (most recently touched job first, since
   // `plates` already comes newest-first), unassigned/storage group last.
   groupOrder.sort((a, b) => (a === UNASSIGNED ? 1 : b === UNASSIGNED ? -1 : 0))
-  const jobNumbersForFilter = Array.from(new Set(plates.filter(p => p.current_job).map(p => p.current_job!.job_number)))
+
+  // Every job that currently holds a plate, computed server-side. Deriving it
+  // from the loaded rows would have offered only the jobs on this page.
+  const jobNumbersForFilter = platedJobNumbers
 
   const addColorRow = () => setColorRows(prev => [...prev, { color: '', mode: 'new', existing_plate_id: '' }])
   const removeColorRow = (i: number) => setColorRows(prev => prev.filter((_, idx) => idx !== i))
@@ -303,15 +329,15 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
 
       {/* Toolbar */}
       <Toolbar
-        search={{ value: search, onChange: setSearch, placeholder: 'Search color…' }}
+        search={{ value: search, onChange: changeSearch, placeholder: 'Search color…' }}
         filters={
           <>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            <select value={statusFilter} onChange={e => changeStatusFilter(e.target.value)}
               className="h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
               <option value="">All Statuses</option>
               {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
-            <select value={jobFilter} onChange={e => setJobFilter(e.target.value)}
+            <select value={jobFilter} onChange={e => changeJob(e.target.value)}
               className="h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)]">
               <option value="">All Jobs</option>
               <option value="__unassigned__">In Storage / Not Assigned</option>
@@ -320,7 +346,7 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
           </>
         }
         activeFilterCount={(statusFilter ? 1 : 0) + (jobFilter ? 1 : 0)}
-        onClearFilters={() => { setStatusFilter(''); setJobFilter('') }}
+        onClearFilters={() => { setStatusFilter(''); setJobFilter(''); list.applyFilter(queryFor(search, '', '')) }}
         actions={
           <button onClick={() => setAddModal(true)}
             className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
@@ -424,6 +450,11 @@ export default function PlatesClient({ initialPlates, jobs, jobsNeedingPlates, c
           })}
         </div>
       )}
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading}
+        onPageChange={p => list.goToPage(p, queryFor(search, statusFilter, jobFilter))}
+        noun="plates" />
 
       {/* Add Plates Modal */}
       <Modal open={addModal} onClose={() => { setAddModal(false); resetAddForm() }} title="Add Plates" size="md"

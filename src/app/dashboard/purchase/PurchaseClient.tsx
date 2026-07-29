@@ -7,6 +7,8 @@ import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList, fetchAllPages } from '@/lib/hooks/useServerPagedList'
 
 interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number }
 interface PO {
@@ -29,10 +31,26 @@ const STATUS_CFG = {
 const EMPTY_LINE = { description: '', specification: '', quantity: '1', unit_price: '0', notes: '' }
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
-export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO[]; vendors: Vendor[] }) {
-  const [pos, setPOs] = useState(initialPOs)
+export default function PurchaseClient({ initialPOs, initialTotal, vendors }: { initialPOs: PO[]; initialTotal: number; vendors: Vendor[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState('')
+
+  // The status tab is a server filter now, so it selects from every PO rather
+  // than only the newest 200 the page happened to load.
+  const list = useServerPagedList<PO>({
+    endpoint: '/api/v1/purchase-orders',
+    initialRows: initialPOs,
+    initialTotal,
+    errorMessage: 'Failed to load purchase orders',
+  })
+  const pos = list.rows
+  const setPOs = list.setRows
+
+  const changeStatus = (s: string) => {
+    setFilterStatus(s)
+    setSelected(new Set())   // ticked rows are about to leave the screen
+    list.applyFilter({ status: s })
+  }
   const [newPOModal, setNewPOModal] = useState(false)
   const [receiveModal, setReceiveModal] = useState<PO | null>(null)
   const [matchModal, setMatchModal] = useState<PO | null>(null)
@@ -45,7 +63,6 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
   const [vendorForm, setVendorForm] = useState({ name: '', contact_person: '', email: '', phone: '', mobile: '', address: '', ntn: '', payment_terms: '30' })
 
   const toggle = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const filtered = filterStatus ? pos.filter(p => p.status === filterStatus) : pos
 
   const addLine = () => setLineItems(p => [...p, { ...EMPTY_LINE }])
   const removeLine = (idx: number) => setLineItems(p => p.filter((_, i) => i !== idx))
@@ -109,8 +126,13 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
     ok === targets.length ? toast.success(`${ok} PO${ok > 1 ? 's' : ''} ${label}`) : toast.error(`${ok}/${targets.length} updated — refresh to verify`)
   }
 
-  const exportPOs = () => {
-    const rows = (selected.size ? filtered.filter(p => selected.has(p.id)) : filtered).map(po => ({
+  const exportPOs = async () => {
+    // Walks every page of the current filter, so Export still means "what I
+    // filtered to" rather than "the 50 rows on screen".
+    const source = selected.size
+      ? pos.filter(p => selected.has(p.id))
+      : await fetchAllPages<PO>('/api/v1/purchase-orders', { status: filterStatus })
+    const rows = source.map(po => ({
       'PO #': po.po_number,
       'Vendor': po.vendors?.name ?? '',
       'Status': po.status,
@@ -171,7 +193,7 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
             label: s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label,
           }))}
           active={filterStatus}
-          onChange={setFilterStatus}
+          onChange={changeStatus}
         />
         <div className="flex items-center gap-2 flex-wrap [&>button]:flex-1 md:[&>button]:flex-none">
           {selected.size > 0 && (
@@ -205,14 +227,14 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
 
       {/* PO List */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        {filtered.length === 0 ? (
+        {pos.length === 0 ? (
           <div className="p-12 text-center">
             <ShoppingCart size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">No purchase orders yet</p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--color-border-subtle)]">
-            {filtered.map(po => {
+            {pos.map(po => {
               const statusCfg = STATUS_CFG[po.status as keyof typeof STATUS_CFG] || STATUS_CFG.draft
               const isOpen = expanded.has(po.id)
               const items = po.purchase_order_items || []
@@ -301,6 +323,10 @@ export default function PurchaseClient({ initialPOs, vendors }: { initialPOs: PO
           </div>
         )}
       </div>
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading} onPageChange={p => list.goToPage(p, { status: filterStatus })}
+        noun="purchase orders" />
 
       {/* New PO Modal */}
       <Modal open={newPOModal} onClose={() => setNewPOModal(false)} title="New Purchase Order" size="xl"

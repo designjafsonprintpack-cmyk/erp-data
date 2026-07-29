@@ -18,7 +18,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('job_artworks' as any)
-    .select('id, job_id, version, file_url, file_name, status, designer_notes, approval_token_expires_at, company_id, jobs(job_number, job_title, customers(name))')
+    .select('id, job_id, version, file_url, file_name, status, designer_notes, approval_token_expires_at, company_id, jobs!job_artworks_job_id_fkey(job_number, job_title, customers(name))')
     .eq('approval_token', params.token)
     .is('deleted_at', null)
     .maybeSingle()

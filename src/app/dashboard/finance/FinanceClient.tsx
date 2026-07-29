@@ -9,6 +9,8 @@ import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatTimeAgo } from '@/lib/utils/format'
 import Link from 'next/link'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface InvItem { id: string; description: string; quantity: number; unit_price: number; subtotal: number; job_id: string | null }
@@ -42,13 +44,26 @@ const EMPTY_LINE = { description: '', job_id: '', quantity: '1', unit_price: '0'
 
 interface Tax { id: string; name: string; rate_percent: number }
 
-export default function FinanceClient({ initialInvoices, customers, completedJobs, taxes, stats }: {
-  initialInvoices: Invoice[]; customers: Customer[]; completedJobs: Job[]; taxes: Tax[]
+export default function FinanceClient({ initialInvoices, initialTotal, customers, completedJobs, taxes, stats }: {
+  initialInvoices: Invoice[]; initialTotal: number; customers: Customer[]; completedJobs: Job[]; taxes: Tax[]
   stats: { totalBilled: number; totalReceived: number; totalOverdue: number; monthlyCollected: number }
 }) {
-  const [invoices, setInvoices] = useState(initialInvoices)
   const [agingModal, setAgingModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+
+  // Status filter runs in the query now, across every invoice rather than the
+  // most recent 200. The four stat cards above already come from
+  // get_finance_summary() (migration 103), so they are unaffected by paging.
+  const list = useServerPagedList<Invoice>({
+    endpoint: '/api/v1/finance/invoices',
+    initialRows: initialInvoices,
+    initialTotal,
+    errorMessage: 'Failed to load invoices',
+  })
+  const invoices = list.rows
+  const setInvoices = list.setRows
+
+  const changeStatus = (s: string) => { setFilterStatus(s); list.applyFilter({ status: s }) }
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
 
@@ -102,7 +117,6 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
   const costMargin      = costQuoted > 0 ? costQuoted - costTotal : null
   const costMarginPct   = costQuoted > 0 && costTotal > 0 ? (costMargin! / costQuoted * 100) : null
 
-  const filteredInvoices = filterStatus ? invoices.filter(i => i.status === filterStatus) : invoices
 
   /* ─── Create Invoice ────────────────────────────────────────────────────────── */
   const createInvoice = async () => {
@@ -231,7 +245,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
         <ScrollRow className="md:flex-1" wrap role="tablist" activeSelector="[data-tab-active='true']" activeKey={filterStatus} contentClassName="gap-1 -mx-1 px-1">
           {(['','draft','sent','partial','paid','overdue'] as const).map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)} role="tab" aria-selected={filterStatus === s} data-tab-active={filterStatus === s}
+            <button key={s} onClick={() => changeStatus(s)} role="tab" aria-selected={filterStatus === s} data-tab-active={filterStatus === s}
               className={cn('px-3 h-11 md:h-7 rounded-md text-xs font-medium border transition-all flex-shrink-0 whitespace-nowrap',
                 filterStatus === s ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {s === '' ? 'All' : STATUS_CFG[s as keyof typeof STATUS_CFG]?.label}
@@ -256,7 +270,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
 
       {/* Invoice list */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        {filteredInvoices.length === 0 ? (
+        {invoices.length === 0 ? (
           <div className="p-12 text-center">
             <FileText size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">No invoices yet</p>
@@ -273,7 +287,7 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
               <div className="col-span-2 text-right">Actions</div>
             </div>
             <div className="divide-y divide-[var(--color-border-subtle)]">
-              {filteredInvoices.map((inv, idx) => {
+              {invoices.map((inv, idx) => {
                 const stCfg = STATUS_CFG[inv.status as keyof typeof STATUS_CFG] || STATUS_CFG.draft
                 const isOpen = expanded.has(inv.id)
                 const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.balance_due > 0 && !['paid','cancelled','void'].includes(inv.status)
@@ -385,6 +399,10 @@ export default function FinanceClient({ initialInvoices, customers, completedJob
           </>
         )}
       </div>
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading} onPageChange={p => list.goToPage(p, { status: filterStatus })}
+        noun="invoices" />
 
       {/* ══ NEW INVOICE MODAL ═══════════════════════════════════════════════════ */}
       <Modal open={invModal} onClose={() => setInvModal(false)} title="New Invoice" size="xl"

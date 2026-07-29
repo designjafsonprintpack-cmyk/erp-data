@@ -4,10 +4,12 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
+import { attachCurrentJob } from '@/lib/utils/platesWithCurrentJob'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { addPlatesSchema } from '@/lib/schemas/plate'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -23,14 +25,39 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const limit  = parseInt(searchParams.get('limit') || '50')
   const offset = (page - 1) * limit
 
+  // The Plates page groups by the job a plate is mounted on RIGHT NOW, and its
+  // dropdown offers job numbers plus "unassigned". Both were browser-side
+  // filters over a capped array; they are query filters now.
+  const jobNumber = searchParams.get('job_number') || ''
+  const assigned  = searchParams.get('assigned') || ''   // '' | 'none'
+
+  let resolvedJobId = jobId
+  if (!resolvedJobId && jobNumber) {
+    const { data: j } = await supabase.from('jobs' as any)
+      .select('id').eq('company_id', companyId).eq('job_number', jobNumber)
+      .is('deleted_at', null).maybeSingle()
+    if (!j) return NextResponse.json({ data: [], total: 0, page, limit })
+    resolvedJobId = (j as any).id
+  }
+
+  // Plates with an OPEN assignment — used either to restrict to one job's
+  // current plates, or to exclude all of them for "unassigned".
+  let excludeIds: string[] = []
+  if (assigned === 'none') {
+    const { data: open } = await supabase.from('job_plates' as any)
+      .select('plate_id').eq('company_id', companyId)
+      .is('deleted_at', null).is('returned_at', null)
+    excludeIds = Array.from(new Set((open ?? []).map((r: any) => r.plate_id)))
+  }
+
   // Filtering by job means "ever assigned to this job" — go via job_plates first.
   let plateIdsForJob: string[] | null = null
-  if (jobId) {
+  if (resolvedJobId) {
     const { data: jp } = await supabase
       .from('job_plates' as any)
       .select('plate_id')
       .eq('company_id', companyId)
-      .eq('job_id', jobId)
+      .eq('job_id', resolvedJobId)
       .is('deleted_at', null)
     plateIdsForJob = (jp ?? []).map((r: any) => r.plate_id)
     if (plateIdsForJob.length === 0) {
@@ -48,38 +75,21 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status) q = q.eq('status', status)
   if (search) q = q.or(`color.ilike."%${escapeFilterValue(search)}%"`)
   if (plateIdsForJob) q = q.in('id', plateIdsForJob)
+  if (excludeIds.length) q = q.not('id', 'in', `(${excludeIds.join(',')})`)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })
+    // Tiebreaker — plates created in the same batch share a created_at.
+    .order('id', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Same "who's it really with right now" enrichment the page.tsx initial
-  // load does — kept here too so this endpoint is correct on its own if
-  // ever called directly (search/filter/pagination), not just consistent
-  // with the server-rendered first page.
-  const rows = (data ?? []) as any[]
-  const plateIds = rows.map(p => p.id)
-  const currentJobByPlate: Record<string, { assignment_id: string; job_number: string; job_title: string } | null> = {}
-  if (plateIds.length > 0) {
-    const { data: activeAssignments } = await supabase
-      .from('job_plates' as any)
-      .select('id, plate_id, assigned_at, jobs(job_number, job_title)')
-      .eq('company_id', companyId)
-      .in('plate_id', plateIds)
-      .is('deleted_at', null)
-      .is('returned_at', null)
-      .order('assigned_at', { ascending: false })
-    for (const row of ((activeAssignments ?? []) as any[])) {
-      if (!(row.plate_id in currentJobByPlate)) {
-        currentJobByPlate[row.plate_id] = row.jobs
-          ? { assignment_id: row.id, job_number: row.jobs.job_number, job_title: row.jobs.job_title }
-          : null
-      }
-    }
-  }
-  const enriched = rows.map(p => ({ ...p, current_job: currentJobByPlate[p.id] ?? null }))
+  // Same "who's it really with right now" enrichment the Plates page needs.
+  // Shared with the server component so the two cannot drift.
+  const enriched = await attachCurrentJob(supabase, companyId, (data ?? []) as any[])
 
   return NextResponse.json({ data: enriched, total: count ?? 0, page, limit })
 })

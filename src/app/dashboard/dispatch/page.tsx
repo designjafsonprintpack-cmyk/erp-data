@@ -12,9 +12,11 @@ export default async function DispatchPage() {
     supabase.from('dispatch_orders' as any)
       .select('*, customers(name,customer_code), dispatch_items(id,job_id,quantity_dispatched,jobs(job_number,job_title)), proof_of_delivery(id,received_by,condition)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // DispatchClient filters this array in the browser, so anything past the
-      // limit is invisible to its search too. Raised 50 -> 200.
-      .order('created_at', { ascending: false }).limit(200),
+      // First page only — DispatchClient pages the rest from /api/v1/dispatch,
+      // which filters server-side, so nothing is unreachable any more.
+      // Must match LIST_PAGE_SIZE, or page 2 overlaps page 1.
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('customers' as any)
       .select('id,name,customer_code,address,phone,mobile')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),
@@ -28,9 +30,19 @@ export default async function DispatchPage() {
   // — the list this page was missing.
   const awaitingDispatch = await loadJobsAwaitingDispatch(supabase, companyId)
 
-  const dispatched  = (dispatchRes.data ?? []).filter((d: any) => d.status === 'dispatched').length
-  const delivered   = (dispatchRes.data ?? []).filter((d: any) => d.status === 'delivered').length
-  const pending     = (dispatchRes.data ?? []).filter((d: any) => d.status === 'pending').length
+  // Counted in the database, not by filtering the page of rows above — that
+  // array is 50 long, so those three numbers used to be "of the newest 50".
+  const countByStatus = (status: string) =>
+    supabase.from('dispatch_orders' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId).is('deleted_at', null).eq('status', status)
+
+  const [dispatchedRes, deliveredRes, pendingRes] = await Promise.all([
+    countByStatus('dispatched'), countByStatus('delivered'), countByStatus('pending'),
+  ])
+  const dispatched = dispatchedRes.count ?? 0
+  const delivered  = deliveredRes.count ?? 0
+  const pending    = pendingRes.count ?? 0
 
   return (
     <div className="space-y-5">
@@ -42,6 +54,7 @@ export default async function DispatchPage() {
       </div>
       <DispatchClient
         initialDispatches={(dispatchRes.data ?? []) as any[]}
+        initialTotal={dispatchRes.count ?? 0}
         customers={(customersRes.data ?? []) as any[]}
         readyJobs={(jobsRes.data ?? []) as any[]}
         awaitingDispatch={awaitingDispatch}

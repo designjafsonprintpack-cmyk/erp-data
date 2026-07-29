@@ -11,13 +11,13 @@ export default async function ArtworkPage() {
 
   const { data, count } = await supabase
     .from('job_artworks' as any)
-    .select('*, jobs(job_number,job_title,customers(name))', { count: 'exact' })
+    .select('*, jobs!job_artworks_job_id_fkey(job_number,job_title,customers(name))', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    // ArtworkClient filters this array in the browser, so anything past the
-    // limit is invisible to its search too. Raised 50 -> 200.
-    .limit(200)
+    // First page only — ArtworkClient pages the rest from /api/v1/artwork.
+    .order('id', { ascending: false })
+    .range(0, 49)
 
   const { data: jobs } = await supabase
     .from('jobs' as any)
@@ -57,7 +57,8 @@ export default async function ArtworkPage() {
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Artwork</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{count ?? 0} artwork versions</p>
       </div>
-      <ArtworkClient initialArtworks={(data ?? []) as any[]} jobs={(jobs ?? []) as any[]} companyId={companyId} commentSummary={commentSummary} />
+      <ArtworkClient initialArtworks={(data ?? []) as any[]}
+        initialTotal={count ?? 0} jobs={(jobs ?? []) as any[]} companyId={companyId} commentSummary={commentSummary} />
     </div>
   )
 }

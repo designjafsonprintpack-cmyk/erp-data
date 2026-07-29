@@ -9,6 +9,7 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobSchema } from '@/lib/schemas/job'
 import { withCurrentStageNames } from '@/lib/utils/currentStageNames'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -57,6 +58,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .order('id', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Same current-stage enrichment the server-rendered first page does, so

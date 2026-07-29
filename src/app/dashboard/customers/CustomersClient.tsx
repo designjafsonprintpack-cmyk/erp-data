@@ -9,7 +9,7 @@ import { TabStrip } from '@/components/ui/TabStrip'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui'
-import { LoadMore } from '@/components/ui/LoadMore'
+import { Pagination } from '@/components/ui/Pagination'
 
 /** Rows per page. The server-rendered first page in page.tsx uses the same number. */
 const PAGE_SIZE = 50
@@ -126,15 +126,15 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
-  const doSearch = useCallback(async (q: string, stage: string, pageNo: number, append: boolean) => {
+  // Replaces the list rather than appending — numbered pages, not Load More.
+  const doSearch = useCallback(async (q: string, stage: string, pageNo: number) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ search: q, limit: String(PAGE_SIZE), page: String(pageNo) })
       if (stage) params.set('stage', stage)
       const res = await fetch(`/api/v1/customers?${params.toString()}`)
       const json = await res.json()
-      const rows = (json.data ?? []) as Customer[]
-      setCustomers(prev => append ? [...prev, ...rows] : rows)
+      setCustomers((json.data ?? []) as Customer[])
       setTotal(json.total ?? 0)
       setPage(pageNo)
     } catch { toast.error('Search failed') }
@@ -143,12 +143,12 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
 
   const handleSearch = (val: string) => {
     setSearch(val)
-    setTimeout(() => doSearch(val, stageFilter, 1, false), 350)
+    setTimeout(() => doSearch(val, stageFilter, 1), 350)
   }
 
   const handleStageFilter = (stage: string) => {
     setStageFilter(stage)
-    doSearch(search, stage, 1, false)
+    doSearch(search, stage, 1)
   }
 
   return (
@@ -189,11 +189,12 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
         />
       </div>
 
-      <LoadMore
-        loaded={customers.length}
+      <Pagination
+        page={page}
         total={total}
+        pageSize={PAGE_SIZE}
         loading={loading}
-        onLoadMore={() => doSearch(search, stageFilter, page + 1, true)}
+        onPageChange={p => doSearch(search, stageFilter, p)}
         noun="customers"
       />
     </div>

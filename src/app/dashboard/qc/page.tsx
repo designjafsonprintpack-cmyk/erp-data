@@ -24,16 +24,20 @@ export default async function QCPage() {
     supabase.from('qc_inspections' as any)
       .select('*, jobs(job_number,job_title,customers(name)), qc_templates(name), qc_defects(id,severity,resolved)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // The LIST only — the stat cards no longer read this array.
-      .order('created_at', { ascending: false }).limit(200),
+      // First page only — QCClient pages the rest from /api/v1/qc/inspections.
+      // The stat cards come from the exact counts below, not from this array.
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('qc_defects' as any)
       .select('*, jobs(job_number,job_title)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).eq('resolved', false)
-      .order('created_at', { ascending: false }).limit(200),
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('reprint_requests' as any)
       .select('*, jobs!reprint_requests_original_job_id_fkey(job_number,job_title,customers(name))', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(200),
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('qc_templates' as any)
       .select('*, qc_template_items(*)').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('jobs' as any)
@@ -52,6 +56,8 @@ export default async function QCPage() {
     pass:        passRes.count ?? 0,
     fail:        failRes.count ?? 0,
     openDefects: defectsRes.count ?? 0,
+    // Needed as the Re-prints tab's starting total now that the tab is paged.
+    reprints:    reprintsRes.count ?? 0,
   }
 
   // Jobs standing at the QC stage with no passing inspection — the work QC

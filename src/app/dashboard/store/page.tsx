@@ -14,9 +14,9 @@ export default async function StorePage() {
     supabase.from('material_requisitions' as any)
       .select('*, jobs(job_number,job_title,gsm), material_requisition_items(*)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // StoreClient filters this array in the browser, so anything past the
-      // limit is invisible to its search too. Raised 50 -> 200.
-      .order('created_at', { ascending: false }).limit(200),
+      // First page only — StoreClient pages the rest from /api/v1/store.
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('jobs' as any)
       .select('id,job_number,job_title').eq('company_id', companyId)
       .is('deleted_at', null).in('status', ['new','in_progress']).order('job_number').limit(100),
@@ -39,6 +39,7 @@ export default async function StorePage() {
       </div>
       <StoreClient
         initialMRNs={(mrnsRes.data ?? []) as any[]}
+        initialTotal={mrnsRes.count ?? 0}
         boardIssueJobs={boardIssueJobs}
         jobs={(jobsRes.data ?? []) as any[]}
         units={(unitsRes.data ?? []) as any[]}

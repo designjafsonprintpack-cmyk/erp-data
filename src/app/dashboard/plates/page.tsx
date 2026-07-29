@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { attachCurrentJob } from '@/lib/utils/platesWithCurrentJob'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import PlatesClient from './PlatesClient'
 import { loadJobsNeedingPlates } from '@/lib/utils/jobsNeedingPlates'
@@ -17,9 +18,10 @@ export default async function PlatesPage() {
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    // PlatesClient filters this array in the browser, so anything past the
-    // limit is invisible to its search too. Raised 100 -> 200.
-    .limit(200)
+    // First page only — PlatesClient pages the rest from /api/v1/plates, which
+    // now applies the search, the status and the job filter server-side.
+    .order('id', { ascending: false })
+    .range(0, 49)
 
   const { data: jobs } = await supabase
     .from('jobs' as any)
@@ -52,33 +54,24 @@ export default async function PlatesPage() {
   // is ever inconsistent (e.g. an old row never got a returned_at before
   // this convention existed), the most recently assigned row wins.
   const plateIds = (data ?? []).map((p: any) => p.id)
-  const currentJobByPlate: Record<string, { assignment_id: string; job_number: string; job_title: string } | null> = {}
-  if (plateIds.length > 0) {
-    const { data: activeAssignments } = await supabase
-      .from('job_plates' as any)
-      .select('id, plate_id, assigned_at, jobs(job_number, job_title)')
-      .eq('company_id', companyId)
-      .in('plate_id', plateIds)
-      .is('deleted_at', null)
-      .is('returned_at', null)
-      .order('assigned_at', { ascending: false })
+  const platesWithCurrentJob = await attachCurrentJob(supabase, companyId, (data ?? []) as any[])
 
-    for (const row of ((activeAssignments ?? []) as any[])) {
-      // First one wins per plate_id since the query is already ordered
-      // newest-first — later (older) duplicates for the same plate are
-      // ignored rather than overwriting a newer one.
-      if (!(row.plate_id in currentJobByPlate)) {
-        currentJobByPlate[row.plate_id] = row.jobs
-          ? { assignment_id: row.id, job_number: row.jobs.job_number, job_title: row.jobs.job_title }
-          : null
-      }
-    }
-  }
+  // Two things the client can no longer derive from its own rows once the list
+  // is paged: every in-storage plate (the "reuse an existing plate" dropdown)
+  // and every job number that currently holds a plate (the job filter).
+  const { data: reusable } = await supabase
+    .from('plates' as any)
+    .select('id,plate_code,color,plate_size,status,reuse_count')
+    .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true)
+    .eq('status', 'in_storage').order('plate_code')
 
-  const platesWithCurrentJob = (data ?? []).map((p: any) => ({
-    ...p,
-    current_job: currentJobByPlate[p.id] ?? null,
-  }))
+  const { data: openAssignments } = await supabase
+    .from('job_plates' as any)
+    .select('jobs(job_number)')
+    .eq('company_id', companyId).is('deleted_at', null).is('returned_at', null)
+  const platedJobNumbers = Array.from(new Set(
+    ((openAssignments ?? []) as any[]).map(r => r.jobs?.job_number).filter(Boolean)
+  )).sort()
 
   return (
     <div className="space-y-5">
@@ -88,6 +81,9 @@ export default async function PlatesPage() {
       </div>
       <PlatesClient
         initialPlates={platesWithCurrentJob as any[]}
+        initialTotal={count ?? 0}
+        reusablePlates={(reusable ?? []) as any[]}
+        platedJobNumbers={platedJobNumbers}
         jobs={(jobs ?? []) as any[]}
         jobsNeedingPlates={jobsNeedingPlates}
         colorSpecs={(colorSpecs ?? []) as any[]}

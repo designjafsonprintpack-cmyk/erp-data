@@ -219,6 +219,24 @@ deliberately left empty. Never read from it.
 - **`col-span-N` can't be built from a runtime number** — Tailwind scans source
   text and purges it. `DataList` solves this by publishing spans as CSS vars
   (`--sp-md`, `--sp-xl`) picked up by `.dl-cell` in globals.css.
+- **`jobs` ↔ `job_artworks` can no longer be embedded without an FK hint.**
+  Migration 104 added `jobs.proof_artwork_id → job_artworks(id)`, so there are
+  now TWO relationships between those tables and PostgREST refuses to guess:
+  *"Could not embed because more than one relationship was found"*. The whole
+  query fails, and because the error was never read, **the Artwork page silently
+  showed nothing** and the customer-facing artwork-approval token route was
+  broken too, from 104 until this was found by the paging work.
+  Correct form: `jobs!job_artworks_job_id_fkey(...)` going one way,
+  `job_artworks!jobs_proof_artwork_id_fkey(...)` going the other. Fixed in
+  `api/v1/artwork`, `api/v1/artwork/[id]/ai-preflight`,
+  `api/v1/public/artwork/[token]`, `api/v1/dashboard/card-jobs` and
+  `dashboard/artwork/page.tsx`.
+  **Adding a FK between two already-related tables breaks every unhinted embed
+  between them.** Grep for the pair before writing that migration.
+- **A page past the end is a PostgREST ERROR, not an empty page** — `PGRST103`,
+  *"An offset of 4900 was requested, but there are only 478 rows"* — so
+  `?page=99` used to return a 500. Every paged route now answers with
+  `outOfRangeResponse()` and `useServerPagedList` drops back to page 1.
 - **PostgREST silently caps every `select()` at 1000 rows.** No error, no flag —
   the array just stops. Verifying migration 105 this way reported `qc = 5` and
   `purchase = accounts = 0` when the real figures are 14 / 18 / 17: the fetch had
@@ -258,6 +276,41 @@ A full 9-phase responsive project (R0–R8) shipped. Before hand-rolling layout:
   `DataList` (replaces 12-col list grids, gives cards on mobile automatically),
   `FormGrid` + `FormField`, `Toolbar`, `TabStrip`, `ScrollRow`, `PageHeader`,
   `DesktopOnly`, and a rebuilt `Modal`.
+- **Every list is page-wise, 50 per page, and paged BY THE SERVER.** `LoadMore`
+  and the browser-side filtering it fed on are both gone. Three pieces:
+  `Pagination` + `LIST_PAGE_SIZE` (`src/components/ui/Pagination.tsx`),
+  `useServerPagedList()` + `fetchAllPages()`
+  (`src/lib/hooks/useServerPagedList.ts`), and `isPageOutOfRange()`
+  (`src/lib/utils/pagedResponse.ts`).
+  Rules that cost something to learn:
+  - **The `.range()` in the page's server component must match
+    `LIST_PAGE_SIZE`**, or page 1 and page 2 overlap.
+  - **Every paged query needs `.order('id')` as a tiebreaker.** Rows sharing a
+    `created_at` have no guaranteed order, so page 2 repeats rows page 1 already
+    showed and drops others. The 478 legacy jobs all share one backdated
+    `created_at`, which is how this was found.
+  - **A filter that stays in the browser silently reinstates the cap** — it can
+    only filter the page in hand. Every filter is a query param now: Dispatch's
+    tabs (`statuses=pending,ready`), Plates' `assigned=none` / `job_number`,
+    QC's `unresolved`.
+  - **Export must not shrink to the current page.** `fetchAllPages()` walks the
+    filter's pages so Export still means "what I filtered to".
+  - **Anything the client used to derive from the whole array now needs its own
+    query.** Plates' reuse dropdown and its job-number filter are two separate
+    server-side lookups for exactly this reason.
+  - **Clear row selection on page change** — ids that left the screen stay
+    ticked otherwise, and Export includes them.
+  - Stat cards NEVER come from the rows. Dispatch's three header counts are
+    `count: 'exact', head: true` queries; QC's and Finance's come from exact
+    counts / `get_finance_summary()`.
+  QC has three independent pagers over three endpoints, one per tab, each scoped
+  inside its own `{tab === '…' && …}` — a shared page number across tabs of
+  different lengths shows an empty list.
+  Numbered buttons are `hidden md:flex`; a phone gets Prev / "Page 2 of 10" /
+  Next, because seven number buttons wrap at 360px.
+  Proven end to end against the live database: all 10 pages of the 478 jobs
+  walked with 0 repeats and all 478 reachable; 120 seeded plates all reachable
+  with `status` / `search` / `assigned` applied in the query.
 - Control heights: touch `h-11` · desktop `h-9`/`h-8`/`h-7` · operator `h-14`.
 - **Desktop output must stay pixel-identical** unless a change is clearly an
   improvement. That promise has been kept through every phase.
@@ -465,8 +518,10 @@ Two things that walk taught, worth keeping:
   on. It's the file §1 says to check before writing a query; check the migration
   too.
 - **Repeat Job picker is capped at 200 rows** (`jobs/new/page.tsx:23`, newest
-  first), so the backdated legacy jobs mostly don't appear in it. Seven other
-  operational pages have the same "recent 200" cap with no Load More.
+  first), so the backdated legacy jobs mostly don't appear in it.
+- **Two `.limit(200)` caps remain, both deliberate**: the Repeat Job picker
+  (`jobs/new/page.tsx`, a dropdown) and `job_costings` on the Reports page (a
+  report input, not a list). Every list page is uncapped.
 - **Grain Direction**: input, form state and request schema all removed. The
   **column still exists** and old jobs keep their values; Repeat and QC Reprint
   still copy it row-to-row. Dropping it properly is a separate, irreversible

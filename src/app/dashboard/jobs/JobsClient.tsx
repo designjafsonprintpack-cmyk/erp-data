@@ -12,12 +12,13 @@ import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { ArtworkThumb, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
-import { LoadMore } from '@/components/ui/LoadMore'
+import { Pagination } from '@/components/ui/Pagination'
 
 /** Rows per page. The server-rendered first page in page.tsx uses the same
- *  number. 100 rather than 50 because the 478 backdated legacy jobs sit at the
- *  bottom of this list and were unreachable at 25. */
-const PAGE_SIZE = 100
+ *  number — keep the two in sync or page 1 and page 2 overlap.
+ *  50, not the old 100: with numbered pages the 478 legacy jobs are reachable
+ *  in one click, so a taller first page buys nothing and costs render time. */
+const PAGE_SIZE = 50
 
 /**
  * Row height on the Jobs list. The artwork thumbnail is worth its space when
@@ -238,7 +239,10 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
     }
   }
 
-  const fetchJobs = useCallback(async (q: string, status: string, pageNo: number, append: boolean) => {
+  // Each page REPLACES the list now rather than appending to it — that is the
+  // difference between Load More and numbered pages, and it also means the DOM
+  // never holds more than PAGE_SIZE rows however deep you go.
+  const fetchJobs = useCallback(async (q: string, status: string, pageNo: number) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(pageNo) })
@@ -246,22 +250,24 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       if (status) params.set('status', status)
       const res = await fetch(`/api/v1/jobs?${params}`)
       const json = await res.json()
-      const rows = (json.data ?? []) as Job[]
-      setJobs(prev => append ? [...prev, ...rows] : rows)
+      setJobs((json.data ?? []) as Job[])
       setTotal(json.total ?? 0)
       setPage(pageNo)
+      // Rows from the page we just left must not stay ticked — the ids aren't
+      // on screen any more, and Export would silently include them.
+      setSelected(new Set())
     } catch { toast.error('Failed to load jobs') }
     finally { setLoading(false) }
   }, [])
 
   const handleSearch = (val: string) => {
     setSearch(val)
-    setTimeout(() => fetchJobs(val, activeStatus, 1, false), 350)
+    setTimeout(() => fetchJobs(val, activeStatus, 1), 350)
   }
 
   const handleStatusTab = (status: string) => {
     setActiveStatus(status)
-    fetchJobs(search, status, 1, false)
+    fetchJobs(search, status, 1)
   }
 
   return (
@@ -357,11 +363,12 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       )}
 
       {view === 'list' && (
-        <LoadMore
-          loaded={jobs.length}
+        <Pagination
+          page={page}
           total={total}
+          pageSize={PAGE_SIZE}
           loading={loading}
-          onLoadMore={() => fetchJobs(search, activeStatus, page + 1, true)}
+          onPageChange={p => fetchJobs(search, activeStatus, p)}
           noun="jobs"
         />
       )}

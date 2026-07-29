@@ -15,6 +15,8 @@ import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 import Link from 'next/link'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface TemplateItem { id: string; question: string; category: string; is_critical: boolean; sort_order: number }
@@ -63,8 +65,8 @@ interface BoardInventoryItem { id: string; description: string; current_stock: n
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
 /**
- * Exact totals from Postgres (see page.tsx). The lists below are capped at 200
- * rows, so these can be far larger than the arrays — never recompute them with
+ * Exact totals from Postgres (see page.tsx). The lists below hold ONE PAGE, so
+ * these can be far larger than the arrays — never recompute them with
  * inspections.filter(...), which is the bug this prop exists to fix.
  */
 export interface QCCounts {
@@ -72,6 +74,7 @@ export interface QCCounts {
   pass: number
   fail: number
   openDefects: number
+  reprints: number
 }
 
 export default function QCClient({ initialInspections, openDefects, reprintRequests, templates, jobs, boardInventory, companyId, awaitingQC = [], counts }: {
@@ -80,8 +83,6 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
   awaitingQC?: JobAwaitingQC[]
   counts: QCCounts
 }) {
-  const [inspections, setInspections] = useState(initialInspections)
-  const [defects,     setDefects]     = useState(openDefects)
 
   // Server counts are a snapshot, so recording an inspection here has to move
   // them by hand — otherwise the card sits one behind until the next reload.
@@ -92,8 +93,30 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
       pass: t.pass + (to === 'pass' ? 1 : 0) - (from === 'pass' ? 1 : 0),
       fail: t.fail + (to === 'fail' ? 1 : 0) - (from === 'fail' ? 1 : 0),
     }))
-  const [reprints,    setReprints]    = useState(reprintRequests)
   const [tab, setTab] = useState<'inspections'|'defects'|'reprints'|'trends'>('inspections')
+
+  // Each tab pages on its own, from its own endpoint — switching tabs must not
+  // carry a page number from a list of a different length, and none of the
+  // three is capped at 200 any more.
+  const inspPage = useServerPagedList<Inspection>({
+    endpoint: '/api/v1/qc/inspections',
+    initialRows: initialInspections, initialTotal: counts.inspections,
+    errorMessage: 'Failed to load inspections',
+  })
+  const defPage = useServerPagedList<Defect>({
+    endpoint: '/api/v1/qc/defects',
+    initialRows: openDefects, initialTotal: counts.openDefects,
+    errorMessage: 'Failed to load defects',
+  })
+  const rprPage = useServerPagedList<ReprintReq>({
+    endpoint: '/api/v1/qc/reprint',
+    initialRows: reprintRequests, initialTotal: counts.reprints,
+    errorMessage: 'Failed to load re-print requests',
+  })
+  const inspections = inspPage.rows, setInspections = inspPage.setRows
+  const defects     = defPage.rows,  setDefects     = defPage.setRows
+  const reprints    = rprPage.rows,  setReprints    = rprPage.setRows
+
   const [loading, setLoading] = useState(false)
 
   /* Inspect modal */
@@ -451,6 +474,11 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         </div>
       )}
 
+      {tab === 'inspections' && (
+        <Pagination page={inspPage.page} total={inspPage.total} pageSize={inspPage.pageSize}
+          loading={inspPage.loading} onPageChange={p => inspPage.goToPage(p)} noun="inspections" />
+      )}
+
       {/* ── DEFECTS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'defects' && (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
@@ -512,6 +540,12 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
         </div>
       )}
 
+      {tab === 'defects' && (
+        <Pagination page={defPage.page} total={defPage.total} pageSize={inspPage.pageSize}
+          loading={defPage.loading} onPageChange={p => defPage.goToPage(p, { unresolved: 'true' })}
+          noun="defects" />
+      )}
+
       {/* ── REPRINTS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'reprints' && (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
@@ -564,6 +598,11 @@ export default function QCClient({ initialInspections, openDefects, reprintReque
             </>
           )}
         </div>
+      )}
+
+      {tab === 'reprints' && (
+        <Pagination page={rprPage.page} total={rprPage.total} pageSize={inspPage.pageSize}
+          loading={rprPage.loading} onPageChange={p => rprPage.goToPage(p)} noun="re-prints" />
       )}
 
       {tab === 'trends' && <QcDefectTrends />}

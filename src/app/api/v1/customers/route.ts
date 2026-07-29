@@ -8,6 +8,7 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { customerSchema } from '@/lib/schemas/customer'
 import { runNewCustomerRule } from '@/lib/utils/automationEngine'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -38,6 +39,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   // .order('id') is the paging tiebreaker — see the matching comment on the
   // customers list page.
   const { data, error, count } = await query.order('name').order('id').range(offset, offset + limit - 1)
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })

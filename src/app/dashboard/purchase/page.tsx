@@ -11,9 +11,10 @@ export default async function PurchasePage() {
     supabase.from('purchase_orders' as any)
       .select('*, vendors(name,vendor_code), purchase_order_items(*)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // PurchaseClient filters this array in the browser, so anything past the
-      // limit is invisible to its search too. Raised 50 -> 200.
-      .order('created_at', { ascending: false }).limit(200),
+      // First page only — PurchaseClient pages the rest from
+      // /api/v1/purchase-orders, which filters server-side.
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     supabase.from('vendors' as any).select('id,name,vendor_code')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),
   ])
@@ -24,7 +25,7 @@ export default async function PurchasePage() {
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Purchase Orders</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{posRes.count ?? 0} purchase orders</p>
       </div>
-      <PurchaseClient initialPOs={(posRes.data ?? []) as any[]} vendors={(vendorsRes.data ?? []) as any[]} />
+      <PurchaseClient initialPOs={(posRes.data ?? []) as any[]} initialTotal={posRes.count ?? 0} vendors={(vendorsRes.data ?? []) as any[]} />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/j
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { reprintRequestSchema } from '@/lib/schemas/qc'
+import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -16,6 +17,11 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || ''
+  // Was a flat .limit(50) with no offset — the 51st re-print request could not
+  // be reached from anywhere.
+  const page   = parseInt(searchParams.get('page') || '1')
+  const limit  = Math.min(parseInt(searchParams.get('limit') || '50') || 50, 200)
+  const offset = (page - 1) * limit
 
   let q = supabase.from('reprint_requests' as any)
     .select('*, jobs!reprint_requests_original_job_id_fkey(job_number,job_title,customers(name)), reprint_job:jobs!reprint_requests_reprint_job_id_fkey(job_number)', { count: 'exact' })
@@ -24,9 +30,14 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   if (status) q = q.eq('status', status)
 
-  const { data, error, count } = await q.order('created_at', { ascending: false }).limit(50)
+  const { data, error, count } = await q
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(offset, offset + limit - 1)
+  // A page past the end is an empty page, not a 500 — see pagedResponse.
+  if (isPageOutOfRange(error)) return NextResponse.json(outOfRangeResponse(page, limit))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 })
+  return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit })
 })
 
 export const POST = withErrorHandling(async function POST(req: NextRequest) {

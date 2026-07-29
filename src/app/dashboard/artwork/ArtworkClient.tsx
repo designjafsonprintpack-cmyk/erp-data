@@ -11,6 +11,8 @@ import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/Artwork
 import { MarkupOverlay, markNumber } from '@/components/artwork/MarkupOverlay'
 import type { MarkupShape } from '@/lib/schemas/publicToken'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
 interface ArtworkComment {
   id: string; author_type: 'staff' | 'customer'; author_name: string | null
@@ -48,9 +50,21 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function ArtworkClient({ initialArtworks, jobs, companyId, commentSummary }: { initialArtworks: Artwork[]; jobs: Job[]; companyId: string; commentSummary: Record<string, { total: number; unresolvedCustomer: boolean }> }) {
-  const [artworks, setArtworks] = useState(initialArtworks)
+export default function ArtworkClient({ initialArtworks, initialTotal, jobs, companyId, commentSummary }: { initialArtworks: Artwork[]; initialTotal: number; jobs: Job[]; companyId: string; commentSummary: Record<string, { total: number; unresolvedCustomer: boolean }> }) {
   const [filterJob, setFilterJob] = useState('')
+
+  // The job filter runs in the query now, so it reaches every artwork version
+  // rather than the newest 200 this page happened to load.
+  const list = useServerPagedList<Artwork>({
+    endpoint: '/api/v1/artwork',
+    initialRows: initialArtworks,
+    initialTotal,
+    errorMessage: 'Failed to load artwork',
+  })
+  const artworks = list.rows
+  const setArtworks = list.setRows
+
+  const changeJob = (v: string) => { setFilterJob(v); list.applyFilter({ job_id: v }) }
   const [uploadModal, setUploadModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -83,7 +97,9 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     localStorage.setItem(ARTWORK_VIEW_KEY, v)
   }
 
-  const filtered = filterJob ? artworks.filter(a => a.job_id === filterJob) : artworks
+  // Already filtered by the query — this is just the name the rest of the
+  // component uses.
+  const filtered = artworks
 
   // One batched signing request for every previewable file on screen.
   const thumbs = useArtworkThumbnails(filtered)
@@ -94,6 +110,11 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     acc[key].push(art)
     return acc
   }, {} as Record<string, Artwork[]>)
+
+  // Grouping happens within the page. Rows come back newest-first, so a job's
+  // versions are next to each other; a job whose versions straddle a page
+  // boundary simply shows its header on both, which is better than a cap.
+  const groupEntries = Object.entries(grouped)
 
   const pickFile = (file: File | null) => {
     setSelectedFile(file)
@@ -283,7 +304,7 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center gap-2.5 md:gap-3">
-        <select value={filterJob} onChange={e => setFilterJob(e.target.value)}
+        <select value={filterJob} onChange={e => changeJob(e.target.value)}
           className="w-full md:w-auto h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors">
           <option value="">All Jobs</option>
           {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
@@ -310,14 +331,14 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
       </div>
 
       {/* Grouped by job */}
-      {Object.entries(grouped).length === 0 ? (
+      {groupEntries.length === 0 ? (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-16 text-center">
           <ImageIcon size={32} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-3" />
           <p className="text-sm font-medium text-[var(--color-text-primary)]">No artwork yet</p>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">Add artwork files for active jobs</p>
         </div>
       ) : (
-        Object.entries(grouped).map(([jobId, arts]) => {
+        groupEntries.map(([jobId, arts]) => {
           const job = arts[0]?.jobs
           const readyVersion = arts.find(a => a.status === 'approved')
           return (
@@ -490,6 +511,10 @@ export default function ArtworkClient({ initialArtworks, jobs, companyId, commen
           )
         })
       )}
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading} onPageChange={p => list.goToPage(p, { job_id: filterJob })}
+        noun="artwork versions" />
 
       {/* Upload Modal */}
       <Modal open={uploadModal} onClose={() => setUploadModal(false)} title="Add Artwork Version" size="md"

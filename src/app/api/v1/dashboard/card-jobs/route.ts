@@ -36,7 +36,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     }
     case 'artwork_pending': {
       const { data } = await supabase.from('job_artworks' as any)
-        .select(`id, status, jobs(${jobCols})`)
+        // FK hint required since 104 — jobs.proof_artwork_id points back at
+        // job_artworks, so an unhinted embed is ambiguous and errors out.
+        .select(`id, status, jobs!job_artworks_job_id_fkey(${jobCols})`)
         .eq('company_id', companyId).is('deleted_at', null)
         .not('status', 'in', '("approved","rejected","archived")')
         .order('created_at', { ascending: false }).limit(50)

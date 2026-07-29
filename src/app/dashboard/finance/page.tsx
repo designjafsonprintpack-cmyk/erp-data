@@ -13,10 +13,11 @@ export default async function FinancePage() {
     supabase.from('invoices' as any)
       .select('*, customers(name,customer_code), invoice_items(id), payments(id,amount)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
-      // This array is the LIST only. The headline totals no longer come from
-      // it — see get_finance_summary below — so the limit caps what's shown,
-      // not what's counted.
-      .order('invoice_date', { ascending: false }).limit(200),
+      // First page only. The headline totals come from get_finance_summary
+      // below, and FinanceClient pages the rest from /api/v1/finance/invoices,
+      // so nothing is capped any more — neither counted nor shown.
+      .order('invoice_date', { ascending: false }).order('id', { ascending: false })
+      .range(0, 49),
     // Migration 103. Sums every invoice and the last 30 days of payments in
     // Postgres and returns one row, so the four stat cards stay exact however
     // many invoices exist.
@@ -56,6 +57,7 @@ export default async function FinancePage() {
       </div>
       <FinanceClient
         initialInvoices={invoices as any[]}
+        initialTotal={invRes.count ?? 0}
         customers={(customersRes.data ?? []) as any[]}
         completedJobs={(jobsRes.data ?? []) as any[]}
         taxes={(taxesRes.data ?? []) as any[]}

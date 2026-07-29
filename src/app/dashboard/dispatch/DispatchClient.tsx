@@ -15,6 +15,8 @@ import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import type { JobAwaitingDispatch } from '@/lib/utils/jobsAwaitingDispatch'
 import Link from 'next/link'
+import { Pagination } from '@/components/ui/Pagination'
+import { useServerPagedList, fetchAllPages } from '@/lib/hooks/useServerPagedList'
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
 interface DispatchItem {
@@ -53,11 +55,19 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 const EMPTY_ITEM = { job_id: '', quantity_dispatched: '', carton_count: '', weight_kg: '', notes: '' }
 
 /* ─── Component ──────────────────────────────────────────────────────────────── */
-export default function DispatchClient({ initialDispatches, customers, readyJobs, awaitingDispatch }: {
-  initialDispatches: Dispatch[]; customers: Customer[]; readyJobs: Job[]; awaitingDispatch: JobAwaitingDispatch[]
+// Each tab is a status filter the SERVER applies, so a tab shows every
+// matching challan rather than whichever ones happened to be in the first 200.
+const TAB_STATUSES: Record<string, string> = {
+  all: '',
+  pending: 'pending,ready',
+  dispatched: 'dispatched',
+  delivered: 'delivered',
+}
+
+export default function DispatchClient({ initialDispatches, initialTotal, customers, readyJobs, awaitingDispatch }: {
+  initialDispatches: Dispatch[]; initialTotal: number; customers: Customer[]; readyJobs: Job[]; awaitingDispatch: JobAwaitingDispatch[]
 }) {
   const searchParams = useSearchParams()
-  const [dispatches, setDispatches] = useState(initialDispatches)
   // Local copy so a job leaves "Ready to Dispatch" as soon as it's put on an
   // order, without waiting for a server render.
   const [readyToDispatch, setReadyToDispatch] = useState(awaitingDispatch)
@@ -65,6 +75,21 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [loading, setLoading]       = useState(false)
   const [tab, setTab]               = useState<'all'|'pending'|'dispatched'|'delivered'>('all')
+
+  const list = useServerPagedList<Dispatch>({
+    endpoint: '/api/v1/dispatch',
+    initialRows: initialDispatches,
+    initialTotal,
+    errorMessage: 'Failed to load dispatches',
+  })
+  const dispatches = list.rows
+  const setDispatches = list.setRows
+
+  const changeTab = (k: typeof tab) => {
+    setTab(k)
+    setSelected(new Set())   // the ticked rows are about to leave the screen
+    list.applyFilter({ statuses: TAB_STATUSES[k] })
+  }
 
   /* New Dispatch modal */
   const [newModal, setNewModal] = useState(false)
@@ -97,12 +122,8 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
     }
   }, [searchParams, dispatches])
 
-  const filtered = dispatches.filter(d => {
-    if (tab === 'pending')    return d.status === 'pending' || d.status === 'ready'
-    if (tab === 'dispatched') return d.status === 'dispatched'
-    if (tab === 'delivered')  return d.status === 'delivered'
-    return true
-  })
+  // No client-side filtering left — the tab is part of the query now, so the
+  // rows in hand are already the right ones for the tab AND the page.
 
   /* auto-fill delivery address from customer */
   const selectedCustomer = customers.find(c => c.id === form.customer_id)
@@ -192,8 +213,13 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
     ok === targets.length ? toast.success(`${ok} challan${ok > 1 ? 's' : ''} marked Delivered`) : toast.error(`${ok}/${targets.length} updated — refresh to verify`)
   }
 
-  const exportDispatches = () => {
-    const rows = (selected.size ? filtered.filter(d => selected.has(d.id)) : filtered).map(d => ({
+  const exportDispatches = async () => {
+    // Ticked rows export as-is; otherwise walk every page of the current tab so
+    // Export keeps meaning "what I filtered to", not "the 50 rows on screen".
+    const source = selected.size
+      ? dispatches.filter(d => selected.has(d.id))
+      : await fetchAllPages<Dispatch>('/api/v1/dispatch', { statuses: TAB_STATUSES[tab] })
+    const rows = source.map(d => ({
       'Challan #': d.dispatch_number,
       'Customer': d.customers?.name ?? '',
       'Status': d.status,
@@ -344,7 +370,7 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
             { key: 'delivered', label: 'Delivered' },
           ]}
           active={tab}
-          onChange={k => setTab(k as typeof tab)}
+          onChange={k => changeTab(k as typeof tab)}
         />
         <div className="flex items-center gap-2 flex-wrap [&>button]:flex-1 md:[&>button]:flex-none">
           {selected.size > 0 && (
@@ -370,14 +396,14 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
 
       {/* Dispatch list */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
-        {filtered.length === 0 ? (
+        {dispatches.length === 0 ? (
           <div className="p-12 text-center">
             <Truck size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
             <p className="text-sm text-[var(--color-text-muted)]">No dispatch records found</p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--color-border-subtle)]">
-            {filtered.map((d, idx) => {
+            {dispatches.map((d, idx) => {
               const stCfg = STATUS_CFG[d.status as keyof typeof STATUS_CFG] || STATUS_CFG.pending
               const isOpen = expanded.has(d.id)
               const hasPOD = (d.proof_of_delivery ?? []).length > 0
@@ -515,6 +541,10 @@ export default function DispatchClient({ initialDispatches, customers, readyJobs
           </div>
         )}
       </div>
+
+      <Pagination page={list.page} total={list.total} pageSize={list.pageSize}
+        loading={list.loading} onPageChange={p => list.goToPage(p, { statuses: TAB_STATUSES[tab] })}
+        noun="dispatches" />
 
       {/* ══ NEW DISPATCH MODAL ══════════════════════════════════════════════════ */}
       <Modal open={newModal} onClose={() => setNewModal(false)} title="New Delivery Challan" size="xl"

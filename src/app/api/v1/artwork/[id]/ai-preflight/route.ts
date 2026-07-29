@@ -18,7 +18,7 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest, { p
   if (denied) return denied
 
   const { data: artwork } = await supabase.from('job_artworks' as any)
-    .select('id, file_url, file_type, job_id, jobs(job_title, quantity, size_l, size_w, board_types(name))')
+    .select('id, file_url, file_type, job_id, jobs!job_artworks_job_id_fkey(job_title, quantity, size_l, size_w, board_types(name))')
     .eq('id', params.id).eq('company_id', companyId).maybeSingle()
 
   if (!artwork) return NextResponse.json({ error: 'Artwork not found' }, { status: 404 })

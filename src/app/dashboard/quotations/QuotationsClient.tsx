@@ -8,7 +8,7 @@ import { QT_STATUS_CONFIG } from '@/modules/sales/quotations/types/quotation.typ
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
-import { LoadMore } from '@/components/ui/LoadMore'
+import { Pagination } from '@/components/ui/Pagination'
 
 /** Rows per page. The server-rendered first page in page.tsx uses the same number. */
 const PAGE_SIZE = 50
@@ -70,14 +70,14 @@ export default function QuotationsClient({ initialData, initialTotal }: { initia
   const [status, setStatus] = useState('all')
   const [loading, setLoading] = useState(false)
 
-  const doFetch = async (q: string, s: string, pageNo: number, append: boolean) => {
+  // Replaces the list rather than appending — numbered pages, not Load More.
+  const doFetch = async (q: string, s: string, pageNo: number) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ search: q, ...(s !== 'all' ? { status: s } : {}), limit: String(PAGE_SIZE), page: String(pageNo) })
       const res = await fetch(`/api/v1/quotations?${params}`)
       const json = await res.json()
-      const rows = (json.data ?? []) as QT[]
-      setData(prev => append ? [...prev, ...rows] : rows)
+      setData((json.data ?? []) as QT[])
       setTotal(json.total ?? 0)
       setPage(pageNo)
     } finally { setLoading(false) }
@@ -86,10 +86,10 @@ export default function QuotationsClient({ initialData, initialTotal }: { initia
   const handleSearch = (val: string) => {
     setSearch(val)
     clearTimeout((window as any)._qtTimer)
-    ;(window as any)._qtTimer = setTimeout(() => doFetch(val, status, 1, false), 350)
+    ;(window as any)._qtTimer = setTimeout(() => doFetch(val, status, 1), 350)
   }
 
-  const handleStatus = (s: string) => { setStatus(s); doFetch(search, s, 1, false) }
+  const handleStatus = (s: string) => { setStatus(s); doFetch(search, s, 1) }
 
   return (
     <div className="space-y-4">
@@ -125,11 +125,12 @@ export default function QuotationsClient({ initialData, initialTotal }: { initia
         />
       </div>
 
-      <LoadMore
-        loaded={data.length}
+      <Pagination
+        page={page}
         total={total}
+        pageSize={PAGE_SIZE}
         loading={loading}
-        onLoadMore={() => doFetch(search, status, page + 1, true)}
+        onPageChange={p => doFetch(search, status, p)}
         noun="quotations"
       />
     </div>
