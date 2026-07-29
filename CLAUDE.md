@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **097**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **106**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -107,6 +107,15 @@ broke, why this fixes it, and how to undo it.
 - Printing is **hard-blocked** without an active `job_plates` row.
   Board stock shortfall is a **soft warning only** — the shop legitimately uses
   bigger board or starts short. Follow that precedent: warn, record, don't block.
+- **A press proof IS a job**, not a child table. Mehboob's own correction:
+  *"yay job ki terha hi hay bas is ka tag proofing hota hay"* — 100/200/500
+  sheets pulled on the real press so the customer sees real colour. Modelled as
+  `jobs.job_kind = 'proofing'` + `parent_job_id`, so it reuses board issue, MRN,
+  plates and costing with zero new machinery. Numbered `PARENT-P1`, `-P2`…
+  Its `sheet_qty` is the sheet count and `quantity` is 0 — a proof has no boxes.
+  Once any proof run exists, **Printing on the parent is hard-blocked until one
+  is approved**; a proof job itself is exempt or nothing could ever print.
+  Proof runs are hidden from the jobs list by default (`?kind=` filter).
 - Board Issue start auto-creates a draft MRN; complete is blocked until the MRN
   is `issued`.
 - Pricing/accounting fields are deliberately absent from Sales Orders and Job
@@ -114,8 +123,17 @@ broke, why this fixes it, and how to undo it.
 - Job edit/delete is **superadmin only** — deliberately excluding `owner`, unlike
   every other permission check.
 - Doc prefixes: `JOB- DISP- PO- INV- QT- SO- CUST- VND- MRN-`
-- Roles: superadmin, admin, owner, sales, artwork, planning, store, printing,
-  dispatch. `users.role` is free text, more can be added via UI.
+- Roles: superadmin, admin, owner, ceo, gm, sales, artwork, planning, store,
+  printing, dispatch, **plates, qc, purchase, accounts** (last four added in 105).
+  `users.role` is free text, more can be added via UI.
+  The `printing` role already covers lamination → die cutting → hot foil →
+  folder gluing → packing, so its label is **"Production Operator"**; the slug
+  stays `printing`. A separate production role would be a duplicate — 105
+  considered and rejected one.
+  **Only superadmin / owner / ceo / gm get `delete`, `settings`, `admin`.**
+  Purchase and Accounts deliberately get **no `approve`** — whoever raises a PO
+  or an invoice must not also approve it. QC is the exception: approve/reject
+  *is* its job.
 - Single location. Multi-branch, multi-plant and inter-plant transfer were
   explicitly declined — do not propose them again.
 
@@ -201,6 +219,14 @@ deliberately left empty. Never read from it.
 - **`col-span-N` can't be built from a runtime number** — Tailwind scans source
   text and purges it. `DataList` solves this by publishing spans as CSS vars
   (`--sp-md`, `--sp-xl`) picked up by `.dl-cell` in globals.css.
+- **PostgREST silently caps every `select()` at 1000 rows.** No error, no flag —
+  the array just stops. Verifying migration 105 this way reported `qc = 5` and
+  `purchase = accounts = 0` when the real figures are 14 / 18 / 17: the fetch had
+  hit exactly 1000 rows partway through. Same disease as the 200-row stat cards
+  103 fixed, one layer lower and far easier to miss because 1000 looks like
+  "everything". **Count with `{ count: 'exact', head: true }`, or narrow the
+  filter until the result is provably under the cap.** Never total a fetched
+  array — not on a page, not in a throwaway audit script.
 - **RLS on `user_roles` / `role_permissions` is COMPANY-scoped, not user-scoped.**
   Any client query must filter `user_id` explicitly or it returns every user's
   rows. This silently made client-side permission gating a no-op once.
@@ -340,15 +366,107 @@ Test data purged and document counters reset to `0`, then real history loaded.
   ink and production assignments. Shift is an explicit column, never derived from a
   clock — boundaries move, and a rule would re-attribute history retroactively.
 
+- **103** — `get_finance_summary()`. Finance stat cards were summing the **capped
+  200-row array the page had already fetched**, so every total silently went wrong
+  past 200 invoices. QC got the same fix without a migration (`count: 'exact',
+  head: true`) plus a client-side tally so the numbers stay right after an edit.
+  **Any stat card built from an array a page already fetched is a bug** — count in
+  the database, not in JavaScript. Overdue still counts void/cancelled/draft, on
+  purpose, to match the old numbers; the one-line change is in 103's header.
+
+- **104** — press proofing (see §4). Adds `job_kind`, `proof_round`,
+  `proof_result`, `proof_notes`, `proof_decided_at/_by`, `proof_artwork_id` to
+  `jobs`, and a two-stage "Proofing Run" template (Board Issue → Printing) whose
+  `department_id` is looked up **by name** so it can't repeat 091's null-department
+  bug. **Known consequence:** `parent_job_id` has no ON DELETE clause, so a job
+  that has proof runs can no longer be hard-deleted.
+
+- **105** — the four missing shop roles (see §4). The permission modules and the
+  departments had existed since 005/010; only the roles in between never did, so
+  there was literally nobody to give the plate maker or the QC inspector.
+  Run alongside 096, which finally gave `admin` / `artwork` / `planning` theirs.
+
+- **106** — plate sets repair. **072 was half-applied, not un-run**:
+  `job_plates.operator_id` was already there (only 072 adds it) while
+  `plate_sets`, the three `plates` columns and both RPCs were missing, which is
+  why `plates/generate-set` 500'd. 072 has **no `IF NOT EXISTS` anywhere**, so
+  re-running it dies on the existing column — proved, not assumed. 106 redoes the
+  same work fully guarded and idempotent, and fixes 042's `mark_plate_reused()`
+  which wrote the now-illegal status `in_use`.
+  **A migration that "was run" may only be partly run.** Probe for its actual
+  objects — table, columns, functions, policies, triggers — one by one before
+  concluding anything.
+
+- **107** — data-only cleanup, no schema change. Retires the empty duplicate
+  "Standard Box Workflow" template (0 stages, 0 jobs — anyone who picked it got a
+  job with no workflow at all), closes **16 live stage rows left behind under two
+  soft-deleted templates** plus the dependency rows pointing at them, drops the 5
+  duplicate lowercase `document_sequences` rows, and resets the `JOB` counter.
+  **Soft-deleting a template in the UI does not soft-delete its stages** — 107's
+  rule is written generically so it catches the next one too.
+  Deliberately NOT restored: `Standard Carton Workflow` is missing **Lamination
+  (seq 6) and Hot Foil (seq 9)**, but both were soft-deleted by hand on
+  2026-07-26 at 16:09, a minute apart — a person in Settings, not a bug. §4's
+  stage list and the live default template therefore disagree; **ask before
+  changing either.**
+
+- **108** — lets `job_stage_events` accept `proof_created` / `proof_decided`.
+  **104 added the press-proof events but never widened the event_type CHECK**,
+  and `recordJobEvent()` didn't read its own insert error — so the route returned
+  200, the proof run was created, and only the audit trail silently lost it.
+  `recordJobEvent()` now `console.error`s on failure (still swallowed — an audit
+  line must never fail the action that caused it, but it must not be invisible).
+  **Adding an event type means editing this CHECK too** — it has been restated
+  in full by 028, 042, 069, 102 and now 108.
+
+**096, 103, 104, 105, 106 and 107 have all been run and verified against the
+live database (2026-07-29).** All 15 roles hold permissions, `plate_sets` exists
+with both RPCs live, and `plates/generate-set` no longer 500s. **108 is written
+and tested but not yet run.**
+
+### End-to-end walk, 2026-07-29 — the whole workflow works
+One job was driven from creation to closure through the **real API routes**
+against the live database, then deleted and the counters put back. Everything
+below is now proven, not assumed:
+`POST /api/v1/jobs` → workflow initialised with all 10 stages → out-of-order
+start refused → **artwork gate** (complete refused until an approved
+`job_artworks` row exists) → **Board Issue auto-MRN** (`MRN-2026-00001`, line
+item carrying the board and the 250 sheets, complete refused while `pending`,
+allowed at `issued`) → **plates hard-block** → `generate_plate_set()` producing
+CMYK → `POST /jobs/:id/plates` ×4 → Printing → UV Coating → Die Cutting →
+Folder Gluing → Packing → **QC gate** (complete refused on a `fail`, allowed on
+`pass`) → Dispatch → `closeJobIfWorkflowDone()` setting `status = completed` and
+`completed_date`. 27 audit events recorded. Job Card, Job Detail, Jobs list,
+Plates, QC, Reports, Finance, Dispatch and Store all rendered 200.
+
+Two things that walk taught, worth keeping:
+- **The MRN is only auto-created if the job has BOTH `board_type_id` and
+  `sheet_qty`.** No board type → no MRN → Board Issue can never complete, and
+  the error message blames Store rather than the missing field.
+- **`workflow_stage_dependencies` rows are `stage_started`, not
+  `stage_complete`** — Die Cutting legitimately starts as soon as Printing
+  *starts*. Sequential order is not what actually gates a configured stage.
+  There are also **three identical "Die Cutting depends on Printing" rows**;
+  harmless, never cleaned up.
+
 ### Open threads
-- **`plate_sets` does not exist in the database.** Migration `072_plate_sets.sql`
-  was never run, yet `src/app/api/v1/jobs/[id]/plates/generate-set/route.ts`
-  writes to it — plate-set generation will fail.
+- **The `admin` role has `customers` and `dashboard` switched OFF** — 18
+  `role_permissions` rows with `is_active = false`, and `has_permission()`
+  requires `rp.is_active`, so an Admin genuinely cannot open the dashboard or
+  the customer list. Flip them in Settings → Roles & Permissions if that wasn't
+  intended. (Admin also has no `admin` module at all — 243 of 252.)
+- **Nothing is in flight yet.** All 478 live jobs are the completed legacy
+  import, with no workflow template. `plates`, `plate_sets`, `job_plates`,
+  `job_stage_progress` and `job_workflow_instances` are all at **0 rows**, and
+  no job is `new` or `in_progress`. So "0 plates blocks Printing" is not a live
+  problem — it only starts mattering with the first real job. Take fresh counts
+  before treating any of this as evidence.
+- **`src/types/database.types.ts` is stale** — it predates everything from ~087
+  on. It's the file §1 says to check before writing a query; check the migration
+  too.
 - **Repeat Job picker is capped at 200 rows** (`jobs/new/page.tsx:23`, newest
-  first), so the backdated legacy jobs mostly don't appear in it.
-- **`document_sequences` carries duplicate lowercase rows** (`job`, `so`, `po`,
-  `quotation`, `dispatch`) beside the uppercase ones the app actually uses.
-  Harmless today, confusing forever.
+  first), so the backdated legacy jobs mostly don't appear in it. Seven other
+  operational pages have the same "recent 200" cap with no Load More.
 - **Grain Direction**: input, form state and request schema all removed. The
   **column still exists** and old jobs keep their values; Repeat and QC Reprint
   still copy it row-to-row. Dropping it properly is a separate, irreversible
@@ -371,6 +489,35 @@ Test data purged and document counters reset to `0`, then real history loaded.
 - **Scratch assertion scripts** beat eyeballing. Write a throwaway script that
   greps the built output or parses the changed file and asserts the specific
   thing you claimed. Delete it after.
+- **Test migrations for real before Mehboob runs them.** Rebuild the exact broken
+  state, apply the migration, then *call the functions and assert what they did* —
+  106 was verified this way (CMYK set generated, `replace_plate` leaving the other
+  three plates untouched, 072 failing exactly as predicted): 23 assertions, not
+  "it compiled".
+  Two ways, both available on this machine now:
+  **PostgreSQL 18.4 is installed locally** (`psql --version`), and
+  **`@electric-sql/pglite`** (~15MB WASM Postgres, no server, no Docker) works
+  from the scratchpad when a throwaway database is easier than a real one.
+  Python 3.14.6 is installed too, if a skill or tool needs it.
+- **Walking a job end to end through the real routes is the strongest test
+  here**, and it is cheap: create a temp auth user + `users` row with
+  `role = 'superadmin'` via the service-role client, sign in with
+  `signInWithPassword`, and send the session as
+  `sb-<project-ref>-auth-token=base64-<base64(JSON session)>` — that is the
+  cookie `@supabase/ssr` reads. Run `npm run dev -- -p 3123` so it can't collide
+  with Mehboob's own server. Write the cleanup script BEFORE the test, record
+  every created id in a state file, and reset the `JOB` / `MRN` counters at the
+  end. `@supabase/ssr` rotates refresh tokens server-side, so a static cookie
+  will 401 at some point — re-sign-in on 401 rather than treating it as a bug.
+- **Never probe the live database with a function that writes.** Calling
+  `get_next_sequence_number` "just to see if it exists" consumed a real job
+  number. Read `pg_proc` / `information_schema` instead. And when probing, pass
+  the **correct argument names** — an argless `rpc(fn, {})` returns "function not
+  found" for every function that takes arguments, which reads exactly like a
+  missing function.
+- **A query that errors must not be swallowed.** `(await q).data ?? []` turned a
+  wrong-column error into "the table is empty", and I reported `role_permissions`
+  as having 0 rows when it had 1320. Always check `error` before trusting `data`.
 - **Render tests** for components: `npx tsx` from the repo root (needed for the
   `@/` alias) with a temp tsconfig extending the real one but setting
   `"jsx": "react-jsx"` — the repo's `"preserve"` leaves JSX untransformed.

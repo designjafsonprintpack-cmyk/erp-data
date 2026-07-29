@@ -22,7 +22,7 @@ export async function recordJobEvent(
   payload: RecordEventPayload,
   supabase: SupabaseClient
 ): Promise<void> {
-  await supabase.from('job_stage_events' as any).insert({
+  const { error } = await supabase.from('job_stage_events' as any).insert({
     company_id: payload.company_id,
     job_id: payload.job_id,
     event_type: payload.event_type,
@@ -32,6 +32,18 @@ export async function recordJobEvent(
     stage_id: payload.stage_id ?? null,
     actor_id: payload.actor_id ?? null,
   })
+
+  // Still swallowed on purpose — losing an audit line must never fail the
+  // action that caused it. But it is no longer INVISIBLE: migration 104 added
+  // 'proof_created' / 'proof_decided' without widening this table's event_type
+  // CHECK, and because nothing here read the error, every press-proof event was
+  // dropped while the route happily returned 200. Fixed by 108; this line is so
+  // the next missing event type shows up in the logs instead of years later.
+  if (error) {
+    console.error(
+      `[recordJobEvent] failed to record "${payload.event_type}" for job ${payload.job_id}: ${error.message}`
+    )
+  }
 }
 
 /**
