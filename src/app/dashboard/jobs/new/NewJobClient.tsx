@@ -119,6 +119,17 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
 
   const set = (k: keyof JobFormData, v: any) => setForm(p => ({ ...p, [k]: v }))
 
+  // Box Type drives the workflow (migration 110): Box → Standard Carton,
+  // HL → HL (Hinge Lid), Label/Sticker → Label / Sticker. The API resolves this
+  // server-side regardless, but the dropdown is moved here too so the form shows
+  // the workflow the job will actually get instead of quietly disagreeing with
+  // it. Only the mapped box types steer it — an unmapped one leaves whatever is
+  // already selected alone, and an explicit pick afterwards still wins.
+  const setBoxType = (boxTypeId: string) => setForm(p => {
+    const mapped = boxTypes.find((b: any) => b.id === boxTypeId)?.workflow_template_id
+    return { ...p, box_type_id: boxTypeId, workflow_template_id: mapped || p.workflow_template_id }
+  })
+
   // Board / Paper is one combined select ("board:<id>" | "paper:<id>").
   // Choosing one does NOT set GSM: GSM belongs to the stock item, not the
   // board type, so it is offered from real inventory instead (see gsmOptions).
@@ -566,7 +577,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           </div>
           <div className="space-y-1.5">
             <label htmlFor="newjobclient-23" className={labelCls}>Box Type</label>
-            <select id="newjobclient-23" className={inputCls} value={form.box_type_id} onChange={e => set('box_type_id', e.target.value)}>
+            <select id="newjobclient-23" className={inputCls} value={form.box_type_id} onChange={e => setBoxType(e.target.value)}>
               <option value="">Not specified</option>
               {boxTypes.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>

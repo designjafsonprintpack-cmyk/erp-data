@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
+import { resolveWorkflowTemplateId } from '@/lib/utils/resolveWorkflowTemplate'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobRepeatSchema } from '@/lib/schemas/jobActions'
@@ -47,6 +48,17 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   // the parent, so the parent's stored sheet_qty can't just be copied.
   const newQty = quantity ? parseFloat(String(quantity)) : orig.quantity
 
+  // The parent's template is the first choice, but copying it blindly was the
+  // bug: all 478 legacy jobs carry workflow_template_id = NULL by design, and a
+  // repeat of one came out with no stages and never surfaced in any department
+  // queue. Falling through to the box type's mapping (migration 110) means a
+  // reorder of an old carton lands on Standard Carton, an old HL on HL, and so
+  // on — without touching the legacy job itself.
+  const repeatTemplateId = await resolveWorkflowTemplateId(supabase, companyId, {
+    explicitId: orig.workflow_template_id,
+    boxTypeId:  orig.box_type_id,
+  })
+
   // Create repeat job — copy all specs from original
   const { data: newJob, error: createErr } = await supabase.from('jobs' as any).insert({
     company_id:           companyId,
@@ -82,7 +94,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     foil_type_id:         orig.foil_type_id,
     special_finishing:    orig.special_finishing,
     pasting:              orig.pasting,
-    workflow_template_id: orig.workflow_template_id,
+    workflow_template_id: repeatTemplateId,
     priority:             'normal',
     required_date:        required_date || null,
     status:               'new',
@@ -93,8 +105,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const newJobData = newJob as any
 
   // Initialize workflow
-  if (orig.workflow_template_id) {
-    await initializeJobWorkflow(newJobData.id, orig.workflow_template_id, companyId, supabase)
+  if (repeatTemplateId) {
+    await initializeJobWorkflow(newJobData.id, repeatTemplateId, companyId, supabase)
   }
 
   // Link artwork reference if same_artwork

@@ -5,6 +5,7 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
+import { resolveWorkflowTemplateId } from '@/lib/utils/resolveWorkflowTemplate'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobSchema } from '@/lib/schemas/job'
@@ -83,21 +84,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if ('error' in parsed) return parsed.error
   const body = parsed.data
 
-  // Respect the "Auto-assign jobs to default workflow" system setting
-  // (Settings → System Settings). It existed in the UI but nothing checked
-  // it — the New Job form's own dropdown default only applies when someone
-  // uses that specific form, not for jobs created any other way.
-  let workflowTemplateId = body.workflow_template_id || null
-  if (!workflowTemplateId) {
-    const { data: autoAssignSetting } = await supabase.from('system_settings' as any)
-      .select('value').eq('company_id', companyId).eq('key', 'job_auto_assign').maybeSingle()
-    if ((autoAssignSetting as any)?.value === 'true') {
-      const { data: defaultTemplate } = await supabase.from('workflow_templates' as any)
-        .select('id').eq('company_id', companyId).eq('is_default', true)
-        .is('deleted_at', null).eq('is_active', true).maybeSingle()
-      workflowTemplateId = (defaultTemplate as any)?.id ?? null
-    }
-  }
+  // Explicit choice → box type's mapping (migration 110) → the is_default
+  // template, all gated on the "Auto-assign jobs to default workflow" system
+  // setting. Shared with Repeat and QC Reprint so the three can never disagree
+  // about which workflow a job of a given box type gets.
+  const workflowTemplateId = await resolveWorkflowTemplateId(supabase, companyId, {
+    explicitId: body.workflow_template_id,
+    boxTypeId:  body.box_type_id,
+  })
 
   // ─── "Repeat with Changes" linkage (migration 097) ─────────────────────────
   // Ordinary create unless parent_job_id came in. The parent is verified

@@ -10,7 +10,10 @@ export default async function NewJobPage() {
   const [customers, boardTypes, boxTypes, paperTypes, laminationTypes, foilTypes, coatingTypes, workflows, salesOrders, repeatableJobs, stockGsm] = await Promise.all([
     supabase.from('customers' as any).select('id,name,customer_code').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
-    supabase.from('box_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
+    // workflow_template_id (migration 110) rides along so the form can move the
+    // Production Workflow dropdown the moment a box type is picked, instead of
+    // showing one workflow while the API silently resolves another.
+    supabase.from('box_types' as any).select('id,name,workflow_template_id').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('sort_order').order('name'),
     supabase.from('paper_types' as any).select('id,name,gsm').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('lamination_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('foil_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),

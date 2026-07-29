@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
+import { resolveWorkflowTemplateId } from '@/lib/utils/resolveWorkflowTemplate'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
@@ -39,6 +40,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       p_company_id: companyId, p_document_type: 'JOB',
     })
 
+    // Same fallback as Repeat: the failed job's own template first, then its box
+    // type's mapping (migration 110). Copying a NULL straight across produced a
+    // reprint with no stages, which is the one job that must not go missing.
+    const reprintTemplateId = await resolveWorkflowTemplateId(supabase, companyId, {
+      explicitId: origJob.workflow_template_id,
+      boxTypeId:  origJob.box_type_id,
+    })
+
     const { data: newJob } = await supabase.from('jobs' as any).insert({
       company_id:           companyId,
       job_number:           jobNum,
@@ -68,13 +77,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       foil_type_id:         origJob.foil_type_id,
       special_finishing:    origJob.special_finishing,
       pasting:              origJob.pasting,
-      workflow_template_id: origJob.workflow_template_id,
+      workflow_template_id: reprintTemplateId,
       priority:             req_.priority,
       status:               'new',
     }).select().single()
 
-    if (newJob && origJob.workflow_template_id) {
-      await initializeJobWorkflow((newJob as any).id, origJob.workflow_template_id, companyId, supabase)
+    if (newJob && reprintTemplateId) {
+      await initializeJobWorkflow((newJob as any).id, reprintTemplateId, companyId, supabase)
     }
 
     const { data, error } = await supabase.from('reprint_requests' as any).update({
