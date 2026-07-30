@@ -43,3 +43,16 @@ whatsapp.txt
 
 # claude code — personal, machine-specific settings
 .claude/settings.local.json
+
+# agent skills installed by `npx skills add <repo>`
+#
+# The skill files themselves are NOT tracked — skills-lock.json is, the same way
+# a package-lock is. `npx skills install` restores them from it.
+#
+# Not tracking them also avoids a Windows-specific trap: `npx skills` writes the
+# real files to .agents/skills/ and then points .claude/skills/ at them with
+# directory JUNCTIONS. core.symlinks is false in this repo, so git sees a
+# junction as an ordinary directory and would commit every skill file TWICE —
+# once under each path. Verified with `git add -A --dry-run`: 12 files, 24 adds.
+/.agents/
+/.claude/skills/
