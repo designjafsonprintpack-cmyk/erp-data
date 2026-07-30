@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download, Undo2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
@@ -22,6 +22,24 @@ interface BoardItem {
 interface BoardType { id: string; name: string }
 interface Unit { id: string; name: string; symbol: string }
 interface Vendor { id: string; name: string }
+interface OpenJob { id: string; job_number: string; job_title: string }
+
+/**
+ * 'return' is board coming BACK from the floor. The ledger stores it as an 'in'
+ * with reference_type = 'production_return' (114) so the stock report can show
+ * it in its own column, exactly as the shop's Excel does.
+ */
+type MovementAction = 'in' | 'out' | 'adjustment' | 'return'
+
+/** One row of get_board_stock_report(). Every figure is in SHEETS. */
+interface ReportRow {
+  board_item_id: string; description: string; vendor_name: string | null
+  gsm: number | null; sheet_width_in: number | null; sheet_height_in: number | null
+  sheets_per_packet: number
+  opening_sheets: number; received_sheets: number; returned_sheets: number
+  issued_sheets: number; adjustment_sheets: number
+  closing_sheets: number; ledger_closing: number
+}
 
 /**
  * The store counts packets; the database stores sheets. Every number the user
@@ -30,6 +48,15 @@ interface Vendor { id: string; name: string }
  */
 const toPackets = (sheets: number, perPacket: number) => sheets / (perPacket || 100)
 const toSheets  = (packets: number, perPacket: number) => packets * (perPacket || 100)
+
+/** First and last day of the current month, as YYYY-MM-DD. */
+const monthBounds = () => {
+  const n = new Date()
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { from: iso(new Date(n.getFullYear(), n.getMonth(), 1)),
+           to:   iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }
+}
 
 /** "44.68" not "44.6800000000001", and no trailing ".00" on whole packets. */
 const fmtPackets = (n: number) =>
@@ -40,8 +67,8 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 const INV_COLUMNS = (
   setLotsItem: (i: BoardItem) => void,
-  setMovementModal: (m: { item: BoardItem; action: 'in' | 'out' | 'adjustment' }) => void,
-  setMoveForm: (f: { quantity: string; notes: string; lot_number: string }) => void,
+  setMovementModal: (m: { item: BoardItem; action: MovementAction }) => void,
+  setMoveForm: (f: { quantity: string; notes: string; lot_number: string; job_id: string }) => void,
 ): DataListColumn<BoardItem>[] => [
   {
     key: 'desc', header: 'Description', span: 3, role: 'identity',
@@ -111,15 +138,23 @@ const INV_COLUMNS = (
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <Layers size={11} />
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
+        <button onClick={() => { setMovementModal({ item: i, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] transition-colors">
           <TrendingUp size={11} /> In
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '' }) }}
+        <button onClick={() => { setMovementModal({ item: i, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
           <TrendingDown size={11} /> Out
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(toPackets(i.current_stock, i.sheets_per_packet)), notes: '', lot_number: '' }) }}
+        {/* Board coming back from the floor. Its own button rather than "In"
+            because the stock report counts a return separately from a purchase,
+            and it carries the job it came back from. */}
+        <button onClick={() => { setMovementModal({ item: i, action: 'return' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
+          title="Return from production" aria-label="Return from production"
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)] text-xs text-[var(--color-info)] hover:bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] transition-colors">
+          <Undo2 size={11} /> Return
+        </button>
+        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(toPackets(i.current_stock, i.sheets_per_packet)), notes: '', lot_number: '', job_id: '' }) }}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <SlidersHorizontal size={11} /> Adj
         </button>
@@ -128,12 +163,13 @@ const INV_COLUMNS = (
   },
 ]
 
-export default function BoardInventoryClient({ initialItems, boardTypes, units, vendors }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[]; vendors: Vendor[] }) {
+export default function BoardInventoryClient({ initialItems, boardTypes, units, vendors, openJobs }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[]; vendors: Vendor[]; openJobs: OpenJob[] }) {
   const [items, setItems] = useState(initialItems)
   const [search, setSearch] = useState('')
   const [showLowOnly, setShowLowOnly] = useState(false)
   const [addModal, setAddModal] = useState(false)
-  const [movementModal, setMovementModal] = useState<{ item: BoardItem; action: 'in' | 'out' | 'adjustment' } | null>(null)
+  const [movementModal, setMovementModal] = useState<{ item: BoardItem; action: MovementAction } | null>(null)
+  const [view, setView] = useState<'items' | 'report'>('items')
   const [lotsItem, setLotsItem] = useState<BoardItem | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -144,7 +180,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
     sheets_per_packet: '100', vendor_id: '',
     unit_id: '', unit_cost: '0', location: '',
   })
-  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '' })
+  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '', job_id: '' })
 
   const filtered = items
     .filter(i => !search || i.description.toLowerCase().includes(search.toLowerCase()))
@@ -193,20 +229,48 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       const qty = toSheets(packets, movementModal.item.sheets_per_packet)
       const res = await fetch(`/api/v1/board-inventory/${movementModal.item.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: movementModal.action, quantity: qty, notes: moveForm.notes, lot_number: moveForm.lot_number || undefined }),
+        body: JSON.stringify({
+          action: movementModal.action, quantity: qty,
+          notes: moveForm.notes,
+          lot_number: moveForm.lot_number || undefined,
+          // Which job the board came back from. Optional, following the
+          // project's warn-and-record precedent rather than blocking a return
+          // nobody can attribute.
+          job_id: moveForm.job_id || undefined,
+        }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setItems(prev => prev.map(i => i.id === movementModal.item.id ? { ...i, current_stock: (data as any).current_stock } : i))
       setMovementModal(null)
-      setMoveForm({ quantity: '', notes: '', lot_number: '' })
-      toast.success(movementModal.action === 'in' ? 'Stock added' : movementModal.action === 'out' ? 'Stock reduced' : 'Stock adjusted')
+      setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' })
+      toast.success(
+        movementModal.action === 'in' ? 'Stock added'
+        : movementModal.action === 'out' ? 'Stock reduced'
+        : movementModal.action === 'return' ? 'Returned to store'
+        : 'Stock adjusted')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
 
   return (
     <div className="space-y-4">
+      {/* Items = today's stock. Stock Report = the shop's own monthly sheet,
+          rebuilt from the movement ledger (114). */}
+      <div className="flex items-center gap-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5 w-fit">
+        {([['items', 'Items', Layers], ['report', 'Stock Report', FileText]] as const).map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setView(key)}
+            aria-pressed={view === key}
+            className={cn('flex items-center gap-1.5 px-3 h-11 md:h-8 rounded text-sm font-medium transition-colors',
+              view === key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]')}>
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'report' && <StockReport />}
+
+      {view === 'items' && <>
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         {[
@@ -293,6 +357,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
           </div>
         }
       />
+      </>}
 
       {/* Add Item Modal */}
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Inventory Item" size="md"
@@ -370,16 +435,22 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       {/* Movement Modal */}
       {movementModal && (
         <Modal open={true} onClose={() => setMovementModal(null)}
-          title={movementModal.action === 'in' ? 'Stock In' : movementModal.action === 'out' ? 'Stock Out' : 'Adjust Stock'}
+          title={movementModal.action === 'in' ? 'Stock In'
+            : movementModal.action === 'out' ? 'Stock Out'
+            : movementModal.action === 'return' ? 'Return to Store'
+            : 'Adjust Stock'}
           size="sm"
           footer={
             <>
               <button onClick={() => setMovementModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
               <button onClick={applyMovement} disabled={loading}
-                className={cn('px-4 h-9 rounded-md text-white text-sm font-medium disabled:opacity-50 transition-colors',
-                  movementModal.action === 'in' ? 'bg-[var(--color-success)] hover:opacity-90' :
-                  movementModal.action === 'out' ? 'bg-[var(--color-danger)] hover:opacity-90' :
-                  'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)]')}>
+                // Filled buttons take --color-on-*, never text-white: white on
+                // these fills fails WCAG AA in all four dark themes (CLAUDE.md §5).
+                className={cn('px-4 h-9 rounded-md text-sm font-medium disabled:opacity-50 transition-colors',
+                  movementModal.action === 'in' ? 'bg-[var(--color-success)] text-[var(--color-on-success)] hover:opacity-90' :
+                  movementModal.action === 'out' ? 'bg-[var(--color-danger)] text-[var(--color-on-danger)] hover:opacity-90' :
+                  movementModal.action === 'return' ? 'bg-[var(--color-info)] text-[var(--color-on-info)] hover:opacity-90' :
+                  'bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]')}>
                 {loading ? 'Applying…' : 'Apply'}
               </button>
             </>
@@ -409,6 +480,19 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
               <div className="space-y-1.5">
                 <label htmlFor="boardinventoryclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
                 <input id="boardinventoryclient-11" className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
+              </div>
+            )}
+            {movementModal.action === 'return' && (
+              <div className="space-y-1.5">
+                <label htmlFor="boardinventoryclient-ret-job" className="text-sm font-medium text-[var(--color-text-primary)]">Returned from job</label>
+                <select id="boardinventoryclient-ret-job" className={inputCls} value={moveForm.job_id}
+                  onChange={e => setMoveForm(p => ({ ...p, job_id: e.target.value }))}>
+                  <option value="">Not linked to a job</option>
+                  {openJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
+                </select>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Shows in the stock report&rsquo;s <strong>Return From Production</strong> column, separate from purchases.
+                </p>
               </div>
             )}
             <div className="space-y-1.5">
@@ -458,6 +542,216 @@ function BoardLotHistory({ itemId }: { itemId: string }) {
           </p>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * The shop's monthly board stock sheet, rebuilt from the movement ledger:
+ * Opening / Received / Return / Issued / Balance per item, grouped by vendor.
+ *
+ * Every figure is computed by get_board_stock_report() in the database (114) —
+ * nothing is totalled from a fetched array, because PostgREST silently caps a
+ * plain select at 1000 rows and that is exactly how the Finance stat cards went
+ * wrong before 103.
+ *
+ * Numbers are shown in PACKETS, which is what the store counts. Sheets sit
+ * underneath the balance because that is what a job consumes.
+ */
+function StockReport() {
+  const initial = monthBounds()
+  const [from, setFrom] = useState(initial.from)
+  const [to, setTo] = useState(initial.to)
+  const [rows, setRows] = useState<ReportRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [hideEmpty, setHideEmpty] = useState(true)
+  const [warning, setWarning] = useState<string | null>(null)
+
+  const load = useCallback(async (f: string, t: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/board-inventory/report?from=${f}&to=${t}`)
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to load the report') }
+      const json = await res.json()
+      setRows((json.data ?? []) as ReportRow[])
+      setWarning(json.warning ?? null)
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load the report')
+      setRows([])
+    } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load(initial.from, initial.to) }, [load, initial.from, initial.to])
+
+  const pkt = (sheets: number, per: number) => toPackets(Number(sheets), per)
+  // An item with no opening, no movement and no balance is noise on a monthly
+  // sheet — hidden by default, one click away.
+  const shown = hideEmpty
+    ? rows.filter(r => [r.opening_sheets, r.received_sheets, r.returned_sheets,
+                        r.issued_sheets, r.closing_sheets].some(v => Number(v) !== 0))
+    : rows
+
+  // Packet totals, matching how the shop's own sheet totals its Balance column.
+  const totals = shown.reduce((a, r) => ({
+    opening:  a.opening  + pkt(r.opening_sheets,  r.sheets_per_packet),
+    received: a.received + pkt(r.received_sheets, r.sheets_per_packet),
+    returned: a.returned + pkt(r.returned_sheets, r.sheets_per_packet),
+    issued:   a.issued   + pkt(r.issued_sheets,   r.sheets_per_packet),
+    closing:  a.closing  + pkt(r.closing_sheets,  r.sheets_per_packet),
+  }), { opening: 0, received: 0, returned: 0, issued: 0, closing: 0 })
+
+  const exportReport = () => {
+    if (!shown.length) { toast.error('Nothing to export'); return }
+    exportToExcel(shown.map(r => ({
+      'Item Description': r.description,
+      'Vendor': r.vendor_name ?? '',
+      'L': r.sheet_width_in ?? '', 'W': r.sheet_height_in ?? '', 'GSM': r.gsm ?? '',
+      'Opening Balance': +pkt(r.opening_sheets, r.sheets_per_packet).toFixed(2),
+      'Received': +pkt(r.received_sheets, r.sheets_per_packet).toFixed(2),
+      'Total': +(pkt(r.opening_sheets, r.sheets_per_packet) + pkt(r.received_sheets, r.sheets_per_packet)).toFixed(2),
+      'Issued': +pkt(r.issued_sheets, r.sheets_per_packet).toFixed(2),
+      'Return From Production': +pkt(r.returned_sheets, r.sheets_per_packet).toFixed(2),
+      'Adjustment': +pkt(r.adjustment_sheets, r.sheets_per_packet).toFixed(2),
+      'Balance': +pkt(r.closing_sheets, r.sheets_per_packet).toFixed(2),
+      'Balance (sheets)': Number(r.closing_sheets),
+      'Sheets per Packet': r.sheets_per_packet,
+    })), `board-stock-report-${from}-to-${to}`)
+  }
+
+  const num = (v: number) => v === 0 ? '—' : fmtPackets(v)
+
+  return (
+    <div className="space-y-3">
+      {/* Range */}
+      <div className="flex flex-col md:flex-row md:items-end gap-2.5">
+        <div className="space-y-1.5">
+          <label htmlFor="report-from" className="text-xs font-medium text-[var(--color-text-muted)]">From</label>
+          <input id="report-from" type="date" className={cn(inputCls, 'md:w-40')} value={from} onChange={e => setFrom(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="report-to" className="text-xs font-medium text-[var(--color-text-muted)]">To</label>
+          <input id="report-to" type="date" className={cn(inputCls, 'md:w-40')} value={to} onChange={e => setTo(e.target.value)} />
+        </div>
+        <button onClick={() => load(from, to)} disabled={loading || from > to}
+          className="px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+          {loading ? 'Loading…' : 'Show'}
+        </button>
+        <div className="flex-1" />
+        <button onClick={() => setHideEmpty(v => !v)}
+          aria-pressed={hideEmpty}
+          className={cn('px-3 h-11 md:h-9 rounded-md border text-sm font-medium transition-colors',
+            hideEmpty ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]')}>
+          Hide zero rows
+        </button>
+        <button onClick={exportReport}
+          className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          <Download size={14} /> Export
+        </button>
+      </div>
+
+      {warning && (
+        <p className="text-xs text-[var(--color-warning)] flex items-start gap-1.5 rounded-lg border border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_8%,transparent)] px-3 py-2">
+          <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" /> {warning}
+        </p>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-[var(--color-text-muted)] text-center py-12">Loading…</p>
+      ) : shown.length === 0 ? (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-12 text-center">
+          <FileText size={28} className="text-[var(--color-text-muted)] opacity-30 mx-auto mb-2" />
+          <p className="text-sm text-[var(--color-text-muted)]">No board movement in this period</p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop: the sheet as a table. The wide table scrolls inside its own
+              box so the page body never scrolls sideways. */}
+          <div className="hidden md:block rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                  <th className="text-left px-4 py-2.5 font-semibold">Item</th>
+                  <th className="text-left px-3 py-2.5 font-semibold">Vendor</th>
+                  <th className="text-right px-2 py-2.5 font-semibold">L</th>
+                  <th className="text-right px-2 py-2.5 font-semibold">W</th>
+                  <th className="text-right px-2 py-2.5 font-semibold">GSM</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">Opening</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">Received</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">Issued</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">Return</th>
+                  <th className="text-right px-4 py-2.5 font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                {shown.map(r => (
+                  <tr key={r.board_item_id}>
+                    <td className="px-4 py-2.5 text-[var(--color-text-primary)]">{r.description}</td>
+                    <td className="px-3 py-2.5 text-xs text-[var(--color-text-muted)]">{r.vendor_name ?? '—'}</td>
+                    <td className="px-2 py-2.5 text-right text-xs text-[var(--color-text-muted)] tabular-nums">{r.sheet_width_in ?? '—'}</td>
+                    <td className="px-2 py-2.5 text-right text-xs text-[var(--color-text-muted)] tabular-nums">{r.sheet_height_in ?? '—'}</td>
+                    <td className="px-2 py-2.5 text-right text-xs text-[var(--color-text-muted)] tabular-nums">{r.gsm ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-text-secondary)]">{num(pkt(r.opening_sheets, r.sheets_per_packet))}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-success)]">{num(pkt(r.received_sheets, r.sheets_per_packet))}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-danger)]">{num(pkt(r.issued_sheets, r.sheets_per_packet))}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-info)]">{num(pkt(r.returned_sheets, r.sheets_per_packet))}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-[var(--color-text-primary)]">
+                      {num(pkt(r.closing_sheets, r.sheets_per_packet))}
+                      <span className="block text-[10px] font-normal text-[var(--color-text-muted)]">{Number(r.closing_sheets).toLocaleString()} sht</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-[var(--color-bg-elevated)] border-t border-[var(--color-border)] font-semibold">
+                  <td className="px-4 py-2.5" colSpan={5}>Total (packets)</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{fmtPackets(totals.opening)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{fmtPackets(totals.received)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{fmtPackets(totals.issued)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{fmtPackets(totals.returned)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{fmtPackets(totals.closing)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Mobile: one card per item. Ten columns cannot fit a phone, and the
+              rule here is make it FIT, not add a sideways scroll. */}
+          <div className="md:hidden space-y-2">
+            {shown.map(r => (
+              <div key={r.board_item_id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">{r.description}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {r.vendor_name ?? '—'}
+                  {r.gsm ? ` · ${r.gsm} GSM` : ''}
+                  {r.sheet_width_in && r.sheet_height_in ? ` · ${r.sheet_width_in}×${r.sheet_height_in}` : ''}
+                </p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                  {([['Opening', pkt(r.opening_sheets, r.sheets_per_packet), ''],
+                     ['Received', pkt(r.received_sheets, r.sheets_per_packet), 'text-[var(--color-success)]'],
+                     ['Issued', pkt(r.issued_sheets, r.sheets_per_packet), 'text-[var(--color-danger)]'],
+                     ['Return', pkt(r.returned_sheets, r.sheets_per_packet), 'text-[var(--color-info)]']] as const).map(([label, val, cls]) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className="text-[var(--color-text-muted)]">{label}</span>
+                      <span className={cn('tabular-nums', cls || 'text-[var(--color-text-secondary)]')}>{num(val)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                  <span className="text-xs font-medium text-[var(--color-text-primary)]">Balance</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-text-primary)]">
+                    {fmtPackets(pkt(r.closing_sheets, r.sheets_per_packet))} pkt
+                    <span className="block text-[10px] font-normal text-[var(--color-text-muted)] text-right">{Number(r.closing_sheets).toLocaleString()} sht</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 flex items-center justify-between">
+              <span className="text-sm font-semibold text-[var(--color-text-primary)]">Total balance</span>
+              <span className="text-sm font-semibold tabular-nums text-[var(--color-text-primary)]">{fmtPackets(totals.closing)} pkt</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

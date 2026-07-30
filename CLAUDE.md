@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **113**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **114**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -630,6 +630,37 @@ Two things that walk taught, worth keeping:
   *starts*. Sequential order is not what actually gates a configured stage.
   There are also **three identical "Die Cutting depends on Printing" rows**;
   harmless, never cleaned up.
+
+- **114** — `get_board_stock_report(company, from, to)`: the shop's own monthly
+  board sheet — Opening / Received / Return From Production / Issued / Balance
+  per item, grouped by vendor — rebuilt from `board_inventory_movements`. Read
+  only; no table or column changes. **Why it matters:** the Excel is overwritten
+  every month, so July's figures die when August starts; the ledger has been
+  immutable since 015, so with this function **any past month can be reproduced
+  exactly, forever**.
+  **Opening is read from `balance_after`**, not by re-adding history, so it
+  survives any sign mistake. `closing_sheets` is computed and `ledger_closing`
+  is read from `balance_after`, and the API returns a **warning** when the two
+  disagree — drift is surfaced, not hidden.
+  **Month bounds are Asia/Karachi**, not UTC: a movement at 1 Aug 02:00 PKT
+  belongs to August, and a naive UTC compare put it in July. Written as range
+  bounds so the `(company_id, occurred_at)` index is still usable.
+  **The sign convention is now written down** on `board_inventory_movements.quantity`:
+  **a positive magnitude, direction in `movement_type`** (only `adjustment`
+  carries a signed delta). Three routes wrote `out` movements and they disagreed —
+  `store/[id]` and `qc/reprint` wrote positive, `board-inventory/[id]` wrote
+  negative — so any report that summed `quantity` would have been wrong once both
+  paths were used. The outlier is fixed in the same commit; the table was at 0
+  rows on live (probed), so there is no history in the old convention. The
+  function still uses `abs()` per type so a stray sign cannot flip a total.
+  **Return to Store** ships with it: an `in` movement with
+  `reference_type = 'production_return'` plus the job it came off, reported in
+  its own column. It also creates a `RET-` lot at the item's own unit cost —
+  issuing draws lots down via FIFO, so without one `sum(quantity_remaining)`
+  would drift permanently below `current_stock`.
+  Verified: 25 assertions on the function against real Postgres (including the
+  PKT boundary, month chaining, and a past month still reproducible), 20 on the
+  Return/sign behaviour through the real HTTP routes against live.
 
 ### Live route walk, 2026-07-30 — 112 + 113, and six dead write paths it found
 Both migrations were applied to live, then driven through the **real HTTP routes**
