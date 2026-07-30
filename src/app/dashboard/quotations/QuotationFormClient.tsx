@@ -12,6 +12,10 @@ import { DesktopOnly } from '@/components/ui/DesktopOnly'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string; sheet_width_in: number | null; sheet_height_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
+// paper_types carries only a name and a GSM — no sheet size and no rate, so a
+// paper line prefills its GSM and nothing else. Unlike board_types.gsm (which
+// is meaningless and deliberately empty), paper_types.gsm has real values.
+interface PaperType { id: string; name: string; gsm: number | null }
 interface Tax { id: string; name: string; rate_percent: number }
 interface CostItemType { id: string; name: string; unit_basis: UnitBasis; default_rate: number }
 // `active` is the "tick" — a checked Finish Goods line counts toward the
@@ -22,7 +26,10 @@ interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: U
 
 interface LineItem {
   product_desc: string; size_l: string; size_w: string; size_h: string; quantity: string
-  no_of_colors: string; board_type_id: string; box_type_id: string; board_costing_method: 'per_sheet' | 'per_kg'
+  // Board OR paper, never both (116). The one dropdown writes whichever the
+  // estimator picked and clears the other, the same shape jobs has used since
+  // 014 and board_inventory since 115.
+  no_of_colors: string; board_type_id: string; paper_type_id: string; box_type_id: string; board_costing_method: 'per_sheet' | 'per_kg'
   sheet_width_in: string; sheet_height_in: string; board_gsm: string
   board_rate_per_sheet: string; board_rate_per_kg: string
   unit_price: string; notes: string
@@ -55,7 +62,7 @@ const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
 
 const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
   product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '1', no_of_colors: '4',
-  board_type_id: '', box_type_id: '', board_costing_method: 'per_sheet',
+  board_type_id: '', paper_type_id: '', box_type_id: '', board_costing_method: 'per_sheet',
   sheet_width_in: '', sheet_height_in: '', board_gsm: '', board_rate_per_sheet: '', board_rate_per_kg: '',
   unit_price: '0', notes: '',
   ups: '', wastage_percent: DEFAULT_WASTAGE,
@@ -69,11 +76,12 @@ const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
 })
 
 interface Props {
-  mode: 'new' | 'edit'; customers: Customer[]; boardTypes: BoardType[]; boxTypes: { id: string; name: string }[]; taxes: Tax[]
+  mode: 'new' | 'edit'; customers: Customer[]; boardTypes: BoardType[]; paperTypes: PaperType[]
+  boxTypes: { id: string; name: string }[]; taxes: Tax[]
   costItemTypes: CostItemType[]; initialData?: any
 }
 
-export default function QuotationFormClient({ mode, customers, boardTypes, boxTypes, taxes, costItemTypes, initialData }: Props) {
+export default function QuotationFormClient({ mode, customers, boardTypes, paperTypes, boxTypes, taxes, costItemTypes, initialData }: Props) {
   const router = useRouter()
 
   const [form, setForm] = useState({
@@ -107,7 +115,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
       return {
         product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
         size_h: String(i.size_h || ''), quantity: String(i.quantity), no_of_colors: String(i.no_of_colors || 4),
-        board_type_id: i.board_type_id || '', box_type_id: i.box_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
+        board_type_id: i.board_type_id || '', paper_type_id: i.paper_type_id || '', box_type_id: i.box_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
         sheet_width_in: String(i.sheet_width_in || ''), sheet_height_in: String(i.sheet_height_in || ''),
         board_gsm: String(i.board_gsm || ''), board_rate_per_sheet: String(i.board_rate_per_sheet || ''),
         board_rate_per_kg: String(i.board_rate_per_kg || ''),
@@ -144,17 +152,27 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
   const addLine = () => setItems(prev => [...prev, emptyLine(costItemTypes)])
   const removeLine = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
-  // Selecting a Board Type pre-fills the sheet size/GSM/rate fields — but
-  // they stay independently editable afterward, since a custom/one-off
-  // sheet size that isn't in the catalog still needs to be costable.
-  const selectBoard = (idx: number, boardTypeId: string) => {
-    const board = boardTypes.find(b => b.id === boardTypeId)
+  // Selecting a material pre-fills the sheet size/GSM/rate fields — but they
+  // stay independently editable afterward, since a custom/one-off sheet size
+  // that isn't in the catalog still needs to be costable.
+  //
+  // One dropdown, two masters: the value is "board:<id>" or "paper:<id>", and
+  // exactly one of the two columns is written. A paper master has no sheet
+  // size and no rate, so a paper line only gets its GSM prefilled and the
+  // estimator types the rest — which is the honest answer, not a gap.
+  const selectMaterial = (idx: number, value: string) => {
+    const isBoard = value.startsWith('board:')
+    const isPaper = value.startsWith('paper:')
+    const id = isBoard || isPaper ? value.slice(value.indexOf(':') + 1) : ''
+    const board = isBoard ? boardTypes.find(b => b.id === id) : undefined
+    const paper = isPaper ? paperTypes.find(p => p.id === id) : undefined
     setItems(prev => prev.map((item, i) => i === idx ? {
       ...item,
-      board_type_id: boardTypeId,
+      board_type_id: isBoard ? id : '',
+      paper_type_id: isPaper ? id : '',
       sheet_width_in: board?.sheet_width_in ? String(board.sheet_width_in) : item.sheet_width_in,
       sheet_height_in: board?.sheet_height_in ? String(board.sheet_height_in) : item.sheet_height_in,
-      board_gsm: board?.gsm ? String(board.gsm) : item.board_gsm,
+      board_gsm: board?.gsm ? String(board.gsm) : paper?.gsm ? String(paper.gsm) : item.board_gsm,
       board_rate_per_sheet: board?.rate_per_sheet ? String(board.rate_per_sheet) : item.board_rate_per_sheet,
       board_rate_per_kg: board?.rate_per_kg ? String(board.rate_per_kg) : item.board_rate_per_kg,
     } : item))
@@ -247,6 +265,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
             quantity: parseFloat(item.quantity || '1'),
             no_of_colors: parseInt(item.no_of_colors || '4'),
             board_type_id: item.board_type_id || null,
+            paper_type_id: item.paper_type_id || null,
             box_type_id: item.box_type_id || null,
             board_costing_method: item.board_costing_method,
             sheet_width_in: item.sheet_width_in ? parseFloat(item.sheet_width_in) : null,
@@ -376,7 +395,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
           <div>Qty</div>
           <div>Colors</div>
           <div>Box Type</div>
-          <div>Board Type</div>
+          <div>Board / Paper</div>
           <div>Unit Price</div>
           <div className="text-right">Subtotal</div>
           <div></div>
@@ -413,9 +432,16 @@ export default function QuotationFormClient({ mode, customers, boardTypes, boxTy
                     </select>
                   </div>
                   <div>
-                    <select className={inputCls} value={item.board_type_id} onChange={e => selectBoard(idx, e.target.value)}>
-                      <option value="">Select board…</option>
-                      {boardTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    <select className={inputCls}
+                      value={item.board_type_id ? `board:${item.board_type_id}` : item.paper_type_id ? `paper:${item.paper_type_id}` : ''}
+                      onChange={e => selectMaterial(idx, e.target.value)}>
+                      <option value="">Select board / paper…</option>
+                      <optgroup label="Board">
+                        {boardTypes.map(b => <option key={b.id} value={`board:${b.id}`}>{b.name}</option>)}
+                      </optgroup>
+                      <optgroup label="Paper">
+                        {paperTypes.map(p => <option key={p.id} value={`paper:${p.id}`}>{p.name}{p.gsm ? ` (${p.gsm} GSM)` : ''}</option>)}
+                      </optgroup>
                     </select>
                   </div>
                   <div>

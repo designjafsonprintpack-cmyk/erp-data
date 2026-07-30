@@ -22,7 +22,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   let q = supabase.from('board_inventory' as any)
     // vendors is embeddable only since 113 added the missing foreign key.
-    .select('*, board_types(name), vendors(name)', { count: 'exact' })
+    .select('*, board_types(name), paper_types(name), vendors(name)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
 
@@ -61,7 +61,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
 
   const { data, error } = await supabase.from('board_inventory' as any).insert({
     company_id:    companyId,
+    // Board OR paper, never both (115 enforces it with a CHECK). The form
+    // sends exactly one of the two, so the other is written NULL rather than
+    // left off — an omitted key on an insert is the same as NULL here, but
+    // being explicit is what keeps the invariant readable.
     board_type_id: body.board_type_id || null,
+    paper_type_id: body.board_type_id ? null : (body.paper_type_id || null),
     description:   body.description,
     sheet_width_in:        body.sheet_width_in ? parseFloat(String(body.sheet_width_in)) : null,
     sheet_height_in:        body.sheet_height_in ? parseFloat(String(body.sheet_height_in)) : null,

@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { updatePurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
+import { perSheetFromPacket, weightedUnitCost } from '@/lib/utils/boardUnitCost'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -79,7 +80,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       // If the line is linked to a board stock item, credit stock — in SHEETS.
       if (boardItemId && packetsReceived > 0) {
         const { data: inv, error: invErr } = await supabase.from('board_inventory' as any)
-          .select('current_stock, sheets_per_packet').eq('id', boardItemId).eq('company_id', companyId).single()
+          .select('current_stock, sheets_per_packet, unit_cost').eq('id', boardItemId).eq('company_id', companyId).single()
         if (invErr) {
           console.error('[PO receive] board item lookup failed', invErr)
           warnings.push(`Could not read stock for a line on ${poNumber}: ${invErr.message}`)
@@ -91,8 +92,27 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           const perPacket = Number((inv as any).sheets_per_packet ?? 100)
           const sheetsReceived = packetsReceived * perPacket
           const newStock = Number((inv as any).current_stock) + sheetsReceived
+
+          // The PO line is priced PER PACKET, because that is how the shop
+          // buys. unit_cost — on the item and on the lot — is per SHEET, so
+          // the price has to cross the same boundary the quantity just did.
+          // It didn't: the lot was written at the raw packet price against a
+          // sheet quantity, i.e. 100× too high (500× on a paper ream). Nothing
+          // has spent that number yet (lot costs are all NULL on live), so
+          // there is no history to correct — but it was a live trap.
+          const receiptPerSheet = perSheetFromPacket(
+            item.unit_price != null ? parseFloat(String(item.unit_price)) : null, perPacket)
+          // Re-average the item's cost so job costing stops booking board at
+          // zero. See boardUnitCost.ts for why 0 counts as unknown, not free.
+          const newUnitCost = weightedUnitCost({
+            stockBefore: Number((inv as any).current_stock), oldUnitCost: (inv as any).unit_cost,
+            sheetsIn: sheetsReceived, receiptPerSheet,
+          })
+
+          const stockUpdate: Record<string, unknown> = { current_stock: newStock }
+          if (newUnitCost != null) stockUpdate.unit_cost = newUnitCost
           await supabase.from('board_inventory' as any)
-            .update({ current_stock: newStock }).eq('id', boardItemId).eq('company_id', companyId)
+            .update(stockUpdate).eq('id', boardItemId).eq('company_id', companyId)
           // job_id is what finally answers "kon sa board kis job ke liye aaya".
           // NULL is a real answer — board bought for general stock, not a job.
           const lineJobId = line?.job_id ?? null
@@ -129,7 +149,8 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             // these against movement quantities, so the units must match.
             quantity_received:  sheetsReceived,
             quantity_remaining: sheetsReceived,
-            unit_cost:          item.unit_price ? parseFloat(String(item.unit_price)) : null,
+            // Per sheet, to match quantity_received on the same row.
+            unit_cost:          receiptPerSheet,
             created_by:         userTableId,
           })
           if (lotErr) {

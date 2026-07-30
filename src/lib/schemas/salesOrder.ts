@@ -9,6 +9,11 @@ const salesOrderItemSchema = z.object({
   quantity: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),
   board_type_id: z.string().uuid().optional().nullable(),
+  // 116. Mutually exclusive with board_type_id. Listed even though the SO form
+  // has no material picker of its own — the column is written by the quotation
+  // conversion, and a schema that omits a field silently drops it if one is
+  // ever added here.
+  paper_type_id: z.string().uuid().optional().nullable(),
   no_of_colors: z.union([z.string(), z.number()]).optional().nullable(),
   lamination_type_id: z.string().uuid().optional().nullable(),
   unit_price: z.union([z.string(), z.number()]).optional(),

@@ -15,7 +15,7 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
       .eq('company_id', companyId).eq('quotation_id', params.id)
       .order('version_number', { ascending: false }),
     supabase.from('quotations' as any)
-      .select('status, subtotal, discount_percent, discount_amount, tax_amount, total_amount, notes, terms_conditions, quotation_items(product_desc, quantity, unit_price, subtotal, no_of_colors, board_type_id)')
+      .select('status, subtotal, discount_percent, discount_amount, tax_amount, total_amount, notes, terms_conditions, quotation_items(product_desc, quantity, unit_price, subtotal, no_of_colors, board_type_id, paper_type_id)')
       .eq('id', params.id).eq('company_id', companyId).single(),
   ])
 

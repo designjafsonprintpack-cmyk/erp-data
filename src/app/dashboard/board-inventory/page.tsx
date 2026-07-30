@@ -7,14 +7,21 @@ export default async function BoardInventoryPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
-  const [invRes, boardTypesRes, unitsRes, vendorsRes, jobsRes] = await Promise.all([
+  const [invRes, boardTypesRes, paperTypesRes, unitsRes, vendorsRes, jobsRes] = await Promise.all([
     supabase.from('board_inventory' as any)
       // vendors embeds only because 113 finally gave vendor_id a foreign key —
       // it was a bare UUID before, which is why the vendor never appeared here.
-      .select('*, board_types(name), vendors(name)', { count: 'exact' })
+      // paper_types embeds since 115 — the store carries paper as well as
+      // board, and only one of the two is ever set on a row.
+      .select('*, board_types(name), paper_types(name), vendors(name)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true)
       .order('description'),
     supabase.from('board_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).order('name'),
+    // The other half of the material dropdown. is_active as well as
+    // deleted_at, for the same reason the units query does it: a soft-deleted
+    // master row must not reappear in a <select>.
+    supabase.from('paper_types' as any).select('id,name,gsm')
+      .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     // deleted_at + is_active are BOTH required here. The units seed ran twice on
     // 2026-07-15 and one copy of each of the 14 units was soft-deleted by hand —
     // so the table holds 28 rows of which 14 are dead. This query filtered
@@ -24,8 +31,9 @@ export default async function BoardInventoryPage() {
     supabase.from('units' as any).select('id,name,symbol')
       .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('vendors' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).order('name'),
-    // For "Returned from job" on a Return to Store — leftover board coming back
-    // off the floor should say which job it came off.
+    // Feeds both job pickers in the movement modal: "For which job?" on a
+    // Stock In (board bought for a job without a PO) and "Returned from job"
+    // on a Return to Store (leftover board coming back off the floor).
     supabase.from('jobs' as any).select('id,job_number,job_title')
       .eq('company_id', companyId).is('deleted_at', null)
       .in('status', ['new', 'in_progress'])
@@ -41,6 +49,7 @@ export default async function BoardInventoryPage() {
       <BoardInventoryClient
         initialItems={(invRes.data ?? []) as any[]}
         boardTypes={(boardTypesRes.data ?? []) as any[]}
+        paperTypes={(paperTypesRes.data ?? []) as any[]}
         units={(unitsRes.data ?? []) as any[]}
         vendors={(vendorsRes.data ?? []) as any[]}
         openJobs={(jobsRes.data ?? []) as any[]}

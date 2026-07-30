@@ -170,7 +170,12 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       size_h: item.size_h != null ? String(item.size_h) : p.size_h,
       quantity: item.quantity != null ? String(item.quantity) : p.quantity,
       no_of_colors: item.no_of_colors != null ? String(item.no_of_colors) : p.no_of_colors,
-      board_type_id: item.board_type_id || p.board_type_id,
+      // Board and paper are mutually exclusive, so the pair has to be set
+      // together — carrying only board_type_id would leave a paper line's old
+      // board selection in place and the form would show the wrong material.
+      // Both fall back to what the form already had if the line has neither.
+      board_type_id: item.board_type_id || (item.paper_type_id ? '' : p.board_type_id),
+      paper_type_id: item.paper_type_id || (item.board_type_id ? '' : p.paper_type_id),
       // The GSM the quotation was priced on, carried through the sales order.
       gsm: item.gsm != null ? String(item.gsm) : p.gsm,
     }))

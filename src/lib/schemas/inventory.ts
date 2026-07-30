@@ -4,6 +4,10 @@ import { z } from 'zod'
 // description is the only NOT NULL column among these.
 export const boardInventorySchema = z.object({
   board_type_id: z.string().uuid().optional().nullable(),
+  // Paper stock (art paper, offset, C1S) is sheet material the store carries
+  // too, and its master is paper_types, not board_types. Mutually exclusive
+  // with board_type_id — enforced in the database by 115.
+  paper_type_id: z.string().uuid().optional().nullable(),
   description: z.string().trim().min(1, 'Description is required'),
   sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
   sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
@@ -38,11 +42,17 @@ export const boardInventoryUpdateSchema = z.object({
   unit_cost: z.union([z.string(), z.number()]).optional().nullable(),
   // generic-patch fields
   board_type_id: z.string().uuid().optional().nullable(),
+  paper_type_id: z.string().uuid().optional().nullable(),
   description: z.string().optional(),
   sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
   sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
   gsm: z.union([z.string(), z.number()]).optional().nullable(),
   reorder_level: z.union([z.string(), z.number()]).optional(),
+  // Editable after creation: an item loaded with the wrong ream size shows
+  // every packet figure wrong until it can be corrected. A zod schema that
+  // omits a column the form sends throws the value away silently, so this has
+  // to be listed even though the column has existed since 113.
+  sheets_per_packet: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),
   location: z.string().optional().nullable(),
 })

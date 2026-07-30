@@ -59,7 +59,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   // Copy line items to SO
   const items = Array.isArray((qt as any).quotation_items) ? (qt as any).quotation_items : []
   if (items.length) {
-    await supabase.from('sales_order_items' as any).insert(
+    const { error: soItemsErr } = await supabase.from('sales_order_items' as any).insert(
       items.map((item: any) => ({
         company_id: companyId,
         sales_order_id: (so as any).id,
@@ -69,6 +69,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         size_l: item.size_l, size_w: item.size_w, size_h: item.size_h,
         quantity: item.quantity, unit_id: item.unit_id,
         board_type_id: item.board_type_id,
+        // The quoted paper choice has to survive the conversion or a paper job
+        // arrives at New Job with no material and gets re-specified by hand
+        // (116). Board and paper are mutually exclusive, so only one is ever set.
+        paper_type_id: item.paper_type_id,
         box_type_id: item.box_type_id,
         no_of_colors: item.no_of_colors,
         gsm: item.board_gsm,
@@ -77,6 +81,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         notes: item.notes, sort_order: item.sort_order,
       }))
     )
+    // This insert used to be fired and forgotten: a failure left a Sales Order
+    // with a header and no lines, and the route still answered 200. Same shape
+    // as the PO line-item insert that silently produced header-only POs.
+    if (soItemsErr) return NextResponse.json({ error: soItemsErr.message }, { status: 500 })
   }
 
   // Mark quotation as converted

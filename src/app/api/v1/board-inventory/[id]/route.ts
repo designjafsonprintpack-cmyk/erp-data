@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { boardInventoryUpdateSchema } from '@/lib/schemas/inventory'
+import { weightedUnitCost } from '@/lib/utils/boardUnitCost'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -14,7 +15,7 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
   const companyId = await getCompanyId(user, supabase)
 
   const [itemRes, movementsRes] = await Promise.all([
-    supabase.from('board_inventory' as any).select('*, board_types(name)').eq('id', params.id).eq('company_id', companyId).single(),
+    supabase.from('board_inventory' as any).select('*, board_types(name), paper_types(name)').eq('id', params.id).eq('company_id', companyId).single(),
     supabase.from('board_inventory_movements' as any).select('*').eq('board_item_id', params.id).eq('company_id', companyId)
       .order('occurred_at', { ascending: false }).limit(50),
   ])
@@ -56,8 +57,29 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     else if (body.action === 'out')       newStock = Math.max(0, currentStock - qty)
     else                                  newStock = qty  // adjustment = set to exact value
 
+    // A priced purchase re-averages the item's per-sheet cost. `unit_cost`
+    // is PER SHEET (see boardUnitCost.ts) and the client converts the packet
+    // price it asked for before sending, so nothing is converted twice here.
+    //
+    // Only a real purchase moves the average: a RETURN is stock already
+    // costed at this item's own rate coming back, and an adjustment is a
+    // recount, not a purchase. Without this the item stayed at unit_cost 0
+    // forever and every job booked its board at zero.
+    const receiptPerSheet = body.action === 'in'
+      ? (body.unit_cost != null && String(body.unit_cost) !== '' ? parseFloat(String(body.unit_cost)) : null)
+      : null
+    const newUnitCost = body.action === 'in'
+      ? weightedUnitCost({
+          stockBefore: Number(currentStock), oldUnitCost: (current as any).unit_cost,
+          sheetsIn: qty, receiptPerSheet,
+        })
+      : null
+
+    const stockUpdate: Record<string, unknown> = { current_stock: newStock }
+    if (newUnitCost != null) stockUpdate.unit_cost = newUnitCost
+
     const { data, error } = await supabase.from('board_inventory' as any)
-      .update({ current_stock: newStock }).eq('id', params.id).eq('company_id', companyId).select().single()
+      .update(stockUpdate).eq('id', params.id).eq('company_id', companyId).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     const refType = isReturn ? 'production_return' : (body.reference_type || 'manual')
@@ -99,12 +121,19 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         vendor_id:          body.vendor_id || null,
         reference_type:     refType,
         reference_id:       body.reference_id || null,
-        job_id:             isReturn ? (body.job_id || null) : null,
+        // Which job this board came in FOR (a plain Stock In) or came back
+        // OFF (a return). Both are the same question from opposite ends, and
+        // both belong on the lot — the PO path has written it since 113, but a
+        // manual Stock In used to force it null and silently lose the link.
+        job_id:             body.job_id || null,
         quantity_received:  qty,
         quantity_remaining: qty,
-        unit_cost:          body.unit_cost
-          ? parseFloat(String(body.unit_cost))
-          : (isReturn ? Number((current as any).unit_cost ?? 0) || null : null),
+        // Per SHEET, matching quantity_received — a per-packet figure here
+        // against a sheet quantity is the 100× error 113 was written to stop.
+        // A purchase carries its own rate; a return carries the item's.
+        unit_cost:          isReturn
+          ? (Number((current as any).unit_cost ?? 0) || null)
+          : receiptPerSheet,
         notes:              body.notes || null,
         created_by:         userTableId,
       })
@@ -119,9 +148,19 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     return NextResponse.json({ data })
   }
 
-  // Generic field update
+  // Generic field update. board_type_id and paper_type_id are mutually
+  // exclusive (115), and `.update()` only touches the keys it is handed — so
+  // switching an item from board to paper has to clear the old one explicitly.
+  // Without this the row would claim to be both and the CHECK would 500 on
+  // save, which reads to the user as "the type cannot be changed".
+  const patch: Record<string, unknown> = { ...body }
+  if ('board_type_id' in body || 'paper_type_id' in body) {
+    patch.board_type_id = body.board_type_id || null
+    patch.paper_type_id = body.board_type_id ? null : (body.paper_type_id || null)
+  }
+
   const { data, error } = await supabase.from('board_inventory' as any)
-    .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
+    .update(patch).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 })

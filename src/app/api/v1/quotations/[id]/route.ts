@@ -104,7 +104,10 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           },
           items: (b.quotation_items ?? []).map((i: any) => ({
             product_desc: i.product_desc, quantity: i.quantity, unit_price: i.unit_price,
-            subtotal: i.subtotal, no_of_colors: i.no_of_colors, board_type_id: i.board_type_id,
+            subtotal: i.subtotal, no_of_colors: i.no_of_colors,
+            // Both halves of the material, or a paper line's snapshot would
+            // read as "no board quoted" when the revision is compared (116).
+            board_type_id: i.board_type_id, paper_type_id: i.paper_type_id,
           })),
         },
         created_by: userTableId,

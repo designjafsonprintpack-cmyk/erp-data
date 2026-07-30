@@ -72,6 +72,10 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       no_of_colors:         origJob.no_of_colors,
       die_number:           origJob.die_number,
       board_type_id:        origJob.board_type_id,
+      // A reprint has to run on the same material as the job it replaces.
+      // Repeat and Proofing both copied this; only the QC reprint didn't, so
+      // reprinting a paper job produced a job with no material at all.
+      paper_type_id:        origJob.paper_type_id,
       lamination_type_id:   origJob.lamination_type_id,
       uv_coating:           origJob.uv_coating,
       foil_type_id:         origJob.foil_type_id,

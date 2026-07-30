@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download, Undo2, FileText } from 'lucide-react'
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
+import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download, Undo2, FileText, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
@@ -15,11 +15,55 @@ interface BoardItem {
   /** Sheets in one packet for this item: 100 for board, often 500 for paper. */
   sheets_per_packet: number
   unit_cost: number; location: string | null; is_active: boolean
+  // Exactly one of these is ever set — an item is board OR paper (115).
+  board_type_id?: string | null
+  paper_type_id?: string | null
   board_types?: { name: string } | null
+  paper_types?: { name: string } | null
   vendor_id?: string | null
   vendors?: { name: string } | null
+  unit_id?: string | null
 }
 interface BoardType { id: string; name: string }
+interface PaperType { id: string; name: string; gsm: number | null }
+
+/**
+ * One dropdown, two master tables. The <select> can only carry a string, so
+ * the kind is encoded into the value and split apart again on submit — that is
+ * what keeps `board_type_id` and `paper_type_id` from ever both being set.
+ */
+const MATERIAL_BOARD = 'board:'
+const MATERIAL_PAPER = 'paper:'
+const splitMaterial = (v: string) => ({
+  board_type_id: v.startsWith(MATERIAL_BOARD) ? v.slice(MATERIAL_BOARD.length) : null,
+  paper_type_id: v.startsWith(MATERIAL_PAPER) ? v.slice(MATERIAL_PAPER.length) : null,
+})
+/** The inverse — a saved row back into the <select>'s value. */
+const joinMaterial = (i: { board_type_id?: string | null; paper_type_id?: string | null }) =>
+  i.board_type_id ? `${MATERIAL_BOARD}${i.board_type_id}`
+  : i.paper_type_id ? `${MATERIAL_PAPER}${i.paper_type_id}`
+  : ''
+
+/** '' → null for a nullable numeric column; Postgres rejects '' on NUMERIC. */
+const numOrNull = (v: string) => (v === '' || v === null ? null : parseFloat(v))
+
+/**
+ * Add and Edit describe the same item, so they share one form shape and one
+ * field grid (ItemFields). Two parallel copies of these ten fields is exactly
+ * how a form drifts — a field added to one and forgotten in the other.
+ */
+interface ItemForm {
+  description: string; material: string; gsm: string
+  sheet_width_in: string; sheet_height_in: string
+  current_stock: string; reorder_level: string; sheets_per_packet: string
+  vendor_id: string; unit_cost: string; location: string
+}
+const EMPTY_ITEM_FORM: ItemForm = {
+  description: '', material: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
+  // current_stock is entered in PACKETS on Add and read-only on Edit.
+  current_stock: '0', reorder_level: '0', sheets_per_packet: '100',
+  vendor_id: '', unit_cost: '0', location: '',
+}
 interface Unit { id: string; name: string; symbol: string }
 interface Vendor { id: string; name: string }
 interface OpenJob { id: string; job_number: string; job_title: string }
@@ -67,8 +111,12 @@ const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-e
 
 const INV_COLUMNS = (
   setLotsItem: (i: BoardItem) => void,
-  setMovementModal: (m: { item: BoardItem; action: MovementAction }) => void,
-  setMoveForm: (f: { quantity: string; notes: string; lot_number: string; job_id: string }) => void,
+  // One handler instead of the old open-modal-then-reset-form pair. The form
+  // reset has to know the item (Adjust prefills its current count, Stock In
+  // defaults to the item's vendor), so keeping the two in one place is what
+  // stops the five call sites drifting apart.
+  openMovement: (i: BoardItem, action: MovementAction) => void,
+  openEdit: (i: BoardItem) => void,
 ): DataListColumn<BoardItem>[] => [
   {
     key: 'desc', header: 'Description', span: 3, role: 'identity',
@@ -85,7 +133,11 @@ const INV_COLUMNS = (
     key: 'type', header: 'Type / GSM', span: 2, role: 'title',
     render: i => (
       <span className="block">
-        <span className="block text-xs text-[var(--color-text-secondary)]">{i.board_types?.name || '—'}</span>
+        {/* Board or paper — the two masters can hold the same name, so a paper
+            item says so rather than looking like an untyped board item. */}
+        <span className="block text-xs text-[var(--color-text-secondary)]">
+          {i.board_types?.name || (i.paper_types?.name ? `${i.paper_types.name} (Paper)` : '—')}
+        </span>
         {i.gsm && <span className="block text-xs text-[var(--color-text-muted)]">{i.gsm} GSM</span>}
       </span>
     ),
@@ -138,23 +190,30 @@ const INV_COLUMNS = (
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <Layers size={11} />
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'in' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
+        {/* Edit the item itself. Without this there was no way to correct a
+            description or set a type after creation — which left the 12
+            untyped items from the July load unfixable from the UI. */}
+        <button onClick={() => openEdit(i)} title="Edit item" aria-label="Edit item"
+          className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+          <Pencil size={11} />
+        </button>
+        <button onClick={() => openMovement(i, 'in')}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] text-xs text-[var(--color-success)] hover:bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] transition-colors">
           <TrendingUp size={11} /> In
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'out' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
+        <button onClick={() => openMovement(i, 'out')}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
           <TrendingDown size={11} /> Out
         </button>
         {/* Board coming back from the floor. Its own button rather than "In"
             because the stock report counts a return separately from a purchase,
             and it carries the job it came back from. */}
-        <button onClick={() => { setMovementModal({ item: i, action: 'return' }); setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' }) }}
+        <button onClick={() => openMovement(i, 'return')}
           title="Return from production" aria-label="Return from production"
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)] text-xs text-[var(--color-info)] hover:bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] transition-colors">
           <Undo2 size={11} /> Return
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(toPackets(i.current_stock, i.sheets_per_packet)), notes: '', lot_number: '', job_id: '' }) }}
+        <button onClick={() => openMovement(i, 'adjustment')}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <SlidersHorizontal size={11} /> Adj
         </button>
@@ -163,7 +222,7 @@ const INV_COLUMNS = (
   },
 ]
 
-export default function BoardInventoryClient({ initialItems, boardTypes, units, vendors, openJobs }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[]; vendors: Vendor[]; openJobs: OpenJob[] }) {
+export default function BoardInventoryClient({ initialItems, boardTypes, paperTypes, units, vendors, openJobs }: { initialItems: BoardItem[]; boardTypes: BoardType[]; paperTypes: PaperType[]; units: Unit[]; vendors: Vendor[]; openJobs: OpenJob[] }) {
   const [items, setItems] = useState(initialItems)
   const [search, setSearch] = useState('')
   const [showLowOnly, setShowLowOnly] = useState(false)
@@ -173,14 +232,52 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
   const [lotsItem, setLotsItem] = useState<BoardItem | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const [addForm, setAddForm] = useState({
-    description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
-    // These two are entered in PACKETS and converted to sheets on submit.
-    current_stock: '0', reorder_level: '0',
-    sheets_per_packet: '100', vendor_id: '',
-    unit_id: '', unit_cost: '0', location: '',
-  })
-  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '', job_id: '' })
+  // `material` is "board:<id>" or "paper:<id>" — split into the two real
+  // columns on submit. Never sent to the API as-is.
+  const [addForm, setAddForm] = useState<ItemForm>(EMPTY_ITEM_FORM)
+  // vendor_id is here because the lot a Stock In creates has always had a
+  // vendor column and the form never sent one — so Lot History could never
+  // name the supplier of a manual receipt.
+  // packet_rate is what the user types; the API is sent the per-sheet figure.
+  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', packet_rate: '' })
+
+  const [editModal, setEditModal] = useState<BoardItem | null>(null)
+  const [editForm, setEditForm] = useState<ItemForm>(EMPTY_ITEM_FORM)
+
+  const openMovement = (item: BoardItem, action: MovementAction) => {
+    setMovementModal({ item, action })
+    setMoveForm({
+      // Adjust is "set the count to what I just counted", so it opens on the
+      // current figure rather than blank.
+      quantity: action === 'adjustment' ? String(toPackets(item.current_stock, item.sheets_per_packet)) : '',
+      notes: '', lot_number: '', job_id: '',
+      // Most receipts come from the item's usual supplier; a one-off delivery
+      // from someone else can still be changed in the modal.
+      vendor_id: item.vendor_id || '',
+      // Deliberately NOT prefilled from the item's current cost — that figure
+      // is an average of past receipts, and offering it as this delivery's rate
+      // would let a stale number be confirmed by accident and re-averaged in.
+      packet_rate: '',
+    })
+  }
+
+  const openEdit = (item: BoardItem) => {
+    setEditModal(item)
+    setEditForm({
+      description: item.description,
+      material: joinMaterial(item),
+      gsm: item.gsm != null ? String(item.gsm) : '',
+      sheet_width_in: item.sheet_width_in != null ? String(item.sheet_width_in) : '',
+      sheet_height_in: item.sheet_height_in != null ? String(item.sheet_height_in) : '',
+      // Packets in the form, sheets in the database — same boundary as Add.
+      current_stock: String(toPackets(item.current_stock, item.sheets_per_packet)),
+      reorder_level: String(toPackets(item.reorder_level, item.sheets_per_packet)),
+      sheets_per_packet: String(item.sheets_per_packet ?? 100),
+      vendor_id: item.vendor_id || '',
+      unit_cost: item.unit_cost != null ? String(item.unit_cost) : '0',
+      location: item.location || '',
+    })
+  }
 
   const filtered = items
     .filter(i => !search || i.description.toLowerCase().includes(search.toLowerCase()))
@@ -196,10 +293,16 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       // The unit boundary lives here: the form is in packets, the API and the
       // database are in sheets. Nothing downstream converts again.
       const perPacket = parseInt(addForm.sheets_per_packet || '100', 10) || 100
+      // `material` is a UI-only field; the two columns it stands for are added
+      // explicitly. Spreading it would just be stripped by the zod schema, but
+      // the split has to happen here either way.
+      const { material, ...rest } = addForm
+      const picked = splitMaterial(material)
       const res = await fetch('/api/v1/board-inventory', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...addForm,
+          ...rest,
+          ...picked,
           sheets_per_packet: perPacket,
           vendor_id: addForm.vendor_id || null,
           current_stock: toSheets(parseFloat(addForm.current_stock || '0'), perPacket),
@@ -208,12 +311,57 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
-      const bt = boardTypes.find(b => b.id === addForm.board_type_id)
+      // The POST returns the bare row, so the embeds the list renders have to
+      // be reattached by hand — one of the two is always null.
+      const bt = boardTypes.find(b => b.id === picked.board_type_id)
+      const pt = paperTypes.find(p => p.id === picked.paper_type_id)
       const vn = vendors.find(v => v.id === addForm.vendor_id)
-      setItems(prev => [...prev, { ...data, board_types: bt ? { name: bt.name } : null, vendors: vn ? { name: vn.name } : null }].sort((a, b) => a.description.localeCompare(b.description)))
+      setItems(prev => [...prev, { ...data, board_types: bt ? { name: bt.name } : null, paper_types: pt ? { name: pt.name } : null, vendors: vn ? { name: vn.name } : null }].sort((a, b) => a.description.localeCompare(b.description)))
       setAddModal(false)
-      setAddForm({ description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '', current_stock: '0', reorder_level: '0', sheets_per_packet: '100', vendor_id: '', unit_id: '', unit_cost: '0', location: '' })
+      setAddForm(EMPTY_ITEM_FORM)
       toast.success('Item added to inventory')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setLoading(false) }
+  }
+
+  const updateItem = async () => {
+    if (!editModal) return
+    if (!editForm.description) { toast.error('Description required'); return }
+    setLoading(true)
+    try {
+      const perPacket = parseInt(editForm.sheets_per_packet || '100', 10) || 100
+      const picked = splitMaterial(editForm.material)
+      // Only real columns go in the body, and only the ones this form owns.
+      // current_stock is deliberately absent: stock moves through In / Out /
+      // Adjust so that every change leaves a ledger row behind. Editing it
+      // here would move the number with no movement recorded.
+      const res = await fetch(`/api/v1/board-inventory/${editModal.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: editForm.description,
+          ...picked,
+          gsm: numOrNull(editForm.gsm),
+          sheet_width_in: numOrNull(editForm.sheet_width_in),
+          sheet_height_in: numOrNull(editForm.sheet_height_in),
+          reorder_level: toSheets(parseFloat(editForm.reorder_level || '0'), perPacket),
+          sheets_per_packet: perPacket,
+          vendor_id: editForm.vendor_id || null,
+          unit_cost: numOrNull(editForm.unit_cost),
+          location: editForm.location || null,
+        }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { data } = await res.json()
+      // Reattach the embeds by hand — the PATCH returns the bare row, and the
+      // list renders the vendor and the type name from them.
+      const bt = boardTypes.find(b => b.id === picked.board_type_id)
+      const pt = paperTypes.find(p => p.id === picked.paper_type_id)
+      const vn = vendors.find(v => v.id === editForm.vendor_id)
+      setItems(prev => prev.map(i => i.id === editModal.id
+        ? { ...i, ...data, board_types: bt ? { name: bt.name } : null, paper_types: pt ? { name: pt.name } : null, vendors: vn ? { name: vn.name } : null }
+        : i).sort((a, b) => a.description.localeCompare(b.description)))
+      setEditModal(null)
+      toast.success('Item updated')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
@@ -237,13 +385,28 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
           // project's warn-and-record precedent rather than blocking a return
           // nobody can attribute.
           job_id: moveForm.job_id || undefined,
+          // Who this delivery came from. The lot has carried a vendor since
+          // 055 and the route has always read it — the form simply never sent
+          // one, which is why a manual receipt showed no supplier in Lot
+          // History. Only meaningful on the two lot-creating actions.
+          vendor_id: (movementModal.action === 'in' || movementModal.action === 'return')
+            ? (moveForm.vendor_id || undefined) : undefined,
+          // Packets in, sheets out — the same boundary the quantity crosses two
+          // lines above. The API and the columns are per sheet throughout.
+          unit_cost: movementModal.action === 'in' && parseFloat(moveForm.packet_rate || '0') > 0
+            ? parseFloat(moveForm.packet_rate) / (movementModal.item.sheets_per_packet || 100)
+            : undefined,
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
-      setItems(prev => prev.map(i => i.id === movementModal.item.id ? { ...i, current_stock: (data as any).current_stock } : i))
+      // unit_cost as well as the stock: a priced Stock In re-averages it, and
+      // the row would otherwise keep showing the pre-receipt rate until reload.
+      setItems(prev => prev.map(i => i.id === movementModal.item.id
+        ? { ...i, current_stock: (data as any).current_stock, unit_cost: (data as any).unit_cost ?? i.unit_cost }
+        : i))
       setMovementModal(null)
-      setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '' })
+      setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', packet_rate: '' })
       toast.success(
         movementModal.action === 'in' ? 'Stock added'
         : movementModal.action === 'out' ? 'Stock reduced'
@@ -314,14 +477,17 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
                 // is readable by the store (packets) and by production (sheets).
                 exportToExcel(filtered.map(i => ({
                   'Description': i.description, 'Vendor': i.vendors?.name ?? '',
-                  'Board Type': i.board_types?.name ?? '',
+                  'Board / Paper Type': i.board_types?.name ?? (i.paper_types?.name ? `${i.paper_types.name} (Paper)` : ''),
                   'L': i.sheet_width_in ?? '', 'W': i.sheet_height_in ?? '', 'GSM': i.gsm ?? '',
                   'Balance (packets)': Math.round(toPackets(i.current_stock, i.sheets_per_packet) * 100) / 100,
                   'Balance (sheets)': i.current_stock,
                   'Sheets per Packet': i.sheets_per_packet,
                   'Reserved (sheets)': i.reserved_stock,
                   'Reorder Level (packets)': Math.round(toPackets(i.reorder_level, i.sheets_per_packet) * 100) / 100,
-                  'Unit Cost': i.unit_cost,
+                  // Both, for the same reason the balance is exported both ways:
+                  // the store thinks in packets, costing thinks in sheets.
+                  'Unit Cost (PKR/sheet)': i.unit_cost,
+                  'Unit Cost (PKR/packet)': Math.round(Number(i.unit_cost ?? 0) * i.sheets_per_packet * 100) / 100,
                   'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
                 })), 'board-inventory-export')
               }}
@@ -339,7 +505,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       {/* Inventory table */}
       <DataList<BoardItem>
         rows={filtered}
-        columns={INV_COLUMNS(setLotsItem, setMovementModal, setMoveForm)}
+        columns={INV_COLUMNS(setLotsItem, openMovement, openEdit)}
         getRowId={i => i.id}
         rowClassName={item => {
           const isLow = item.current_stock <= item.reorder_level
@@ -370,67 +536,30 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
             </button>
           </>
         }>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
-            <label htmlFor="boardinventoryclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Description <span className="text-[var(--color-danger)]">*</span></label>
-            <input id="boardinventoryclient-1" className={inputCls} value={addForm.description} onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))} placeholder="e.g. 300 GSM Duplex Board 25×36" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Board Type</label>
-            <select id="boardinventoryclient-2" className={inputCls} value={addForm.board_type_id} onChange={e => setAddForm(p => ({ ...p, board_type_id: e.target.value }))}>
-              <option value="">Select…</option>
-              {boardTypes.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">GSM</label>
-            <input id="boardinventoryclient-3" type="number" className={inputCls} value={addForm.gsm} onChange={e => setAddForm(p => ({ ...p, gsm: e.target.value }))} placeholder="300" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-4" className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Width (in)</label>
-            <input id="boardinventoryclient-4" type="number" className={inputCls} value={addForm.sheet_width_in} onChange={e => setAddForm(p => ({ ...p, sheet_width_in: e.target.value }))} placeholder="25" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Height (in)</label>
-            <input id="boardinventoryclient-5" type="number" className={inputCls} value={addForm.sheet_height_in} onChange={e => setAddForm(p => ({ ...p, sheet_height_in: e.target.value }))} placeholder="36" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-v" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor</label>
-            <select id="boardinventoryclient-v" className={inputCls} value={addForm.vendor_id} onChange={e => setAddForm(p => ({ ...p, vendor_id: e.target.value }))}>
-              <option value="">Select…</option>
-              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-sp" className="text-sm font-medium text-[var(--color-text-primary)]">Sheets per Packet</label>
-            <input id="boardinventoryclient-sp" type="number" className={inputCls} value={addForm.sheets_per_packet} onChange={e => setAddForm(p => ({ ...p, sheets_per_packet: e.target.value }))} placeholder="100" />
-            <p className="text-xs text-[var(--color-text-muted)]">100 for board. Paper reams are often 500 or 250.</p>
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock (packets)</label>
-            <input id="boardinventoryclient-6" type="number" step="0.01" className={inputCls} value={addForm.current_stock} onChange={e => setAddForm(p => ({ ...p, current_stock: e.target.value }))} placeholder="0" />
-            {/* Shows the number that actually lands in the database, so nobody
-                has to trust that the conversion happened. */}
-            {parseFloat(addForm.current_stock || '0') > 0 && (
-              <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                = {toSheets(parseFloat(addForm.current_stock), parseInt(addForm.sheets_per_packet || '100', 10)).toLocaleString()} sheets
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
-            <input id="boardinventoryclient-7" type="number" step="0.01" className={inputCls} value={addForm.reorder_level} onChange={e => setAddForm(p => ({ ...p, reorder_level: e.target.value }))} placeholder="100" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR)</label>
-            <input id="boardinventoryclient-8" type="number" className={inputCls} value={addForm.unit_cost} onChange={e => setAddForm(p => ({ ...p, unit_cost: e.target.value }))} placeholder="0.00" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>
-            <input id="boardinventoryclient-9" className={inputCls} value={addForm.location} onChange={e => setAddForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Rack A-3" />
-          </div>
-        </div>
+        <ItemFields mode="add" idPrefix="boardinventoryclient" form={addForm} setForm={setAddForm}
+          boardTypes={boardTypes} paperTypes={paperTypes} vendors={vendors} />
       </Modal>
+
+      {/* Edit Item Modal — same fields as Add, minus Opening Stock. Stock is
+          deliberately not editable here: In / Out / Adjust each leave a ledger
+          row behind, and 114's whole stock report is rebuilt from that ledger,
+          so a silent edit to current_stock would put the report permanently out
+          of step with the balance. */}
+      {editModal && (
+        <Modal open={true} onClose={() => setEditModal(null)} title={`Edit — ${editModal.description}`} size="md"
+          footer={
+            <>
+              <button onClick={() => setEditModal(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+              <button onClick={updateItem} disabled={loading || !editForm.description}
+                className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+                {loading ? 'Saving…' : 'Save Changes'}
+              </button>
+            </>
+          }>
+          <ItemFields mode="edit" idPrefix="bi-edit" form={editForm} setForm={setEditForm}
+            boardTypes={boardTypes} paperTypes={paperTypes} vendors={vendors} />
+        </Modal>
+      )}
 
       {/* Movement Modal */}
       {movementModal && (
@@ -477,10 +606,61 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
               )}
             </div>
             {movementModal.action === 'in' && (
-              <div className="space-y-1.5">
-                <label htmlFor="boardinventoryclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
-                <input id="boardinventoryclient-11" className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <label htmlFor="boardinventoryclient-11" className="text-sm font-medium text-[var(--color-text-primary)]">Lot / Batch Number</label>
+                  <input id="boardinventoryclient-11" className={inputCls} value={moveForm.lot_number} onChange={e => setMoveForm(p => ({ ...p, lot_number: e.target.value }))} placeholder="Auto-generated if left blank" />
+                </div>
+                {/* The lot has had a vendor column since 055 and the route has
+                    always read it, but no form ever sent one — so a manual
+                    receipt's supplier was lost and Lot History showed a blank
+                    where the vendor should be. Defaults to the item's usual
+                    supplier; a one-off delivery can be changed here. */}
+                <div className="space-y-1.5">
+                  <label htmlFor="boardinventoryclient-in-vendor" className="text-sm font-medium text-[var(--color-text-primary)]">Received from (vendor)</label>
+                  <select id="boardinventoryclient-in-vendor" className={inputCls} value={moveForm.vendor_id}
+                    onChange={e => setMoveForm(p => ({ ...p, vendor_id: e.target.value }))}>
+                    <option value="">Not recorded</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </div>
+                {/* The rate this delivery came at. Asked per PACKET because that
+                    is how the shop buys; stored per sheet, because that is what
+                    a job consumes. Leaving it blank is allowed and changes
+                    nothing — an unpriced delivery must not drag the item's
+                    average toward zero. */}
+                <div className="space-y-1.5">
+                  <label htmlFor="boardinventoryclient-in-rate" className="text-sm font-medium text-[var(--color-text-primary)]">Rate per packet (PKR)</label>
+                  <input id="boardinventoryclient-in-rate" type="number" step="0.01" className={inputCls}
+                    value={moveForm.packet_rate} onChange={e => setMoveForm(p => ({ ...p, packet_rate: e.target.value }))}
+                    placeholder="Leave blank if not known" />
+                  {parseFloat(moveForm.packet_rate || '0') > 0 && (
+                    <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                      = PKR {(parseFloat(moveForm.packet_rate) / (movementModal.item.sheets_per_packet || 100)).toFixed(4)} per sheet
+                      {' · '}total PKR {(parseFloat(moveForm.packet_rate) * (parseFloat(moveForm.quantity) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                  )}
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Updates the item&rsquo;s cost as a <strong>weighted average</strong> — that is the rate jobs are costed at.
+                  </p>
+                </div>
+                {/* "Kon sa board kis job ke liye aaya" for board that arrives
+                    WITHOUT a purchase order. The PO path already asks this per
+                    line (113); a manual Stock In had no way to answer it, so
+                    every walk-in / cash purchase lost the link. Blank is a real
+                    answer — general stock — not a missing field. */}
+                <div className="space-y-1.5">
+                  <label htmlFor="boardinventoryclient-in-job" className="text-sm font-medium text-[var(--color-text-primary)]">For which job? (blank = general stock)</label>
+                  <select id="boardinventoryclient-in-job" className={inputCls} value={moveForm.job_id}
+                    onChange={e => setMoveForm(p => ({ ...p, job_id: e.target.value }))}>
+                    <option value="">General stock — not for a specific job</option>
+                    {openJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
+                  </select>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Recorded on the lot and the ledger row. The board is <strong>not</strong> reserved — it can still be issued to any job.
+                  </p>
+                </div>
+              </>
             )}
             {movementModal.action === 'return' && (
               <div className="space-y-1.5">
@@ -507,6 +687,125 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units, 
       <Modal open={!!lotsItem} onClose={() => setLotsItem(null)} title={lotsItem ? `Lot History — ${lotsItem.description}` : ''} size="md">
         {lotsItem && <BoardLotHistory itemId={lotsItem.id} />}
       </Modal>
+    </div>
+  )
+}
+
+/**
+ * The item fields, shared by Add and Edit so the two can't drift apart.
+ * `mode` decides one thing only: Add asks for Opening Stock, Edit shows the
+ * current balance read-only and points at In / Out / Adjust instead.
+ */
+function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, vendors }: {
+  mode: 'add' | 'edit'
+  idPrefix: string
+  form: ItemForm
+  setForm: Dispatch<SetStateAction<ItemForm>>
+  boardTypes: BoardType[]
+  paperTypes: PaperType[]
+  vendors: Vendor[]
+}) {
+  const set = (k: keyof ItemForm, v: string) => setForm(p => ({ ...p, [k]: v }))
+  const perPacket = parseInt(form.sheets_per_packet || '100', 10) || 100
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2 space-y-1.5">
+        <label htmlFor={`${idPrefix}-1`} className="text-sm font-medium text-[var(--color-text-primary)]">Description <span className="text-[var(--color-danger)]">*</span></label>
+        <input id={`${idPrefix}-1`} className={inputCls} value={form.description} onChange={e => set('description', e.target.value)} placeholder="e.g. 300 GSM Duplex Board 25×36" />
+      </div>
+      {/* Board AND paper in one dropdown. The store carries both kinds of
+          sheet material; before 115 only board_types existed here, so a paper
+          item had to be saved with no type at all — which is why 12 of the 51
+          loaded items came out untyped. Two optgroups keep them tellable
+          apart, and only one of the two columns is ever written. */}
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-2`} className="text-sm font-medium text-[var(--color-text-primary)]">Board / Paper Type</label>
+        <select id={`${idPrefix}-2`} className={inputCls} value={form.material} onChange={e => set('material', e.target.value)}>
+          <option value="">Select…</option>
+          <optgroup label="Board">
+            {boardTypes.map(b => <option key={b.id} value={`${MATERIAL_BOARD}${b.id}`}>{b.name}</option>)}
+          </optgroup>
+          <optgroup label="Paper">
+            {/* GSM in the label only — the item's own GSM field below is the
+                one that counts, exactly as it is for board. */}
+            {paperTypes.map(p => <option key={p.id} value={`${MATERIAL_PAPER}${p.id}`}>{p.name}{p.gsm ? ` (${p.gsm} GSM)` : ''}</option>)}
+          </optgroup>
+        </select>
+        {form.material.startsWith(MATERIAL_PAPER) && (
+          <p className="text-xs text-[var(--color-warning)]">
+            Paper often comes <strong>500 sheets to a ream</strong>, not 100 — check Sheets per Packet below before saving.
+          </p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-3`} className="text-sm font-medium text-[var(--color-text-primary)]">GSM</label>
+        <input id={`${idPrefix}-3`} type="number" className={inputCls} value={form.gsm} onChange={e => set('gsm', e.target.value)} placeholder="300" />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-4`} className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Width (in)</label>
+        <input id={`${idPrefix}-4`} type="number" className={inputCls} value={form.sheet_width_in} onChange={e => set('sheet_width_in', e.target.value)} placeholder="25" />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-5`} className="text-sm font-medium text-[var(--color-text-primary)]">Sheet Height (in)</label>
+        <input id={`${idPrefix}-5`} type="number" className={inputCls} value={form.sheet_height_in} onChange={e => set('sheet_height_in', e.target.value)} placeholder="36" />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-v`} className="text-sm font-medium text-[var(--color-text-primary)]">Vendor</label>
+        <select id={`${idPrefix}-v`} className={inputCls} value={form.vendor_id} onChange={e => set('vendor_id', e.target.value)}>
+          <option value="">Select…</option>
+          {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-sp`} className="text-sm font-medium text-[var(--color-text-primary)]">Sheets per Packet</label>
+        <input id={`${idPrefix}-sp`} type="number" className={inputCls} value={form.sheets_per_packet} onChange={e => set('sheets_per_packet', e.target.value)} placeholder="100" />
+        <p className="text-xs text-[var(--color-text-muted)]">100 for board. Paper reams are often 500 or 250.</p>
+      </div>
+      {mode === 'add' ? (
+        <div className="space-y-1.5">
+          <label htmlFor={`${idPrefix}-6`} className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock (packets)</label>
+          <input id={`${idPrefix}-6`} type="number" step="0.01" className={inputCls} value={form.current_stock} onChange={e => set('current_stock', e.target.value)} placeholder="0" />
+          {/* Shows the number that actually lands in the database, so nobody
+              has to trust that the conversion happened. */}
+          {parseFloat(form.current_stock || '0') > 0 && (
+            <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              = {toSheets(parseFloat(form.current_stock), perPacket).toLocaleString()} sheets
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <span className="block text-sm font-medium text-[var(--color-text-primary)]">Current Stock</span>
+          <p className="h-9 flex items-center text-sm text-[var(--color-text-secondary)] tabular-nums">
+            {fmtPackets(parseFloat(form.current_stock || '0'))} packets
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Change stock with <strong>In / Out / Adjust</strong> so the movement is recorded.
+          </p>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-7`} className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
+        <input id={`${idPrefix}-7`} type="number" step="0.01" className={inputCls} value={form.reorder_level} onChange={e => set('reorder_level', e.target.value)} placeholder="100" />
+      </div>
+      <div className="space-y-1.5">
+        {/* Per SHEET, and now labelled as such. The field never said which unit
+            it meant, and the one consumer that spends it (store issue → job
+            costing) multiplies it by sheets — so a packet price typed here was
+            100× too high with nothing to catch it. */}
+        <label htmlFor={`${idPrefix}-8`} className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR / sheet)</label>
+        <input id={`${idPrefix}-8`} type="number" step="0.0001" className={inputCls} value={form.unit_cost} onChange={e => set('unit_cost', e.target.value)} placeholder="0.0000" />
+        {parseFloat(form.unit_cost || '0') > 0 && (
+          <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+            = PKR {(parseFloat(form.unit_cost) * perPacket).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet of {perPacket}
+          </p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-9`} className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>
+        <input id={`${idPrefix}-9`} className={inputCls} value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Rack A-3" />
+      </div>
     </div>
   )
 }
@@ -538,8 +837,18 @@ function BoardLotHistory({ itemId }: { itemId: string }) {
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
             Received {new Date(l.received_date).toLocaleDateString('en-PK')}
             {l.vendors?.name ? ` · ${l.vendors.name}` : ''}
-            {l.unit_cost ? ` · PKR ${Number(l.unit_cost).toLocaleString()}/unit` : ''}
+            {/* "/unit" said nothing. The column is per sheet — and until this
+                commit the PO path wrote a per-packet figure into it. */}
+            {l.unit_cost ? ` · PKR ${Number(l.unit_cost).toFixed(4)}/sheet` : ''}
           </p>
+          {/* Which job this lot came in for — a purchase_order / manual lot was
+              bought FOR the job, a production_return lot came back OFF it. */}
+          {l.jobs?.job_number && (
+            <p className="text-xs text-[var(--color-accent)] mt-0.5">
+              {l.reference_type === 'production_return' ? 'Returned from' : 'For'} {l.jobs.job_number}
+              {l.jobs.job_title ? ` — ${l.jobs.job_title}` : ''}
+            </p>
+          )}
         </div>
       ))}
     </div>

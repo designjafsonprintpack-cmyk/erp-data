@@ -22,6 +22,10 @@ const quotationItemSchema = z.object({
   quantity: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),
   board_type_id: z.string().uuid().optional().nullable(),
+  // 116. Mutually exclusive with board_type_id in the database — a schema that
+  // omits a column the form sends throws the value away silently, which is how
+  // the PO line items lost their description.
+  paper_type_id: z.string().uuid().optional().nullable(),
   no_of_colors: z.union([z.string(), z.number()]).optional().nullable(),
   lamination_type_id: z.string().uuid().optional().nullable(),
   unit_price: z.union([z.string(), z.number()]).optional(),
