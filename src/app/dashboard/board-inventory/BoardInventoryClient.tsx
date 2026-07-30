@@ -10,12 +10,30 @@ import { Modal } from '@/components/ui/Modal'
 
 interface BoardItem {
   id: string; description: string; gsm: number | null; sheet_width_in: number | null; sheet_height_in: number | null
+  /** SHEETS, always — see migration 113. Packets are display only. */
   current_stock: number; reserved_stock: number; reorder_level: number
+  /** Sheets in one packet for this item: 100 for board, often 500 for paper. */
+  sheets_per_packet: number
   unit_cost: number; location: string | null; is_active: boolean
   board_types?: { name: string } | null
+  vendor_id?: string | null
+  vendors?: { name: string } | null
 }
 interface BoardType { id: string; name: string }
 interface Unit { id: string; name: string; symbol: string }
+interface Vendor { id: string; name: string }
+
+/**
+ * The store counts packets; the database stores sheets. Every number the user
+ * sees or types on this screen goes through one of these two, and nothing else
+ * does the arithmetic inline.
+ */
+const toPackets = (sheets: number, perPacket: number) => sheets / (perPacket || 100)
+const toSheets  = (packets: number, perPacket: number) => packets * (perPacket || 100)
+
+/** "44.68" not "44.6800000000001", and no trailing ".00" on whole packets. */
+const fmtPackets = (n: number) =>
+  (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
@@ -27,7 +45,14 @@ const INV_COLUMNS = (
 ): DataListColumn<BoardItem>[] => [
   {
     key: 'desc', header: 'Description', span: 3, role: 'identity',
-    render: i => <span className="text-sm font-medium text-[var(--color-text-primary)]">{i.description}</span>,
+    render: i => (
+      <span className="block">
+        <span className="block text-sm font-medium text-[var(--color-text-primary)]">{i.description}</span>
+        {/* Vendor is the first grouping on the shop's own stock report, and it
+            never appeared here until 113 gave vendor_id a foreign key. */}
+        {i.vendors?.name && <span className="block text-xs text-[var(--color-text-muted)]">{i.vendors.name}</span>}
+      </span>
+    ),
   },
   {
     key: 'type', header: 'Type / GSM', span: 2, role: 'title',
@@ -47,25 +72,32 @@ const INV_COLUMNS = (
     ),
   },
   {
-    key: 'stock', header: 'Stock', span: 1, role: 'status', align: 'right',
+    key: 'stock', header: 'Stock (pkt)', span: 1, role: 'status', align: 'right',
     render: i => {
       const isLow = i.current_stock <= i.reorder_level
       const isOut = i.current_stock <= 0
       return (
         <span className="inline-flex flex-col items-end">
-          <span className={cn('text-sm font-bold',
+          {/* Packets first because that is what the store counts; sheets
+              underneath because that is what the job consumes. */}
+          <span className={cn('text-sm font-bold tabular-nums',
             isOut ? 'text-[var(--color-danger)]' : isLow ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
-            {i.current_stock.toLocaleString()}
+            {fmtPackets(toPackets(i.current_stock, i.sheets_per_packet))}
             {isLow && !isOut && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" />}
           </span>
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{i.current_stock.toLocaleString()} sht</span>
           {isOut && <span className="text-xs text-[var(--color-danger)]">OUT</span>}
         </span>
       )
     },
   },
   {
-    key: 'reorder', header: 'Reorder', span: 1, role: 'meta', label: 'Reorder at', align: 'right',
-    render: i => <span className="text-xs text-[var(--color-text-muted)]">{i.reorder_level.toLocaleString()}</span>,
+    key: 'reorder', header: 'Reorder (pkt)', span: 1, role: 'meta', label: 'Reorder at', align: 'right',
+    render: i => (
+      <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+        {fmtPackets(toPackets(i.reorder_level, i.sheets_per_packet))}
+      </span>
+    ),
   },
   {
     key: 'location', header: 'Location', span: 1, role: 'desktop',
@@ -87,7 +119,7 @@ const INV_COLUMNS = (
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[color:color-mix(in_srgb,var(--color-danger)_30%,transparent)] text-xs text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">
           <TrendingDown size={11} /> Out
         </button>
-        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(i.current_stock), notes: '', lot_number: '' }) }}
+        <button onClick={() => { setMovementModal({ item: i, action: 'adjustment' }); setMoveForm({ quantity: String(toPackets(i.current_stock, i.sheets_per_packet)), notes: '', lot_number: '' }) }}
           className="flex items-center gap-1 px-2.5 md:px-2 h-9 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-bg-elevated)] transition-colors">
           <SlidersHorizontal size={11} /> Adj
         </button>
@@ -96,7 +128,7 @@ const INV_COLUMNS = (
   },
 ]
 
-export default function BoardInventoryClient({ initialItems, boardTypes, units }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[] }) {
+export default function BoardInventoryClient({ initialItems, boardTypes, units, vendors }: { initialItems: BoardItem[]; boardTypes: BoardType[]; units: Unit[]; vendors: Vendor[] }) {
   const [items, setItems] = useState(initialItems)
   const [search, setSearch] = useState('')
   const [showLowOnly, setShowLowOnly] = useState(false)
@@ -107,7 +139,10 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
 
   const [addForm, setAddForm] = useState({
     description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
-    current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '',
+    // These two are entered in PACKETS and converted to sheets on submit.
+    current_stock: '0', reorder_level: '0',
+    sheets_per_packet: '100', vendor_id: '',
+    unit_id: '', unit_cost: '0', location: '',
   })
   const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '' })
 
@@ -122,16 +157,26 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
     if (!addForm.description) { toast.error('Description required'); return }
     setLoading(true)
     try {
+      // The unit boundary lives here: the form is in packets, the API and the
+      // database are in sheets. Nothing downstream converts again.
+      const perPacket = parseInt(addForm.sheets_per_packet || '100', 10) || 100
       const res = await fetch('/api/v1/board-inventory', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({
+          ...addForm,
+          sheets_per_packet: perPacket,
+          vendor_id: addForm.vendor_id || null,
+          current_stock: toSheets(parseFloat(addForm.current_stock || '0'), perPacket),
+          reorder_level: toSheets(parseFloat(addForm.reorder_level || '0'), perPacket),
+        }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       const bt = boardTypes.find(b => b.id === addForm.board_type_id)
-      setItems(prev => [...prev, { ...data, board_types: bt ? { name: bt.name } : null }].sort((a, b) => a.description.localeCompare(b.description)))
+      const vn = vendors.find(v => v.id === addForm.vendor_id)
+      setItems(prev => [...prev, { ...data, board_types: bt ? { name: bt.name } : null, vendors: vn ? { name: vn.name } : null }].sort((a, b) => a.description.localeCompare(b.description)))
       setAddModal(false)
-      setAddForm({ description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '', current_stock: '0', reorder_level: '0', unit_id: '', unit_cost: '0', location: '' })
+      setAddForm({ description: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '', current_stock: '0', reorder_level: '0', sheets_per_packet: '100', vendor_id: '', unit_id: '', unit_cost: '0', location: '' })
       toast.success('Item added to inventory')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
@@ -139,10 +184,13 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
 
   const applyMovement = async () => {
     if (!movementModal) return
-    const qty = parseFloat(moveForm.quantity || '0')
-    if (qty <= 0 && movementModal.action !== 'adjustment') { toast.error('Quantity must be greater than 0'); return }
+    const packets = parseFloat(moveForm.quantity || '0')
+    if (packets <= 0 && movementModal.action !== 'adjustment') { toast.error('Quantity must be greater than 0'); return }
     setLoading(true)
     try {
+      // Typed in packets, sent in sheets — the API and the ledger only ever
+      // deal in sheets (113).
+      const qty = toSheets(packets, movementModal.item.sheets_per_packet)
       const res = await fetch(`/api/v1/board-inventory/${movementModal.item.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: movementModal.action, quantity: qty, notes: moveForm.notes, lot_number: moveForm.lot_number || undefined }),
@@ -163,7 +211,10 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         {[
           { label: 'Total Stock Items', value: items.length, icon: Layers, color: 'var(--color-accent)' },
-          { label: 'Total Units in Stock', value: totalStock.toLocaleString(), icon: TrendingUp, color: 'var(--color-success)' },
+          // Sheets, deliberately not packets: packet size differs per item
+          // (100 for board, 500 for paper), so a packet total would be adding
+          // up unlike things. Sheets are the one comparable unit.
+          { label: 'Total Sheets in Stock', value: totalStock.toLocaleString(), icon: TrendingUp, color: 'var(--color-success)' },
           { label: 'Low Stock Alerts', value: lowStockCount, icon: AlertTriangle, color: lowStockCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 flex items-center gap-4">
@@ -194,11 +245,19 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
           <>
             <button onClick={() => {
                 if (!filtered.length) { toast.error('Nothing to export'); return }
+                // Column order and naming follow the shop's own stock sheet —
+                // Vendor, size, GSM — and both units are exported so the file
+                // is readable by the store (packets) and by production (sheets).
                 exportToExcel(filtered.map(i => ({
-                  'Description': i.description, 'Board Type': i.board_types?.name ?? '',
-                  'GSM': i.gsm ?? '', 'Sheet Width (in)': i.sheet_width_in ?? '', 'Sheet Height (in)': i.sheet_height_in ?? '',
-                  'Current Stock': i.current_stock, 'Reserved': i.reserved_stock,
-                  'Reorder Level': i.reorder_level, 'Unit Cost': i.unit_cost,
+                  'Description': i.description, 'Vendor': i.vendors?.name ?? '',
+                  'Board Type': i.board_types?.name ?? '',
+                  'L': i.sheet_width_in ?? '', 'W': i.sheet_height_in ?? '', 'GSM': i.gsm ?? '',
+                  'Balance (packets)': Math.round(toPackets(i.current_stock, i.sheets_per_packet) * 100) / 100,
+                  'Balance (sheets)': i.current_stock,
+                  'Sheets per Packet': i.sheets_per_packet,
+                  'Reserved (sheets)': i.reserved_stock,
+                  'Reorder Level (packets)': Math.round(toPackets(i.reorder_level, i.sheets_per_packet) * 100) / 100,
+                  'Unit Cost': i.unit_cost,
                   'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
                 })), 'board-inventory-export')
               }}
@@ -271,12 +330,31 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
             <input id="boardinventoryclient-5" type="number" className={inputCls} value={addForm.sheet_height_in} onChange={e => setAddForm(p => ({ ...p, sheet_height_in: e.target.value }))} placeholder="36" />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock</label>
-            <input id="boardinventoryclient-6" type="number" className={inputCls} value={addForm.current_stock} onChange={e => setAddForm(p => ({ ...p, current_stock: e.target.value }))} placeholder="0" />
+            <label htmlFor="boardinventoryclient-v" className="text-sm font-medium text-[var(--color-text-primary)]">Vendor</label>
+            <select id="boardinventoryclient-v" className={inputCls} value={addForm.vendor_id} onChange={e => setAddForm(p => ({ ...p, vendor_id: e.target.value }))}>
+              <option value="">Select…</option>
+              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="boardinventoryclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level</label>
-            <input id="boardinventoryclient-7" type="number" className={inputCls} value={addForm.reorder_level} onChange={e => setAddForm(p => ({ ...p, reorder_level: e.target.value }))} placeholder="100" />
+            <label htmlFor="boardinventoryclient-sp" className="text-sm font-medium text-[var(--color-text-primary)]">Sheets per Packet</label>
+            <input id="boardinventoryclient-sp" type="number" className={inputCls} value={addForm.sheets_per_packet} onChange={e => setAddForm(p => ({ ...p, sheets_per_packet: e.target.value }))} placeholder="100" />
+            <p className="text-xs text-[var(--color-text-muted)]">100 for board. Paper reams are often 500 or 250.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="boardinventoryclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Opening Stock (packets)</label>
+            <input id="boardinventoryclient-6" type="number" step="0.01" className={inputCls} value={addForm.current_stock} onChange={e => setAddForm(p => ({ ...p, current_stock: e.target.value }))} placeholder="0" />
+            {/* Shows the number that actually lands in the database, so nobody
+                has to trust that the conversion happened. */}
+            {parseFloat(addForm.current_stock || '0') > 0 && (
+              <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                = {toSheets(parseFloat(addForm.current_stock), parseInt(addForm.sheets_per_packet || '100', 10)).toLocaleString()} sheets
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="boardinventoryclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
+            <input id="boardinventoryclient-7" type="number" step="0.01" className={inputCls} value={addForm.reorder_level} onChange={e => setAddForm(p => ({ ...p, reorder_level: e.target.value }))} placeholder="100" />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="boardinventoryclient-8" className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR)</label>
@@ -309,15 +387,23 @@ export default function BoardInventoryClient({ initialItems, boardTypes, units }
           <div className="space-y-3">
             <div className="rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-3">
               <p className="text-sm font-medium text-[var(--color-text-primary)]">{movementModal.item.description}</p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Current stock: <strong>{movementModal.item.current_stock.toLocaleString()}</strong></p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5 tabular-nums">
+                Current stock: <strong>{fmtPackets(toPackets(movementModal.item.current_stock, movementModal.item.sheets_per_packet))} packets</strong>
+                {' '}({movementModal.item.current_stock.toLocaleString()} sheets, {movementModal.item.sheets_per_packet}/packet)
+              </p>
             </div>
             <div className="space-y-1.5">
               <label htmlFor="boardinventoryclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">
-                {movementModal.action === 'adjustment' ? 'New Stock Quantity' : 'Quantity'}
+                {movementModal.action === 'adjustment' ? 'New Stock Count (packets)' : 'Quantity (packets)'}
                 <span className="text-[var(--color-danger)]"> *</span>
               </label>
-              <input id="boardinventoryclient-10" type="number" className={inputCls} value={moveForm.quantity} onChange={e => setMoveForm(p => ({ ...p, quantity: e.target.value }))}
-                placeholder={movementModal.action === 'adjustment' ? 'Enter exact stock count' : 'Enter quantity'} />
+              <input id="boardinventoryclient-10" type="number" step="0.01" className={inputCls} value={moveForm.quantity} onChange={e => setMoveForm(p => ({ ...p, quantity: e.target.value }))}
+                placeholder={movementModal.action === 'adjustment' ? 'Exact count in packets' : 'Packets'} />
+              {parseFloat(moveForm.quantity || '0') > 0 && (
+                <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                  = {toSheets(parseFloat(moveForm.quantity), movementModal.item.sheets_per_packet).toLocaleString()} sheets
+                </p>
+              )}
             </div>
             {movementModal.action === 'in' && (
               <div className="space-y-1.5">

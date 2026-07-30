@@ -25,7 +25,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const offset = (page - 1) * limit
 
   let q = supabase.from('purchase_orders' as any)
-    .select('*, vendors(name,vendor_code), purchase_order_items(*)', { count: 'exact' })
+    // jobs embedded so a line can show which job it was bought for (113).
+    // Unhinted is correct — that FK is the only relationship between these two.
+    .select('*, vendors(name,vendor_code), purchase_order_items(*, jobs(job_number,job_title))', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
 
@@ -116,6 +118,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         unit_price:  parseFloat(item.unit_price || '0'),
         subtotal:    item.subtotal,
         board_item_id: item.board_item_id || null,
+        // Which job this line is being bought for (113). Blank means general
+        // stock, which is a legitimate purchase — not a missing field.
+        job_id:      item.job_id || null,
         notes:       item.notes || null,
         sort_order:  item.sort_order,
       }))

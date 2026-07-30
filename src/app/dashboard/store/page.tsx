@@ -20,7 +20,11 @@ export default async function StorePage() {
     supabase.from('jobs' as any)
       .select('id,job_number,job_title').eq('company_id', companyId)
       .is('deleted_at', null).in('status', ['new','in_progress']).order('job_number').limit(100),
-    supabase.from('units' as any).select('id,name,symbol').eq('company_id', companyId).order('name'),
+    // Same double-listing as Board Inventory had: 28 unit rows exist, 14 of them
+    // soft-deleted leftovers from a seed that ran twice, and this query filtered
+    // neither deleted_at nor is_active.
+    supabase.from('units' as any).select('id,name,symbol')
+      .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_inventory' as any)
       .select('id,description,current_stock,unit_id,gsm,board_type_id').eq('company_id', companyId)
       .is('deleted_at', null).eq('is_active', true).order('description'),

@@ -10,7 +10,9 @@ import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Pagination } from '@/components/ui/Pagination'
 import { useServerPagedList, fetchAllPages } from '@/lib/hooks/useServerPagedList'
 
-interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number }
+// quantity / quantity_received are in PACKETS (the PO's unit). board_item_id is
+// what decides whether receiving this line touches stock at all.
+interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number; board_item_id?: string | null; job_id?: string | null; jobs?: { job_number: string; job_title: string } | null }
 interface PO {
   id: string; po_number: string; status: string; order_date: string; expected_date: string | null
   subtotal: number; tax_amount: number; total_amount: number; notes: string | null; created_at: string
@@ -18,6 +20,20 @@ interface PO {
   purchase_order_items?: POItem[]
 }
 interface Vendor { id: string; name: string; vendor_code: string }
+interface BoardItem {
+  id: string; description: string; gsm: number | null
+  sheet_width_in: number | null; sheet_height_in: number | null
+  /** Sheets in one packet for THIS item — 100 for board, often 500 for paper. */
+  sheets_per_packet: number
+}
+interface OpenJob { id: string; job_number: string; job_title: string }
+
+/** "Bleach Board · 208 GSM · 18.75×35" — how the store recognises a stock row. */
+const boardLabel = (b: BoardItem) => [
+  b.description,
+  b.gsm ? `${b.gsm} GSM` : null,
+  b.sheet_width_in && b.sheet_height_in ? `${b.sheet_width_in}×${b.sheet_height_in}` : null,
+].filter(Boolean).join(' · ')
 
 const STATUS_CFG = {
   draft:               { label: 'Draft',               color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
@@ -28,10 +44,12 @@ const STATUS_CFG = {
   cancelled:           { label: 'Cancelled',            color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }
 
-const EMPTY_LINE = { description: '', specification: '', quantity: '1', unit_price: '0', notes: '' }
+// board_item_id: which stock row this buys — without it the receive credits no
+// stock at all. job_id: which job it was bought FOR, blank = general stock (113).
+const EMPTY_LINE = { description: '', specification: '', quantity: '1', unit_price: '0', notes: '', board_item_id: '', job_id: '' }
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
-export default function PurchaseClient({ initialPOs, initialTotal, vendors }: { initialPOs: PO[]; initialTotal: number; vendors: Vendor[] }) {
+export default function PurchaseClient({ initialPOs, initialTotal, vendors, boardItems, openJobs }: { initialPOs: PO[]; initialTotal: number; vendors: Vendor[]; boardItems: BoardItem[]; openJobs: OpenJob[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState('')
 
@@ -159,10 +177,12 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors }: { 
         body: JSON.stringify({ action: 'receive', items }),
       })
       if (!res.ok) throw new Error()
-      const { data } = await res.json()
+      const { data, warnings } = await res.json()
       setPOs(prev => prev.map(p => p.id === receiveModal.id ? { ...p, status: (data as any).status } : p))
       setReceiveModal(null)
-      toast.success('Goods received')
+      // A stock ledger row that failed to write used to be completely silent.
+      if (Array.isArray(warnings) && warnings.length) warnings.forEach((w: string) => toast.error(w))
+      else toast.success('Goods received')
     } catch { toast.error('Failed') }
     finally { setLoading(false) }
   }
@@ -367,23 +387,63 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors }: { 
             <div className="hidden md:grid grid-cols-12 gap-2 px-1 py-1 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               <div className="col-span-4">Description</div>
               <div className="col-span-3">Specification</div>
-              <div className="col-span-1">Qty</div>
-              <div className="col-span-2">Unit Price</div>
+              <div className="col-span-1">Qty (pkt)</div>
+              <div className="col-span-2">Rate / pkt</div>
               <div className="col-span-2 text-right">Subtotal</div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {lineItems.map((item, idx) => {
                 const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
+                const board = boardItems.find(b => b.id === item.board_item_id)
                 return (
-                  <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
-                    <div className="col-span-2 md:col-span-4"><input className={inputCls} value={item.description} onChange={e => setLine(idx, 'description', e.target.value)} placeholder="Item description *" /></div>
-                    <div className="col-span-2 md:col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
-                    <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
-                    <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></div>
-                    <div className="col-span-2 md:col-span-2 flex items-center justify-between">
-                      <span className="text-sm font-medium text-[var(--color-text-primary)]">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—'}</span>
-                      {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={14} /></button>}
+                  <div key={idx} className="rounded-lg border border-[var(--color-border-subtle)] p-2.5 space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
+                      <div className="col-span-2 md:col-span-4"><input className={inputCls} value={item.description} onChange={e => setLine(idx, 'description', e.target.value)} placeholder="Item description *" /></div>
+                      <div className="col-span-2 md:col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
+                      <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
+                      <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></div>
+                      <div className="col-span-2 md:col-span-2 flex items-center justify-between">
+                        <span className="text-sm font-medium text-[var(--color-text-primary)] tabular-nums">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—'}</span>
+                        {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={14} /></button>}
+                      </div>
                     </div>
+
+                    {/* Stock link + job. The stock link is what makes receiving
+                        this line actually add board to the store; without it the
+                        PO is only a piece of paper. */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                      <div className="md:col-span-7 space-y-1">
+                        <label htmlFor={`po-line-board-${idx}`} className="text-xs text-[var(--color-text-muted)]">Board stock item — links this line to the store</label>
+                        <select id={`po-line-board-${idx}`} className={inputCls} value={item.board_item_id}
+                          onChange={e => {
+                            const id = e.target.value
+                            setLine(idx, 'board_item_id', id)
+                            // Save retyping: an empty description takes the
+                            // stock item's own name.
+                            const b = boardItems.find(x => x.id === id)
+                            if (b && !item.description) setLine(idx, 'description', boardLabel(b))
+                          }}>
+                          <option value="">Not a stock item (no stock will be added)</option>
+                          {boardItems.map(b => <option key={b.id} value={b.id}>{boardLabel(b)}</option>)}
+                        </select>
+                      </div>
+                      <div className="md:col-span-5 space-y-1">
+                        <label htmlFor={`po-line-job-${idx}`} className="text-xs text-[var(--color-text-muted)]">For which job? (blank = general stock)</label>
+                        <select id={`po-line-job-${idx}`} className={inputCls} value={item.job_id}
+                          onChange={e => setLine(idx, 'job_id', e.target.value)}>
+                          <option value="">General stock</option>
+                          {openJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {board && parseFloat(item.quantity || '0') > 0 && (
+                      <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                        {parseFloat(item.quantity).toLocaleString()} packet(s) ={' '}
+                        {(parseFloat(item.quantity) * board.sheets_per_packet).toLocaleString()} sheets
+                        {' '}({board.sheets_per_packet}/packet)
+                      </p>
+                    )}
                   </div>
                 )
               })}
@@ -428,20 +488,43 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors }: { 
             </>
           }>
           <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-muted)]">Enter quantities received for each item. Board inventory will be updated automatically.</p>
-            {(receiveModal.purchase_order_items || []).map(item => (
-              <div key={item.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.description}</p>
-                  <p className="text-xs text-[var(--color-text-muted)]">Ordered: {item.quantity} | Previously received: {item.quantity_received}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Enter the packets received for each line. A fractional value is fine
+              &mdash; 44.68 means 44 packets and 68 loose sheets.
+            </p>
+            {(receiveModal.purchase_order_items || []).map(item => {
+              const board = boardItems.find(b => b.id === item.board_item_id)
+              const entered = parseFloat(receiveQtys[item.id] ?? String(item.quantity)) || 0
+              return (
+                <div key={item.id} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.description}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] tabular-nums">Ordered: {item.quantity} pkt | Previously received: {item.quantity_received} pkt</p>
+                    {item.jobs && (
+                      <p className="text-xs text-[var(--color-accent)]">For {item.jobs.job_number}</p>
+                    )}
+                    {board ? (
+                      <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                        Adds {(entered * board.sheets_per_packet).toLocaleString()} sheets to {board.description}
+                      </p>
+                    ) : (
+                      // Says so plainly instead of the old blanket promise that
+                      // "board inventory will be updated automatically", which
+                      // was false for every line with no stock link.
+                      <p className="text-xs text-[var(--color-warning)]">
+                        No board stock item on this line &mdash; stock will not change
+                      </p>
+                    )}
+                  </div>
+                  <input type="number"
+                    aria-label={`Packets received for ${item.description}`}
+                    className="w-24 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                    value={receiveQtys[item.id] ?? ''}
+                    onChange={e => setReceiveQtys(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    placeholder="Packets" />
                 </div>
-                <input type="number"
-                  className="w-24 h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-                  value={receiveQtys[item.id] ?? ''}
-                  onChange={e => setReceiveQtys(prev => ({ ...prev, [item.id]: e.target.value }))}
-                  placeholder="Qty" />
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Modal>
       )}

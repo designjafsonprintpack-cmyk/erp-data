@@ -6,6 +6,12 @@ const poLineItemSchema = z.object({
   quantity: z.union([z.string(), z.number()]).optional(),
   unit_price: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),
+  /**
+   * The job this line is being bought for (113), or null/absent for general
+   * stock. On the LINE, not the PO: one purchase covers several sizes for
+   * several jobs. Carried onto the stock ledger and the lot at receipt.
+   */
+  job_id: z.string().uuid().optional().nullable(),
 })
 
 export const createPurchaseOrderSchema = z.object({

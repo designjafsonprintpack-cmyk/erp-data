@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **112**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **113**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -528,6 +528,54 @@ Test data purged and document counters reset to `0`, then real history loaded.
   Verified: 17 assertions on the migration against real Postgres, 14 on the
   route behaviour, 5 read-only against the live PostgREST. **Not yet walked
   through the real HTTP routes** — that needs 112 on live first.
+
+- **113** — board → job traceability, and the **packet**. Two holes, one run.
+  **A. "Kon sa board kis job ke liye aaya?" had nowhere to be recorded.** The
+  issue side was always traceable (`store/[id]` writes `job_id` onto the `out`
+  movement); the receipt side had no column on `purchase_orders`,
+  `purchase_order_items` or `board_inventory_lots`, and the receipt's `in`
+  movement never set the `job_id` that has existed since 015. Adds `job_id` to
+  the PO **line** (not the header — one purchase covers several sizes for
+  several jobs, as the shop's own stock sheet shows) and to the lot, both
+  **nullable because general stock is a real answer**, not a missing field.
+  **B. `current_stock` had no declared unit and the two halves disagreed.** The
+  store counts **packets** (1 packet = 100 sheets); the job side counts
+  **sheets** (`jobs.sheet_qty`, the auto-MRN's `quantity_required`, every
+  movement). Loading packets would have made every issue wrong by 100×.
+  **The rule now: `current_stock` / `reserved_stock` / `reorder_level` and all
+  board movements are SHEETS. Packets are display and data entry only.**
+  Sheets is provably the right store: every fractional packet on the July 2026
+  sheet is a whole number of sheets (4707.4 → 470,740 · 79.8 → 7,980 ·
+  44.68 → 4,468 — that last one is 44 packets plus 68 loose sheets).
+  `board_inventory.sheets_per_packet` (default 100) is per-item because paper
+  reams are 500 or 250, not 100.
+  **C. `board_inventory.vendor_id` had never had a foreign key** — a bare UUID
+  since 015 — so PostgREST could not embed it and the Board Stock screen has
+  never shown a vendor, which is the *first* grouping on the shop's own report.
+  Safe as a validated FK only because the table was empty (probed, 0 rows).
+  Verified: 39 assertions on the migration against real Postgres, 14 on the
+  receive behaviour, 14 read-only against live after it was run.
+
+### What 113 exposed in the code (no migration — same commit)
+- **Receiving a PO had NEVER added board to stock.** The PO line UI had no board
+  item picker and the receive call never sent `board_item_id`, so
+  `if (item.board_item_id && …)` was always false: no stock change, no `in`
+  movement, no lot — while the modal promised "Board inventory will be updated
+  automatically". That is why `board_inventory_movements` sat at 0 rows. The
+  route now reads `board_item_id` **and** `job_id` from the PO line in the
+  database rather than trusting the request body, and the PO form has both a
+  board-item and a job picker per line.
+- **The stock ledger / lot inserts swallowed their errors**, so a failed insert
+  moved `current_stock` and silently lost the audit row — every stock report
+  quietly wrong afterwards. Now collected and returned as `warnings` and toasted.
+  Making receipt atomic needs an RPC; flagged, not done.
+- **A `<select>` fed by an unfiltered master table lists soft-deleted rows.**
+  The units seed ran twice on 2026-07-15 and one copy of each of the 14 units
+  was soft-deleted by hand, leaving 28 rows. Board Inventory and Store fetched
+  units with **neither** `deleted_at` nor `is_active` filtered, so every unit
+  appeared twice — "Sheet", "KG", "Box" — with no way to tell which was real.
+  **The data was fine; the query was wrong.** Settings → Units already filtered
+  correctly. Both pages fixed; 28 → 14 confirmed against live.
 
 **096 and 103 → 111 have all been run and verified against the live database
 (2026-07-30).** Probed read-only: 478 jobs renumbered to `JOB-2025-%`, all four

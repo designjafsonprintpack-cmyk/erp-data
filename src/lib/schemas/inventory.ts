@@ -8,8 +8,13 @@ export const boardInventorySchema = z.object({
   sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
   sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
   gsm: z.union([z.string(), z.number()]).optional().nullable(),
+  // In SHEETS. The Board Stock form asks for packets and converts before
+  // sending — see migration 113. Never pass packets here.
   current_stock: z.union([z.string(), z.number()]).optional(),
   reorder_level: z.union([z.string(), z.number()]).optional(),
+  /** Sheets in one packet for this item: 100 for board, 500/250 for paper. */
+  sheets_per_packet: z.union([z.string(), z.number()]).optional(),
+  vendor_id: z.string().uuid().optional().nullable(),
   unit_id: z.string().uuid().optional().nullable(),
   unit_cost: z.union([z.string(), z.number()]).optional().nullable(),
   location: z.string().optional().nullable(),

@@ -21,7 +21,8 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const offset = (page - 1) * limit
 
   let q = supabase.from('board_inventory' as any)
-    .select('*, board_types(name)', { count: 'exact' })
+    // vendors is embeddable only since 113 added the missing foreign key.
+    .select('*, board_types(name), vendors(name)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null).eq('is_active', true)
 
@@ -65,9 +66,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     sheet_width_in:        body.sheet_width_in ? parseFloat(String(body.sheet_width_in)) : null,
     sheet_height_in:        body.sheet_height_in ? parseFloat(String(body.sheet_height_in)) : null,
     gsm:           body.gsm ? parseFloat(String(body.gsm)) : null,
+    // Sheets — the client converts from packets before sending (113).
     current_stock: parseFloat(String(body.current_stock ?? '0')),
     reserved_stock: 0,
     reorder_level: parseFloat(String(body.reorder_level ?? '0')),
+    sheets_per_packet: body.sheets_per_packet ? parseInt(String(body.sheets_per_packet), 10) : 100,
+    vendor_id:     body.vendor_id || null,
     unit_id:       body.unit_id || null,
     unit_cost:     body.unit_cost ? parseFloat(String(body.unit_cost)) : 0,
     location:      body.location || null,
