@@ -13,6 +13,8 @@ export interface QueueEntry {
   stage_name: string
   started_at: string | null
   planned_date: string | null
+  /** Running order on the planned day (job_plans.day_order) — the queue is sorted by it. */
+  plan_order?: number | null
   department_name: string | null
   /** Mandatory stages can't be skipped — same rule Job Detail applies. */
   is_optional?: boolean

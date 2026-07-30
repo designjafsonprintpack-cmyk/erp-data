@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { checkStageGate } from './jobStageGate'
-import { getPlannedDates } from './plannedDates'
+import { getPlannedSlots } from './plannedDates'
 
 export interface StageQueueEntry {
   stage_progress_id: string
@@ -13,6 +13,13 @@ export interface StageQueueEntry {
   stage_name: string
   started_at: string | null
   planned_date: string | null
+  /**
+   * The job's running order on its planned day (job_plans.day_order, 112). The
+   * queues had no defined job order at all before this — they came back sorted
+   * by the stage's own sequence_order, so the operator could not tell which job
+   * was meant to run first. null when the job has no live plan.
+   */
+  plan_order: number | null
   department_name: string | null
   /**
    * Whether this stage may be skipped. Job Detail has always hidden Skip on
@@ -84,7 +91,7 @@ export async function loadStageQueue(
 
   // Planned date per job, so a queue answers "yeh kab ka plan hai" without
   // anyone opening the Planning page.
-  const plannedDateByJob = await getPlannedDates(
+  const planByJob = await getPlannedSlots(
     supabase, companyId, Array.from(new Set(rows.map(r => r.job_id)))
   )
 
@@ -103,7 +110,8 @@ export async function loadStageQueue(
       required_date: row.jobs.required_date,
       stage_name: row.workflow_stages?.name || 'Stage',
       started_at: row.started_at,
-      planned_date: plannedDateByJob.get(row.job_id) ?? null,
+      planned_date: planByJob.get(row.job_id)?.date ?? null,
+      plan_order: planByJob.get(row.job_id)?.order ?? null,
       department_name: row.workflow_stages?.departments?.name ?? null,
       is_optional: row.workflow_stages?.is_optional === true,
     }
@@ -120,7 +128,25 @@ export async function loadStageQueue(
     else ready.push(entry)
   }
 
-  return { ready, blocked, in_progress: inProgress }
+  // Planning's running order, carried onto the floor: earliest planned day
+  // first, then that day's sequence. A job with no live plan sorts last — it
+  // isn't first, it's unplanned. Array.sort is stable, so jobs that tie keep
+  // the stage sequence_order they arrived in.
+  const byPlan = (a: StageQueueEntry, b: StageQueueEntry) => {
+    if (a.planned_date && b.planned_date) {
+      return a.planned_date.localeCompare(b.planned_date) ||
+             (a.plan_order ?? 0) - (b.plan_order ?? 0)
+    }
+    if (a.planned_date) return -1
+    if (b.planned_date) return 1
+    return 0
+  }
+
+  return {
+    ready: ready.sort(byPlan),
+    blocked: blocked.sort(byPlan),
+    in_progress: inProgress.sort(byPlan),
+  }
 }
 
 export default loadStageQueue

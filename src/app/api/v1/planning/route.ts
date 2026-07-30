@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobPlanSchema } from '@/lib/schemas/planning'
+import { nextDayOrder } from '@/lib/utils/planDayOrder'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -24,10 +25,18 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     .is('deleted_at', null)
     .gte('planned_date', dateFrom)
     .lte('planned_date', dateTo)
+    // Removed machines are deactivated, never deleted (the assignments table has
+    // no deleted_at and production writes real hours onto those rows), so the
+    // embed has to exclude them or a machine taken off a plan keeps showing.
+    .eq('job_machine_assignments.is_active', true)
 
   if (status) q = q.eq('status', status)
 
-  const { data, error, count } = await q.order('planned_date').order('created_at')
+  // Canonical plan order (112): the day, then the running order inside it, then
+  // id as the tiebreaker — two plans can share a day_order between writes, and
+  // without a tiebreaker their positions swap between reads.
+  const { data, error, count } = await q
+    .order('planned_date').order('day_order').order('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data: data ?? [], total: count ?? 0 })
 })
@@ -53,13 +62,21 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     planned_by:  userTableId,
     notes:       body.notes || null,
     status:      'scheduled',
+    // End of that day's queue, not DEFAULT 0 — a brand new plan has no business
+    // appearing above jobs that were already sequenced (112).
+    day_order:   await nextDayOrder(supabase, companyId, body.planned_date),
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Insert machine assignments
+  // Insert machine assignments.
+  // The inserted rows are selected back and returned: the client needs their
+  // real ids to be able to edit them afterwards. It used to synthesise the list
+  // locally using machine_id as the row id, which the machines PUT route
+  // correctly refuses as "not part of this plan".
+  let assignments: any[] = []
   if (machines?.length) {
-    await supabase.from('job_machine_assignments' as any).insert(
+    const { data: inserted, error: mErr } = await supabase.from('job_machine_assignments' as any).insert(
       machines.map((m: any) => ({
         company_id:      companyId,
         job_plan_id:     (plan as any).id,
@@ -69,9 +86,13 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         estimated_hours: m.estimated_hours ? parseFloat(String(m.estimated_hours)) : null,
         operator_id:     m.operator_id || null,
         notes:           m.notes || null,
+        created_by:      userTableId,
       }))
-    )
+    ).select('id, machine_id, estimated_hours, machines(name,machine_type)')
+
+    if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+    assignments = inserted ?? []
   }
 
-  return NextResponse.json({ data: plan })
+  return NextResponse.json({ data: plan, machines: assignments })
 })

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { Calendar, Plus, AlertTriangle, CheckCircle2, Clock, Cpu } from 'lucide-react'
+import { Calendar, Plus, AlertTriangle, CheckCircle2, Clock, Cpu, ChevronUp, ChevronDown, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
@@ -10,10 +10,17 @@ import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
 import { ArtworkThumb, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
 
+interface Assignment {
+  id: string; machine_id: string; estimated_hours: number | null
+  machines?: { name: string; machine_type: string } | null
+}
 interface Plan {
   id: string; job_id: string; planned_date: string; status: string; notes: string | null
+  // Running order within planned_date (migration 112). 0 only on a row nothing
+  // has ever sequenced.
+  day_order: number
   jobs?: { job_number: string; job_title: string; status: string; priority: string; customers?: { name: string } | null } | null
-  job_machine_assignments?: { id: string; machines?: { name: string; machine_type: string } | null; estimated_hours: number | null }[]
+  job_machine_assignments?: Assignment[]
 }
 interface Machine { id: string; name: string; machine_type: string }
 interface Job { id: string; job_number: string; job_title: string; priority: string; required_date: string | null; customers?: { name: string } | null }
@@ -26,6 +33,17 @@ const PLAN_STATUS_CONFIG = {
 }
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
+
+// Mirrors the server's canonical order: planned_date, day_order, id. The id
+// tiebreaker matters here too — two plans can share a day_order between an
+// optimistic update and the server's reply.
+const sortPlans = (arr: Plan[]) => [...arr].sort((a, b) =>
+  a.planned_date.localeCompare(b.planned_date) ||
+  (a.day_order ?? 0) - (b.day_order ?? 0) ||
+  a.id.localeCompare(b.id)
+)
+
+const iconBtnCls = 'flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] h-11 w-11 md:h-7 md:w-7 hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors flex-shrink-0'
 
 export default function PlanningClient({ initialPlans, machines, unplannedJobs: initialUnplanned }: { initialPlans: Plan[]; machines: Machine[]; unplannedJobs: Job[] }) {
   const [plans, setPlans] = useState(initialPlans)
@@ -41,6 +59,13 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
   // (and both, since switching tabs doesn't unmount the other's data).
   const jobThumbs = useJobThumbnails([...plans.map(p => p.job_id), ...unplannedJobs.map(j => j.id)])
   const [scheduleView, setScheduleView] = useState<'timeline' | 'calendar'>('timeline')
+  const [editPlan, setEditPlan] = useState<Plan | null>(null)
+  const [editForm, setEditForm] = useState({ planned_date: '', notes: '' })
+  const [editMachines, setEditMachines] = useState<{ id?: string; machine_id: string; estimated_hours: string }[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
+  // One reorder in flight at a time — two overlapping calls for the same day
+  // would race and the loser's order would win.
+  const [reordering, setReordering] = useState(false)
 
   // Group plans by date
   const grouped = plans.reduce((acc, p) => {
@@ -55,6 +80,14 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
   const setMachineField = (idx: number, key: string, val: string) =>
     setSelectedMachines(p => p.map((m, i) => i === idx ? { ...m, [key]: val } : m))
 
+  // Same three for the edit modal. A row keeps its `id` through every change, so
+  // the server updates the existing assignment (and its recorded hours) instead
+  // of deleting and reinserting it.
+  const addEditMachineRow = () => setEditMachines(p => [...p, { machine_id: '', estimated_hours: '' }])
+  const removeEditMachineRow = (idx: number) => setEditMachines(p => p.filter((_, i) => i !== idx))
+  const setEditMachineField = (idx: number, key: string, val: string) =>
+    setEditMachines(p => p.map((m, i) => i === idx ? { ...m, [key]: val } : m))
+
   const createPlan = async () => {
     if (!form.job_id || !form.planned_date) { toast.error('Job and date required'); return }
     setLoading(true)
@@ -67,13 +100,11 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      const { data } = await res.json()
+      // `machines` here are the real inserted rows (with their real ids), not a
+      // locally rebuilt list — the edit modal needs those ids.
+      const { data, machines: created } = await res.json()
       const job = unplannedJobs.find(j => j.id === form.job_id)
-      const machineFull = selectedMachines.filter(m => m.machine_id).map(m => ({
-        id: m.machine_id, machines: machines.find(mx => mx.id === m.machine_id),
-        estimated_hours: m.estimated_hours ? parseFloat(m.estimated_hours) : null,
-      }))
-      setPlans(prev => [...prev, { ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title, status: 'new', priority: job.priority, customers: job.customers } : null, job_machine_assignments: machineFull }].sort((a, b) => a.planned_date.localeCompare(b.planned_date)))
+      setPlans(prev => sortPlans([...prev, { ...data, jobs: job ? { job_number: job.job_number, job_title: job.job_title, status: 'new', priority: job.priority, customers: job.customers } : null, job_machine_assignments: (created ?? []) as Assignment[] }]))
       setUnplannedJobs(prev => prev.filter(j => j.id !== form.job_id))
       setPlanModal(false)
       setForm({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
@@ -81,6 +112,105 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
       toast.success('Plan created')
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
+  }
+
+  // Move one plan up or down within its own day. The whole day's new order goes
+  // to the server in a single call, so the result can't drift out of step with
+  // what's on screen.
+  const movePlan = async (plan: Plan, dir: -1 | 1) => {
+    if (reordering) return
+    const day = plans.filter(p => p.planned_date === plan.planned_date)
+    const idx = day.findIndex(p => p.id === plan.id)
+    const target = idx + dir
+    if (idx < 0 || target < 0 || target >= day.length) return
+
+    const next = [...day]
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    const orderedIds = next.map(p => p.id)
+    const position = new Map(orderedIds.map((id, i) => [id, i + 1]))
+
+    const before = plans
+    setPlans(sortPlans(plans.map(p =>
+      position.has(p.id) ? { ...p, day_order: position.get(p.id)! } : p
+    )))
+    setReordering(true)
+    try {
+      const res = await fetch('/api/v1/planning/reorder', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planned_date: plan.planned_date, ordered_ids: orderedIds }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Reorder failed') }
+    } catch (e: any) {
+      setPlans(before)   // put the list back rather than leave a lie on screen
+      toast.error(e.message || 'Could not save the new order')
+    } finally { setReordering(false) }
+  }
+
+  const openEdit = (plan: Plan) => {
+    setEditPlan(plan)
+    setEditForm({ planned_date: plan.planned_date, notes: plan.notes ?? '' })
+    setEditMachines((plan.job_machine_assignments ?? []).map(m => ({
+      id: m.id,
+      machine_id: m.machine_id,
+      estimated_hours: m.estimated_hours != null ? String(m.estimated_hours) : '',
+    })))
+  }
+
+  const saveEdit = async () => {
+    if (!editPlan) return
+    if (!editForm.planned_date) { toast.error('Date required'); return }
+    setSavingEdit(true)
+    const plan = editPlan
+    try {
+      const dateChanged  = editForm.planned_date !== plan.planned_date
+      const notesChanged = (editForm.notes || '') !== (plan.notes ?? '')
+      let patched: Partial<Plan> = {}
+
+      if (dateChanged || notesChanged) {
+        const res = await fetch(`/api/v1/planning/${plan.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planned_date: editForm.planned_date, notes: editForm.notes }),
+        })
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Could not save the plan') }
+        // day_order comes back from the server — a moved plan is re-slotted to
+        // the end of its new day there, not here.
+        const { data } = await res.json()
+        patched = { planned_date: data.planned_date, notes: data.notes, day_order: data.day_order }
+      }
+
+      // Machines go in their own call: it can legitimately be refused (work
+      // already recorded) without losing the date change.
+      const rows = editMachines.filter(m => m.machine_id)
+      const machinesChanged =
+        rows.length !== (plan.job_machine_assignments ?? []).length ||
+        rows.some(r => {
+          const was = (plan.job_machine_assignments ?? []).find(a => a.id === r.id)
+          return !was || was.machine_id !== r.machine_id ||
+            String(was.estimated_hours ?? '') !== r.estimated_hours
+        })
+
+      let assignments = plan.job_machine_assignments
+      if (machinesChanged) {
+        const res = await fetch(`/api/v1/planning/${plan.id}/machines`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machines: rows.map(m => ({
+            id: m.id,
+            machine_id: m.machine_id,
+            estimated_hours: m.estimated_hours || null,
+          })) }),
+        })
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Could not save the machines') }
+        const { data } = await res.json()
+        assignments = data as Assignment[]
+      }
+
+      setPlans(prev => sortPlans(prev.map(p =>
+        p.id === plan.id ? { ...p, ...patched, job_machine_assignments: assignments } : p
+      )))
+      setEditPlan(null)
+      toast.success('Plan updated')
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setSavingEdit(false) }
   }
 
   const updateStatus = async (planId: string, status: string) => {
@@ -148,12 +278,29 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                     <span className="text-xs text-[var(--color-text-muted)]">{dayPlans.length} job{dayPlans.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden divide-y divide-[var(--color-border-subtle)]">
-                    {dayPlans.map(plan => {
+                    {dayPlans.map((plan, pIdx) => {
                       const statusCfg = PLAN_STATUS_CONFIG[plan.status as keyof typeof PLAN_STATUS_CONFIG] || PLAN_STATUS_CONFIG.scheduled
                       const priorityCfg = JOB_PRIORITY_CONFIG[plan.jobs?.priority as keyof typeof JOB_PRIORITY_CONFIG] || JOB_PRIORITY_CONFIG.normal
                       const totalHours = plan.job_machine_assignments?.reduce((s, m) => s + (m.estimated_hours || 0), 0) || 0
                       return (
                         <div key={plan.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3.5">
+                          {/* Running order, and the shuffle itself. Buttons rather
+                              than drag-and-drop — dragging inside a vertically
+                              scrolling list is unreliable on touch, and this needs
+                              no library. */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="w-5 text-center text-xs font-semibold font-mono text-[var(--color-text-muted)]">
+                              {plan.day_order || '—'}
+                            </span>
+                            <button onClick={() => movePlan(plan, -1)} disabled={pIdx === 0 || reordering}
+                              className={iconBtnCls} aria-label="Move up" title="Move up">
+                              <ChevronUp size={14} />
+                            </button>
+                            <button onClick={() => movePlan(plan, 1)} disabled={pIdx === dayPlans.length - 1 || reordering}
+                              className={iconBtnCls} aria-label="Move down" title="Move down">
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
                           <ArtworkThumb
                             size="sm"
                             interactive={false}
@@ -185,6 +332,10 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
+                            <button onClick={() => openEdit(plan)} className={iconBtnCls}
+                              aria-label="Edit plan" title="Edit plan — date & machines">
+                              <Pencil size={13} />
+                            </button>
                             <select value={plan.status} onChange={e => updateStatus(plan.id, e.target.value)}
                               className="h-7 px-2 rounded border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)] focus:outline-none transition-colors">
                               <option value="scheduled">Scheduled</option>
@@ -320,6 +471,68 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           <div className="space-y-1.5">
             <label htmlFor="planningclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
             <input id="planningclient-3" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional planning notes" />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Plan — the one place a plan's date and machines can change. Before
+          this the only editable thing on a live plan was its status, so moving a
+          job to another day meant cancelling it and planning it again. */}
+      <Modal open={!!editPlan} onClose={() => setEditPlan(null)} title={`Edit Plan — ${editPlan?.jobs?.job_number ?? ''}`} size="lg"
+        footer={
+          <>
+            <button onClick={() => setEditPlan(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
+            <button onClick={saveEdit} disabled={savingEdit || !editForm.planned_date}
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
+              <Calendar size={14} /> {savingEdit ? 'Saving…' : 'Save Changes'}
+            </button>
+          </>
+        }>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="planningclient-edit-date" className="text-sm font-medium text-[var(--color-text-primary)]">Planned Date <span className="text-[var(--color-danger)]">*</span></label>
+              <input id="planningclient-edit-date" type="date" className={inputCls} value={editForm.planned_date}
+                onChange={e => setEditForm(p => ({ ...p, planned_date: e.target.value }))} />
+              {editPlan && editForm.planned_date !== editPlan.planned_date && (
+                <p className="text-xs text-[var(--color-text-muted)]">Moves to the end of that day&rsquo;s running order.</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Machine Assignments</label>
+              <button onClick={addEditMachineRow} className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline">
+                <Plus size={12} /> Add Machine
+              </button>
+            </div>
+            {editMachines.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-muted)]">No machines assigned. Click &ldquo;Add Machine&rdquo; to assign.</p>
+            ) : (
+              <div className="space-y-2">
+                {editMachines.map((m, idx) => (
+                  <div key={m.id ?? `new-${idx}`} className="flex items-center gap-2">
+                    <select className={inputCls} value={m.machine_id} onChange={e => setEditMachineField(idx, 'machine_id', e.target.value)}>
+                      <option value="">Select machine…</option>
+                      {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
+                    </select>
+                    <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                      value={m.estimated_hours} onChange={e => setEditMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
+                    <button onClick={() => removeEditMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+              A machine that already has recorded time on it can&rsquo;t be removed — the save will say so.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="planningclient-edit-notes" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
+            <input id="planningclient-edit-notes" className={inputCls} value={editForm.notes}
+              onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional planning notes" />
           </div>
         </div>
       </Modal>

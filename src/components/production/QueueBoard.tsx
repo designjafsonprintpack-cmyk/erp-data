@@ -67,6 +67,10 @@ export function QueueBoard({
                 {e.planned_date && (
                   <p className="text-[11px] text-[var(--color-accent)] mt-0.5 flex items-center gap-1">
                     <CalendarClock size={10} className="flex-shrink-0" /> {planLabel(e.planned_date)}
+                    {/* Planning's running order for that day. The queue is sorted
+                        by it, so this is the operator's "pehle kaun sa" — the
+                        first thing that has ever answered it. */}
+                    {e.plan_order ? <span className="tabular-nums opacity-70">· #{e.plan_order}</span> : null}
                   </p>
                 )}
                 {e.blocked_reason && (

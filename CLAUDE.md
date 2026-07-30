@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **106**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **112**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -100,6 +100,11 @@ broke, why this fixes it, and how to undo it.
 - Standard Carton workflow: Artwork → Customer Approval → Planning → Board Issue
   → Printing → Lamination → UV Coating → Die Cutting → Hot Foil → Folder Gluing
   → Packing → Dispatch.
+  **The live `Standard Carton Workflow` template has 10 stages, not this 12** —
+  Lamination and Hot Foil were removed by hand and stay removed; those jobs use
+  the `Carton with Lamination / Foil` template (111). See 107 and 111.
+- **Which template a new job gets is decided by its box type** (110), through
+  `resolveWorkflowTemplateId()`. Not by whoever remembers the dropdown.
 - Stage gating goes through `checkStageGate()` in
   `src/lib/utils/jobStageGate.ts` — the single gate used everywhere. Explicit
   rows in `workflow_stage_dependencies` win; unconfigured stages fall back to
@@ -460,8 +465,9 @@ Test data purged and document counters reset to `0`, then real history loaded.
   Deliberately NOT restored: `Standard Carton Workflow` is missing **Lamination
   (seq 6) and Hot Foil (seq 9)**, but both were soft-deleted by hand on
   2026-07-26 at 16:09, a minute apart — a person in Settings, not a bug. §4's
-  stage list and the live default template therefore disagree; **ask before
-  changing either.**
+  stage list and the live default template therefore disagree. **Resolved by
+  111** — Standard Carton stays at 10 stages and the rare lamination/foil job
+  gets its own 12-stage template instead.
 
 - **108** — lets `job_stage_events` accept `proof_created` / `proof_decided`.
   **104 added the press-proof events but never widened the event_type CHECK**,
@@ -472,10 +478,85 @@ Test data purged and document counters reset to `0`, then real history loaded.
   **Adding an event type means editing this CHECK too** — it has been restated
   in full by 028, 042, 069, 102 and now 108.
 
-**096, 103, 104, 105, 106 and 107 have all been run and verified against the
-live database (2026-07-29).** All 15 roles hold permissions, `plate_sets` exists
-with both RPCs live, and `plates/generate-set` no longer 500s. **108 is written
-and tested but not yet run.**
+- **109** — legacy job numbers `JOB-OLD-0001…0478` → `JOB-2025-00001…00478`.
+  Same 5-digit shape as live numbers, and the year matches the backdated
+  `order_date`. **The live series is untouched** — old work is the 2025 series,
+  new work is 2026, and the two stay tellable apart at a glance. Safe because
+  `job_number` lives on `jobs` alone; every other table reaches a job by id.
+  (It would NOT have been safe with plates in the shop — `generate_plate_set()`
+  bakes `job_number` into `plate_code`. There were 0 plates.)
+
+- **110** — `box_types.workflow_template_id`, i.e. **the box type decides the
+  workflow**: Box → Standard Carton, HL → HL (Hinge Lid), Label/Sticker →
+  Label / Sticker. Mapping is **data, not code** (same precedent as coating
+  types in 093). **What was broken:** a job's workflow came only from the one
+  `is_default` template, so a sticker job got the 10-stage carton route; and
+  Repeat / QC Reprint copied the parent's template verbatim — every one of the
+  478 legacy jobs has `workflow_template_id = NULL` by design, so **each repeat
+  of a legacy job came out with no workflow, no stages, and never appeared in
+  any department queue.** Nothing errored.
+
+- **111** — template **"Carton with Lamination / Foil"**: the standard carton
+  route with Lamination (5) and Hot Foil (8) put back, both `is_optional`, both
+  with a real department this time — 091 left those two stages' `department_id`
+  NULL, which is very likely why someone deleted them from Standard Carton in
+  the first place. Not default, not mapped to any box type; picked by hand for
+  the two-to-four jobs a year that need it. Purely additive.
+
+- **112** — `job_plans.day_order`, the **running order within a planned day**, plus
+  the planning-shuffle code that uses it. **What was broken:** there was no
+  ordering column at all, so the order of jobs inside one date was whatever
+  Postgres returned and could differ between two renders; a plan's date could not
+  be changed from the UI (cancel and re-plan was the only way, though the PATCH
+  route had always accepted `planned_date`); machines could only be attached at
+  create time; and `loadStageQueue()` sorted only by the stage's own
+  `sequence_order`, so **the shop floor had no job order either** — nobody could
+  say which job ran first.
+  Canonical read order everywhere is now **`planned_date, day_order, id`** — the
+  `id` tiebreaker for the same reason §6 records. Backfill numbered every existing
+  plan `1..n` per date by `created_at`, and only touches rows still at `0`, so
+  **re-running cannot undo a real shuffle** (asserted, not assumed).
+  New: `PATCH /api/v1/planning/reorder` (whole day's order in one call —
+  idempotent, closes gaps, can't drift), `PUT /api/v1/planning/[id]/machines`,
+  and `nextDayOrder()` in `src/lib/utils/planDayOrder.ts` used by both create and
+  date-move so a plan always lands at the **end** of its new day.
+  **`job_machine_assignments` has no `deleted_at`** — only `is_active` — and
+  production writes `start_time` / `actual_hours` onto those rows, so removal is a
+  deactivation, and a row with recorded work **refuses** to be removed (409).
+  `getPlannedSlots()` was added to `plannedDates.ts` rather than widening
+  `getPlannedDates()`, whose four other callers don't care about the order.
+  Verified: 17 assertions on the migration against real Postgres, 14 on the
+  route behaviour, 5 read-only against the live PostgREST. **Not yet walked
+  through the real HTTP routes** — that needs 112 on live first.
+
+**096 and 103 → 111 have all been run and verified against the live database
+(2026-07-30).** Probed read-only: 478 jobs renumbered to `JOB-2025-%`, all four
+box types mapped, `Carton with Lamination / Foil` live with its 12 stages, five
+live templates in all, `plate_sets` + both RPCs present. **108's CHECK is the
+one thing a read-only probe cannot confirm** — it would need a real insert of a
+`proof_created` event. Assume it ran with the rest; confirm the first time a
+press proof is raised.
+
+### Workflow resolution (no migration — code, commits `b15f7d9` / `c231710`)
+Two gaps 110 exposed, both fixed in code:
+
+- **`resolveWorkflowTemplateId()`** (`src/lib/utils/resolveWorkflowTemplate.ts`)
+  is now the single answer to "which workflow does this job get", used by New
+  Job, Repeat and QC Reprint so they can't disagree. Order: explicit form
+  choice → box-type mapping (110) → `is_default` → NULL. Steps 2 and 3 are both
+  gated on the `job_auto_assign` setting, and a mapped-but-soft-deleted template
+  falls through to the default rather than being handed back — otherwise
+  `initializeJobWorkflow()` finds no stages and **silently no-ops**, which is
+  the whole failure this removes. New Job's box-type dropdown also moves the
+  Production Workflow dropdown so the form shows what the API will actually do.
+- **`applyWorkflowTemplateOnEdit()`** (`jobEventService.ts`) — `initializeJobWorkflow()`
+  only ever ran on create, so **picking a workflow on the Edit Job form set the
+  column and built nothing**: no instance, no stages, job invisible in every
+  queue, unfixable from the UI. `JOB-2026-00001`, the shop's first real job, was
+  created that way. Now PATCH builds the stages, and a template *swap* is
+  allowed only while every stage is still `pending` — any started/completed/
+  skipped stage refuses the swap and says so in a toast, because
+  `job_stage_progress` has no `deleted_at` and a rebuild is a real delete.
 
 ### End-to-end walk, 2026-07-29 — the whole workflow works
 One job was driven from creation to closure through the **real API routes**
@@ -508,16 +589,17 @@ Two things that walk taught, worth keeping:
   requires `rp.is_active`, so an Admin genuinely cannot open the dashboard or
   the customer list. Flip them in Settings → Roles & Permissions if that wasn't
   intended. (Admin also has no `admin` module at all — 243 of 252.)
-- **Nothing is in flight yet.** All 478 live jobs are the completed legacy
-  import, with no workflow template. `plates`, `plate_sets`, `job_plates`,
-  `job_stage_progress` and `job_workflow_instances` are all at **0 rows**, and
-  no job is `new` or `in_progress`. So "0 plates blocks Printing" is not a live
-  problem — it only starts mattering with the first real job. Take fresh counts
-  before treating any of this as evidence.
+- **The first real job is now in flight** (counts taken 2026-07-30):
+  `JOB-2026-00001`, `status = in_progress`, 1 `job_workflow_instances` row and
+  10 `job_stage_progress` rows. The other 478 are the completed legacy import,
+  still with no workflow template. `plates` / `plate_sets` / `job_plates` are
+  still at **0 rows**, so "0 plates hard-blocks Printing" is about to become a
+  live problem on that job. Take fresh counts before treating any of this as
+  evidence.
 - **`src/types/database.types.ts` is stale** — it predates everything from ~087
   on. It's the file §1 says to check before writing a query; check the migration
   too.
-- **Repeat Job picker is capped at 200 rows** (`jobs/new/page.tsx:23`, newest
+- **Repeat Job picker is capped at 200 rows** (`jobs/new/page.tsx:34`, newest
   first), so the backdated legacy jobs mostly don't appear in it.
 - **Two `.limit(200)` caps remain, both deliberate**: the Repeat Job picker
   (`jobs/new/page.tsx`, a dropdown) and `job_costings` on the Reports page (a

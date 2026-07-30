@@ -15,7 +15,13 @@ export default async function PlanningPage() {
       .select('*, jobs(job_number,job_title,status,priority,customers(name)), job_machine_assignments(*, machines(name,machine_type))')
       .eq('company_id', companyId).is('deleted_at', null)
       .gte('planned_date', today).lte('planned_date', in30)
-      .order('planned_date'),
+      // Machines removed from a plan are deactivated, not deleted — filter them
+      // out here or they keep showing on the timeline.
+      .eq('job_machine_assignments.is_active', true)
+      // The day, then the running order inside it (112), then id as tiebreaker.
+      // Without day_order the order of jobs within one date was whatever
+      // Postgres returned; without id two plans sharing a day_order still swap.
+      .order('planned_date').order('day_order').order('id'),
     supabase.from('machines' as any)
       .select('id,name,machine_type').eq('company_id', companyId).eq('is_active', true).order('name'),
     supabase.from('jobs' as any)
