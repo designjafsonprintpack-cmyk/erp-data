@@ -92,7 +92,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const poRow = po as any
 
   // Post the corresponding credit to the supplier ledger (PO increases AP).
-  await (supabase as any).rpc('record_supplier_ledger_entry', {
+  //
+  // NOT `.catch()`. A Supabase query/rpc builder only `implements PromiseLike` —
+  // it has `then()` and NOTHING else, so `.rpc(…).catch(…)` throws
+  // "catch is not a function" SYNCHRONOUSLY, before the request is even sent,
+  // and withErrorHandling turns that into a 500. Creating a purchase order
+  // therefore failed 100% of the time, which is why purchase_orders sat at 0
+  // rows — not because nobody tried. Found by walking the real route.
+  // Errors are reported the way the builder actually reports them: in `error`.
+  const { error: ledgerErr } = await (supabase as any).rpc('record_supplier_ledger_entry', {
     p_company_id: companyId,
     p_vendor_id: body.vendor_id,
     p_entry_type: 'purchase_order',
@@ -103,10 +111,17 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     p_reference_id: poRow.id,
     p_entry_date: poRow.order_date,
     p_created_by: userTableId,
-  }).catch(() => null) // non-blocking, same reasoning as invoice creation
+  })
+  // Still non-blocking — a PO must not fail because the ledger hiccuped — but
+  // no longer silent, so a real failure is findable (108's precedent).
+  if (ledgerErr) console.error('[PO create] supplier ledger entry failed', ledgerErr)
 
   if (lineItems.length) {
-    await supabase.from('purchase_order_items' as any).insert(
+    // The error IS checked now. It was not, so when the zod schema silently
+    // stripped `description` (a NOT NULL column) this insert failed and the
+    // route still returned 200 with a header-only PO. A purchase order with no
+    // lines is not a success.
+    const { error: itemsErr } = await supabase.from('purchase_order_items' as any).insert(
       lineItems.map((item: any) => ({
         company_id:  companyId,
         po_id:       (po as any).id,
@@ -125,6 +140,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         sort_order:  item.sort_order,
       }))
     )
+    if (itemsErr) return NextResponse.json({ error: `Purchase order lines could not be saved: ${itemsErr.message}` }, { status: 500 })
   }
 
   return NextResponse.json({ data: po })

@@ -631,6 +631,47 @@ Two things that walk taught, worth keeping:
   There are also **three identical "Die Cutting depends on Printing" rows**;
   harmless, never cleaned up.
 
+### Live route walk, 2026-07-30 — 112 + 113, and six dead write paths it found
+Both migrations were applied to live, then driven through the **real HTTP routes**
+(`npm run dev -- -p 3123`, temp superadmin, cleanup script written first).
+**40 assertions, all passing** — plans created with `day_order` 1,2,3 in turn;
+whole-day reorder; a cross-date id and a duplicate id both refused; a date move
+re-slotted to the end of the new day; machines attached to a live plan and a
+machine with recorded work refusing removal (409, naming the machine); a PO with
+a job-linked line, a general-stock line and a non-stock line; receipt crediting
+**4,468 sheets from 44.68 packets** and **1,000 from 2 reams at 500**; both `in`
+movements and both lots carrying the job (and `null` for general stock); and
+`"kon sa board kis job ke liye aaya"` answered through PostgREST with the vendor
+resolved. Live was returned to its exact prior state (`job_plans` back to 1,
+everything else 0, PO/VND counters restored, temp user and auth account removed).
+
+**`.catch()` DOES NOT EXIST on a Supabase builder.** `PostgrestBuilder`
+*implements PromiseLike* — `then()` and nothing else — so
+`supabase.rpc(…).catch(…)` throws `catch is not a function` **synchronously,
+before the request is sent**, and `withErrorHandling` turns it into a 500. The
+idiom had been copied to **five** places, and every one of them was a write path
+that had never once succeeded:
+`purchase-orders` (PO create), `finance/invoices` (invoice create),
+`finance/invoices/[id]/payments` (record payment), `plates` (the reuse branch),
+`store/[id]` (`apply_job_actual_cost`). Confirmed by counts, not assumed:
+invoices, payments, plates, customer_ledger_entries, supplier_ledger_entries and
+job_costings were **all at 0 rows**. Two of the five never surfaced because their
+branch needs stock or a plate to exist, and both tables were empty — which is
+also why the 2026-07-29 walk passed straight over the Store one. Correct form:
+`const { error } = await supabase.rpc(…)` then log; the builder reports failure
+in `error`, never by rejecting.
+
+**A zod line-item schema that omits a NOT NULL column silently deletes it.**
+`poLineItemSchema` declared `material_name` but the route inserts
+`description` — and `z.object()` strips unknown keys, so the field the form
+actually sends was thrown away and **every PO line-item insert failed**.
+`specification` and `notes` went the same way. The insert never checked its
+error, so the route returned **200 with a header-only PO**. Both fixed: the
+schema carries the real column names, and a failed line insert is now a 500.
+**When a request schema and an insert disagree about a field name, the schema
+wins and the column goes NULL — check them against each other, not against
+what the form sends.**
+
 ### Open threads
 - **The `admin` role has `customers` and `dashboard` switched OFF** — 18
   `role_permissions` rows with `is_active = false`, and `has_permission()`

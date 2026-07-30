@@ -2,6 +2,18 @@ import { z } from 'zod'
 
 const poLineItemSchema = z.object({
   board_item_id: z.string().uuid().optional().nullable(),
+  /**
+   * `description` was MISSING from this schema while the create route inserts
+   * `description: item.description` into a NOT NULL column — and z.object()
+   * strips unknown keys, so the field the form actually sends was thrown away
+   * and every line-item insert failed. PO line items had never once been
+   * created. `specification` and `notes` were dropped the same way.
+   * `material_name` is kept because it has always been declared here, but
+   * nothing reads it — the column is `description`.
+   */
+  description: z.string().optional(),
+  specification: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
   material_name: z.string().optional(),
   quantity: z.union([z.string(), z.number()]).optional(),
   unit_price: z.union([z.string(), z.number()]).optional(),

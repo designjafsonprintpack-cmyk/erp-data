@@ -91,14 +91,22 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             : materialType === 'foil' ? 'foiling'
             : 'other'
 
-          await (supabase as any).rpc('apply_job_actual_cost', {
+          // `.catch()` on a Supabase builder throws synchronously (PromiseLike
+          // only, no catch), so issuing material against a board-linked line
+          // would have 500'd. It never surfaced because board_inventory has
+          // always been empty, so `boardItemId` was null and this block never
+          // ran — the end-to-end walk passed straight over it. Same fault in
+          // five places; see api/v1/purchase-orders/route.ts.
+          const { error: costErr } = await (supabase as any).rpc('apply_job_actual_cost', {
             p_company_id:   companyId,
             p_job_id:       jobId,
             p_bucket:       bucket,
             p_amount:       unitCost * delta,
             p_sheets_delta: bucket === 'board' ? delta : null,
             p_plates_delta: null,
-          }).catch(() => null) // never block material issuance over a costing hiccup
+          })
+          // Never block material issuance over a costing hiccup — but log it.
+          if (costErr) console.error('[Store issue] apply_job_actual_cost failed', costErr)
         }
       }
 

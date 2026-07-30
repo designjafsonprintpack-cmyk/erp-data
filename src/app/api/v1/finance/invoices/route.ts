@@ -122,7 +122,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const inv = invoice as any
 
   // Post the corresponding debit to the customer ledger (invoice increases AR).
-  await (supabase as any).rpc('record_customer_ledger_entry', {
+  //
+  // A Supabase builder has `then()` and no `catch()`, so the `.rpc(…).catch(…)`
+  // that used to be here threw synchronously and made EVERY invoice creation a
+  // 500 (invoices and customer_ledger_entries were both at 0 rows). Same fault
+  // in five places; see the note in api/v1/purchase-orders/route.ts.
+  const { error: ledgerErr } = await (supabase as any).rpc('record_customer_ledger_entry', {
     p_company_id: companyId,
     p_customer_id: body.customer_id,
     p_entry_type: 'invoice',
@@ -133,7 +138,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     p_reference_id: inv.id,
     p_entry_date: inv.invoice_date,
     p_created_by: userTableId,
-  }).catch(() => null) // non-blocking — an invoice should never fail to create because the ledger write hiccuped; the balance can be reconciled from invoices/payments directly if this is ever missed
+  })
+  // Non-blocking on purpose: an invoice must never fail to create because the
+  // ledger write hiccuped — the balance can be reconciled from
+  // invoices/payments directly. But it is logged now instead of vanishing.
+  if (ledgerErr) console.error('[Invoice create] customer ledger entry failed', ledgerErr)
 
   if (lineItems.length) {
     await supabase.from('invoice_items' as any).insert(

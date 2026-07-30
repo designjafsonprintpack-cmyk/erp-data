@@ -152,7 +152,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         .update({ status: jobId ? 'in_use' : 'in_storage', last_used_at: jobId ? new Date().toISOString() : undefined })
         .eq('id', row.existing_plate_id).eq('company_id', companyId).select().single()
       if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
-      await (supabase as any).rpc('mark_plate_reused', { p_plate_id: row.existing_plate_id }).catch(() => null)
+      // `.catch()` on a Supabase builder throws synchronously (it only
+      // implements PromiseLike), so this whole branch — reusing an existing
+      // plate — always 500'd. Never noticed because plates was at 0 rows.
+      // See api/v1/purchase-orders/route.ts for the full note.
+      const { error: reuseErr } = await (supabase as any).rpc('mark_plate_reused', { p_plate_id: row.existing_plate_id })
+      if (reuseErr) console.error('[Plates] mark_plate_reused failed', reuseErr)
 
       let assignmentId: string | null = null
       if (jobId) {

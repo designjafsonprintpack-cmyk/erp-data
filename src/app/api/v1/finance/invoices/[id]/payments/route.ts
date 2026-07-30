@@ -61,7 +61,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const paymentDate = body.payment_date || new Date().toISOString().slice(0, 10)
 
   // Post the corresponding credit to the customer ledger (payment reduces AR).
-  await (supabase as any).rpc('record_customer_ledger_entry', {
+  // `.catch()` does not exist on a Supabase builder — it only implements
+  // PromiseLike. The old `.rpc(…).catch(…)` here threw synchronously, so
+  // recording a payment always 500'd (payments: 0 rows). See
+  // api/v1/purchase-orders/route.ts for the full note.
+  const { error: ledgerErr } = await (supabase as any).rpc('record_customer_ledger_entry', {
     p_company_id: companyId,
     p_customer_id: (invoice as any).customer_id,
     p_entry_type: 'payment',
@@ -72,7 +76,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     p_reference_id: (data as any).id,
     p_entry_date: paymentDate,
     p_created_by: userTableId,
-  }).catch(() => null) // non-blocking, same reasoning as invoice creation
+  })
+  if (ledgerErr) console.error('[Payment] customer ledger entry failed', ledgerErr)
 
   // Fetch updated invoice balance (trigger auto-updates it)
   const { data: updatedInv } = await supabase.from('invoices' as any)
