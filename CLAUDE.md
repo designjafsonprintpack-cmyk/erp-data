@@ -703,6 +703,54 @@ schema carries the real column names, and a failed line insert is now a 500.
 wins and the column goes NULL — check them against each other, not against
 what the form sends.**
 
+### Board stock loaded, 2026-07-30 — 51 items, 5 vendors, 17,087 packets
+The shop's July-2026 board stock sheet is in. Loaded **through the real API
+routes** with a temp superadmin, not by direct insert, so vendor codes came from
+the `VND` sequence (`VND-2026-0001…0005`: Saud Traders, Najm Impex, Local
+Purchase, madni Papers, Horizon Mill) and every item got its opening-stock
+ledger row. **20 assertions, all passing.** 1,708,700 sheets — Saud Traders
+15,600 packets · Horizon Mill 1,067 · Najm Impex 313 · madni Papers 106 · Local
+Purchase 1.
+
+Rules applied, from Mehboob's own decisions: **zero-balance rows skipped** (9 of
+them), Bleach 10+11 merged to 20 packets, Bleach 25+32 merged to 164, Bleach
+row 3 read as 1795 (the sheet's 1795.4 was a typing mistake), and a **third
+duplicate pair he had not spotted** — Duplex rows 7+9, both Econo Board
+20×27 290 — merged to 858.
+
+Three things worth keeping:
+
+- **The opening movements are backdated to 31 July 2026.** The figures are the
+  sheet's *Balance* column, i.e. stock as it stood at month end, so dating them
+  `now` would have made them show as July *Received* forever. Backdated once,
+  deliberately, by the load script — **not** by letting the API accept an
+  `occurred_at`, which would make the ledger forgeable. August's Opening is
+  therefore exactly right and every month chains from there. **The ERP's July
+  report will not match the Excel** — July happened outside the system.
+- **`board_inventory_lots` needed opening lots.** The item-create route only
+  writes a movement, no lot, so `sum(quantity_remaining)` was 0 against
+  1,708,700 sheets of stock and `consume_board_lots_fifo()` would have found
+  nothing to draw down — then consumed a later PO's lot first, which is not
+  FIFO. One `OPEN-` lot per item (`reference_type = 'opening_stock'`, the value
+  055 already declares), dated 31 July, vendor from the item, no cost. Stock and
+  lots now tie up exactly.
+- **The temp load user cannot be deleted, and should not be.**
+  `board_inventory_movements.moved_by` references it from all 51 rows — the
+  ledger records who moved the stock. It is renamed
+  **"Opening Stock Load (system)"**, deactivated, and its auth account removed,
+  so the audit trail stays readable and nobody can sign in as it. Any future
+  load through the routes will hit the same thing; rename rather than fight it.
+
+**Still missing from the load:** the Bleach sheet's photo is cut at row 33 and
+Prime Coated at row 9, so whatever follows is not in. Duplex is complete (its
+total row, 2838/33/2804.57, proves it). Also, the sheet's displayed integers are
+**rounded** — Duplex's own total is 2804.57 against 2805 from the visible rows —
+so some items are out by up to half a packet. Correct those with Adjust.
+`unit_cost` is 0 on every item; costing needs it eventually.
+Board type matched by exact name only, so 12 descriptions have none — including
+**Econo Board, whose master row is spelled "Ecano"**. Not guessed; set by hand
+in Settings if wanted.
+
 ### Open threads
 - **The `admin` role has `customers` and `dashboard` switched OFF** — 18
   `role_permissions` rows with `is_active = false`, and `has_permission()`

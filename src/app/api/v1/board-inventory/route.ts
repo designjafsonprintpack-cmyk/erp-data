@@ -79,9 +79,16 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Record initial movement if stock > 0
+  // Record initial movement if stock > 0.
+  //
+  // This row is what the stock report reads Opening from — it takes the last
+  // balance_after before the window (114). If the insert fails, the item exists
+  // with stock but the ledger starts from nothing, and every report on it is
+  // wrong from then on. Returned as a warning: the item was created, so this
+  // must not 500, but it must not be invisible either.
+  let warning: string | undefined
   if (parseFloat(String(body.current_stock ?? '0')) > 0) {
-    await supabase.from('board_inventory_movements' as any).insert({
+    const { error: movErr } = await supabase.from('board_inventory_movements' as any).insert({
       company_id:    companyId,
       board_item_id: (data as any).id,
       movement_type: 'in',
@@ -91,7 +98,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
       notes:         'Opening stock',
       moved_by:      userTableId,
     })
+    if (movErr) {
+      console.error('[Board item create] opening stock movement failed', movErr)
+      warning = `${body.description} was created, but its opening stock ledger entry failed: ${movErr.message}`
+    }
   }
 
-  return NextResponse.json({ data })
+  return NextResponse.json(warning ? { data, warning } : { data })
 })
