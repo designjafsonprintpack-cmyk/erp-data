@@ -7,6 +7,10 @@ import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { Modal } from '@/components/ui/Modal'
+// Board is bought by the kilo. These convert a vendor's rate into the per-sheet
+// cost that jobs are costed at, using the estimator's own weight formula.
+import { perSheetFromKgRate, perSheetFromPacket } from '@/lib/utils/boardUnitCost'
+import { sheetWeightKg } from '@/lib/costing/sheetWeight'
 
 interface BoardItem {
   id: string; description: string; gsm: number | null; sheet_width_in: number | null; sheet_height_in: number | null
@@ -74,6 +78,16 @@ interface OpenJob { id: string; job_number: string; job_title: string }
  * it in its own column, exactly as the shop's Excel does.
  */
 type MovementAction = 'in' | 'out' | 'adjustment' | 'return'
+
+/**
+ * The movement modal's form. `rate_basis` is how the VENDOR priced the
+ * delivery — board comes per kg, paper reams come per packet — and only the
+ * derived per-sheet figure is ever sent to the API.
+ */
+interface MoveForm {
+  quantity: string; notes: string; lot_number: string; job_id: string; vendor_id: string
+  rate: string; rate_basis: 'kg' | 'packet'
+}
 
 /** One row of get_board_stock_report(). Every figure is in SHEETS. */
 interface ReportRow {
@@ -238,8 +252,11 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
   // vendor_id is here because the lot a Stock In creates has always had a
   // vendor column and the form never sent one — so Lot History could never
   // name the supplier of a manual receipt.
-  // packet_rate is what the user types; the API is sent the per-sheet figure.
-  const [moveForm, setMoveForm] = useState({ quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', packet_rate: '' })
+  // `rate` is what the user types, in `rate_basis` units; the API is only ever
+  // sent the per-sheet figure. Board is bought per kg, so that is the default.
+  const [moveForm, setMoveForm] = useState<MoveForm>({
+    quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', rate: '', rate_basis: 'kg',
+  })
 
   const [editModal, setEditModal] = useState<BoardItem | null>(null)
   const [editForm, setEditForm] = useState<ItemForm>(EMPTY_ITEM_FORM)
@@ -257,7 +274,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
       // Deliberately NOT prefilled from the item's current cost — that figure
       // is an average of past receipts, and offering it as this delivery's rate
       // would let a stale number be confirmed by accident and re-averaged in.
-      packet_rate: '',
+      rate: '', rate_basis: 'kg',
     })
   }
 
@@ -375,6 +392,16 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
       // Typed in packets, sent in sheets — the API and the ledger only ever
       // deal in sheets (113).
       const qty = toSheets(packets, movementModal.item.sheets_per_packet)
+      // The vendor's rate, converted to per sheet through the same formula the
+      // estimator uses. One expression, so the number shown in the modal and
+      // the number sent to the API cannot diverge.
+      const it = movementModal.item
+      const rate = parseFloat(moveForm.rate || '0')
+      const receiptPerSheet = rate > 0
+        ? (moveForm.rate_basis === 'kg'
+            ? perSheetFromKgRate(rate, it.sheet_width_in, it.sheet_height_in, it.gsm)
+            : perSheetFromPacket(rate, it.sheets_per_packet))
+        : null
       const res = await fetch(`/api/v1/board-inventory/${movementModal.item.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -391,10 +418,12 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
           // History. Only meaningful on the two lot-creating actions.
           vendor_id: (movementModal.action === 'in' || movementModal.action === 'return')
             ? (moveForm.vendor_id || undefined) : undefined,
-          // Packets in, sheets out — the same boundary the quantity crosses two
-          // lines above. The API and the columns are per sheet throughout.
-          unit_cost: movementModal.action === 'in' && parseFloat(moveForm.packet_rate || '0') > 0
-            ? parseFloat(moveForm.packet_rate) / (movementModal.item.sheets_per_packet || 100)
+          // Kilos or packets in, sheets out — the same boundary the quantity
+          // crosses two lines above. The API and the columns are per sheet
+          // throughout. null when the weight can't be worked out, which the
+          // form has already said in red rather than storing a silent 0.
+          unit_cost: movementModal.action === 'in'
+            ? (receiptPerSheet ?? undefined)
             : undefined,
         }),
       })
@@ -406,7 +435,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
         ? { ...i, current_stock: (data as any).current_stock, unit_cost: (data as any).unit_cost ?? i.unit_cost }
         : i))
       setMovementModal(null)
-      setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', packet_rate: '' })
+      setMoveForm({ quantity: '', notes: '', lot_number: '', job_id: '', vendor_id: '', rate: '', rate_basis: 'kg' })
       toast.success(
         movementModal.action === 'in' ? 'Stock added'
         : movementModal.action === 'out' ? 'Stock reduced'
@@ -624,24 +653,62 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                   </select>
                 </div>
-                {/* The rate this delivery came at. Asked per PACKET because that
-                    is how the shop buys; stored per sheet, because that is what
-                    a job consumes. Leaving it blank is allowed and changes
-                    nothing — an unpriced delivery must not drag the item's
-                    average toward zero. */}
+                {/* The rate this delivery came at. BOARD IS BOUGHT BY THE KILO,
+                    so per-kg is the default and the conversion uses the same
+                    weight formula the estimator costs with — quoted rate and
+                    actual rate are then the same arithmetic. Paper invoices come
+                    per ream, so per-packet stays available.
+                    Blank is allowed and changes nothing: an unpriced delivery
+                    must not drag the item's average toward zero. */}
                 <div className="space-y-1.5">
-                  <label htmlFor="boardinventoryclient-in-rate" className="text-sm font-medium text-[var(--color-text-primary)]">Rate per packet (PKR)</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="boardinventoryclient-in-rate" className="text-sm font-medium text-[var(--color-text-primary)]">
+                      Purchase rate (PKR / {moveForm.rate_basis === 'kg' ? 'kg' : 'packet'})
+                    </label>
+                    <div className="flex items-center gap-0.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md p-0.5">
+                      {(['kg', 'packet'] as const).map(b => (
+                        <button key={b} type="button" onClick={() => setMoveForm(p => ({ ...p, rate_basis: b }))}
+                          className={cn('px-2 h-6 rounded text-xs font-medium transition-colors',
+                            moveForm.rate_basis === b
+                              ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
+                              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]')}>
+                          Per {b === 'kg' ? 'KG' : 'packet'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <input id="boardinventoryclient-in-rate" type="number" step="0.01" className={inputCls}
-                    value={moveForm.packet_rate} onChange={e => setMoveForm(p => ({ ...p, packet_rate: e.target.value }))}
+                    value={moveForm.rate} onChange={e => setMoveForm(p => ({ ...p, rate: e.target.value }))}
                     placeholder="Leave blank if not known" />
-                  {parseFloat(moveForm.packet_rate || '0') > 0 && (
-                    <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                      = PKR {(parseFloat(moveForm.packet_rate) / (movementModal.item.sheets_per_packet || 100)).toFixed(4)} per sheet
-                      {' · '}total PKR {(parseFloat(moveForm.packet_rate) * (parseFloat(moveForm.quantity) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </p>
-                  )}
+                  {(() => {
+                    const rate = parseFloat(moveForm.rate || '0')
+                    if (!(rate > 0)) return null
+                    const it = movementModal.item
+                    const perSheet = moveForm.rate_basis === 'kg'
+                      ? perSheetFromKgRate(rate, it.sheet_width_in, it.sheet_height_in, it.gsm)
+                      : perSheetFromPacket(rate, it.sheets_per_packet)
+                    // Per kg needs sheet size AND GSM. Without them the weight
+                    // is genuinely unknown, so say so instead of storing a 0.
+                    if (perSheet == null) return (
+                      <p className="text-xs text-[var(--color-danger)]">
+                        Sheet size and GSM are needed to work out weight, and this item is missing one.
+                        Set them with <strong>Edit</strong> first, or enter the rate per packet.
+                      </p>
+                    )
+                    const sheets = toSheets(parseFloat(moveForm.quantity) || 0, it.sheets_per_packet)
+                    const kgPerSheet = sheetWeightKg(Number(it.sheet_width_in ?? 0), Number(it.sheet_height_in ?? 0), Number(it.gsm ?? 0))
+                    return (
+                      <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                        = PKR {perSheet.toFixed(4)} / sheet
+                        {' · '}PKR {(perSheet * it.sheets_per_packet).toLocaleString(undefined, { maximumFractionDigits: 2 })} / packet
+                        {kgPerSheet > 0 && <> · {(kgPerSheet * sheets).toFixed(1)} kg total</>}
+                        {sheets > 0 && <> · <strong>PKR {(perSheet * sheets).toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong> for this receipt</>}
+                      </p>
+                    )
+                  })()}
                   <p className="text-xs text-[var(--color-text-muted)]">
                     Updates the item&rsquo;s cost as a <strong>weighted average</strong> — that is the rate jobs are costed at.
+                    Weight uses the estimator&rsquo;s own formula (L × W × GSM ÷ 15500 per 100 sheets).
                   </p>
                 </div>
                 {/* "Kon sa board kis job ke liye aaya" for board that arrives
@@ -796,11 +863,19 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
             100× too high with nothing to catch it. */}
         <label htmlFor={`${idPrefix}-8`} className="text-sm font-medium text-[var(--color-text-primary)]">Unit Cost (PKR / sheet)</label>
         <input id={`${idPrefix}-8`} type="number" step="0.0001" className={inputCls} value={form.unit_cost} onChange={e => set('unit_cost', e.target.value)} placeholder="0.0000" />
-        {parseFloat(form.unit_cost || '0') > 0 && (
-          <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-            = PKR {(parseFloat(form.unit_cost) * perPacket).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet of {perPacket}
-          </p>
-        )}
+        {parseFloat(form.unit_cost || '0') > 0 && (() => {
+          // Both equivalents, because the vendor quotes in kilos (board) or
+          // reams (paper) and neither matches the stored unit.
+          const kgPerSheet = sheetWeightKg(
+            parseFloat(form.sheet_width_in || '0'), parseFloat(form.sheet_height_in || '0'), parseFloat(form.gsm || '0'))
+          const perSheet = parseFloat(form.unit_cost)
+          return (
+            <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              = PKR {(perSheet * perPacket).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet of {perPacket}
+              {kgPerSheet > 0 && <> · PKR {(perSheet / kgPerSheet).toLocaleString(undefined, { maximumFractionDigits: 2 })} per kg</>}
+            </p>
+          )
+        })()}
       </div>
       <div className="space-y-1.5">
         <label htmlFor={`${idPrefix}-9`} className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>

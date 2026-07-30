@@ -9,10 +9,15 @@ import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { Pagination } from '@/components/ui/Pagination'
 import { useServerPagedList, fetchAllPages } from '@/lib/hooks/useServerPagedList'
+// Board is bought by the kilo, so a per-kg line is priced on weight — the same
+// formula the estimator costs with, so the two sides stay comparable (118).
+import { sheetWeightKg } from '@/lib/costing/sheetWeight'
 
 // quantity / quantity_received are in PACKETS (the PO's unit). board_item_id is
 // what decides whether receiving this line touches stock at all.
-interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number; board_item_id?: string | null; job_id?: string | null; jobs?: { job_number: string; job_title: string } | null }
+interface POItem { id: string; line_no: number; description: string; specification: string | null; quantity: number; unit_price: number; subtotal: number; quantity_received: number; board_item_id?: string | null; job_id?: string | null; jobs?: { job_number: string; job_title: string } | null
+  /** What unit_price is per (118): board is bought per kg. */
+  rate_basis?: 'kg' | 'packet' | 'unit' | null }
 interface PO {
   id: string; po_number: string; status: string; order_date: string; expected_date: string | null
   subtotal: number; tax_amount: number; total_amount: number; notes: string | null; created_at: string
@@ -46,7 +51,9 @@ const STATUS_CFG = {
 
 // board_item_id: which stock row this buys — without it the receive credits no
 // stock at all. job_id: which job it was bought FOR, blank = general stock (113).
-const EMPTY_LINE = { description: '', specification: '', quantity: '1', unit_price: '0', notes: '', board_item_id: '', job_id: '' }
+// rate_basis: what unit_price is per (118). 'kg' by default because board is
+// bought by the kilo; the line total is then weight x rate, not packets x rate.
+const EMPTY_LINE = { description: '', specification: '', quantity: '1', unit_price: '0', notes: '', board_item_id: '', job_id: '', rate_basis: 'kg' }
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
 export default function PurchaseClient({ initialPOs, initialTotal, vendors, boardItems, openJobs }: { initialPOs: PO[]; initialTotal: number; vendors: Vendor[]; boardItems: BoardItem[]; openJobs: OpenJob[] }) {
@@ -86,7 +93,17 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
   const removeLine = (idx: number) => setLineItems(p => p.filter((_, i) => i !== idx))
   const setLine = (idx: number, k: string, v: string) => setLineItems(p => p.map((l, i) => i === idx ? { ...l, [k]: v } : l))
 
-  const subtotal = lineItems.reduce((s, l) => s + (parseFloat(l.quantity || '0') * parseFloat(l.unit_price || '0')), 0)
+  // Mirrors the server's own line pricing (118) so the modal total and the
+  // stored total agree. The server recomputes it either way — this is display.
+  const lineAmount = (l: typeof EMPTY_LINE) => {
+    const qty = parseFloat(l.quantity || '0'), rate = parseFloat(l.unit_price || '0')
+    if (l.rate_basis !== 'kg') return qty * rate
+    const b = boardItems.find(x => x.id === l.board_item_id)
+    if (!b) return 0
+    return sheetWeightKg(Number(b.sheet_width_in ?? 0), Number(b.sheet_height_in ?? 0), Number(b.gsm ?? 0))
+      * qty * (b.sheets_per_packet || 100) * rate
+  }
+  const subtotal = lineItems.reduce((s, l) => s + lineAmount(l), 0)
   const taxRate  = parseFloat(poForm.tax_rate || '0') / 100
   const total    = subtotal * (1 + taxRate)
 
@@ -324,7 +341,14 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                           <div className="col-span-4 text-[var(--color-text-primary)]">{item.description}</div>
                           <div className="col-span-3 text-xs text-[var(--color-text-muted)]">{item.specification || '—'}</div>
                           <div className="col-span-1 text-right text-[var(--color-text-secondary)]">{item.quantity}</div>
-                          <div className="col-span-2 text-right text-[var(--color-text-secondary)]">PKR {item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                          {/* The basis matters as much as the number — PKR 250
+                              per kg and per packet are different purchases. */}
+                          <div className="col-span-2 text-right text-[var(--color-text-secondary)]">
+                            PKR {item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <span className="text-[var(--color-text-muted)]">
+                              {item.rate_basis === 'kg' ? ' /kg' : item.rate_basis === 'unit' ? ' /unit' : ' /pkt'}
+                            </span>
+                          </div>
                           <div className="col-span-2 text-right font-medium text-[var(--color-text-primary)]">PKR {item.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                         </div>
                       ))}
@@ -388,25 +412,60 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
               <div className="col-span-4">Description</div>
               <div className="col-span-3">Specification</div>
               <div className="col-span-1">Qty (pkt)</div>
-              <div className="col-span-2">Rate / pkt</div>
+              <div className="col-span-2">Rate</div>
               <div className="col-span-2 text-right">Subtotal</div>
             </div>
             <div className="space-y-2">
               {lineItems.map((item, idx) => {
-                const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
                 const board = boardItems.find(b => b.id === item.board_item_id)
+                // A per-kg line is priced on WEIGHT, not on packets — that is
+                // how board is actually invoiced (118). Weight comes from the
+                // estimator's own formula, so a PO total and a quotation's
+                // board cost are the same arithmetic on the same board.
+                const lineWeightKg = board
+                  ? sheetWeightKg(Number(board.sheet_width_in ?? 0), Number(board.sheet_height_in ?? 0), Number(board.gsm ?? 0))
+                    * parseFloat(item.quantity || '0') * (board.sheets_per_packet || 100)
+                  : 0
+                const lineTotal = item.rate_basis === 'kg'
+                  ? lineWeightKg * parseFloat(item.unit_price || '0')
+                  : parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
                 return (
                   <div key={idx} className="rounded-lg border border-[var(--color-border-subtle)] p-2.5 space-y-2">
                     <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
                       <div className="col-span-2 md:col-span-4"><input className={inputCls} value={item.description} onChange={e => setLine(idx, 'description', e.target.value)} placeholder="Item description *" /></div>
                       <div className="col-span-2 md:col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
                       <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
-                      <div className="col-span-1 md:col-span-2"><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></div>
+                      <div className="col-span-1 md:col-span-2 flex items-center gap-1">
+                        <input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                        {/* The basis, per line: board comes per kg, a paper ream
+                            per packet, a service line per unit. */}
+                        <select aria-label="Rate basis" className="h-9 px-1 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
+                          value={item.rate_basis} onChange={e => setLine(idx, 'rate_basis', e.target.value)}>
+                          <option value="kg">/kg</option>
+                          <option value="packet">/pkt</option>
+                          <option value="unit">/unit</option>
+                        </select>
+                      </div>
                       <div className="col-span-2 md:col-span-2 flex items-center justify-between">
-                        <span className="text-sm font-medium text-[var(--color-text-primary)] tabular-nums">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—'}</span>
+                        <span className="text-sm font-medium text-[var(--color-text-primary)] tabular-nums">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}</span>
                         {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={14} /></button>}
                       </div>
                     </div>
+
+                    {/* A per-kg line has to show its weight, or nobody can check
+                        the total against the vendor's invoice. */}
+                    {item.rate_basis === 'kg' && (
+                      lineWeightKg > 0 ? (
+                        <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                          {lineWeightKg.toFixed(1)} kg × PKR {parseFloat(item.unit_price || '0').toLocaleString()}/kg
+                          {' · '}PKR {(lineTotal / Math.max(parseFloat(item.quantity || '0'), 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[var(--color-warning)]">
+                          Per-kg pricing needs the stock item&rsquo;s sheet size and GSM — pick a board stock item below, or set them in Board Inventory first. Use <strong>/pkt</strong> otherwise.
+                        </p>
+                      )
+                    )}
 
                     {/* Stock link + job. The stock link is what makes receiving
                         this line actually add board to the store; without it the

@@ -7,6 +7,8 @@ import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { createPurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
+// Board is bought by the kilo — the same weight formula the estimator uses.
+import { sheetWeightKg } from '@/lib/costing/sheetWeight'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
@@ -63,13 +65,48 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     p_company_id: companyId, p_document_type: 'PO',
   })
 
+  // A per-kg line is priced on WEIGHT, and weight comes from the linked stock
+  // item's sheet size and GSM — so those have to be read from the database.
+  // Pricing stays server-side: the client shows the same figure, but what gets
+  // stored is never taken from the request.
+  const kgBoardIds = Array.from(new Set(((items || []) as any[])
+    .filter(i => i.rate_basis === 'kg' && i.board_item_id)
+    .map(i => i.board_item_id as string)))
+  const boardById = new Map<string, any>()
+  if (kgBoardIds.length) {
+    const { data: boards, error: boardErr } = await supabase.from('board_inventory' as any)
+      .select('id, description, sheet_width_in, sheet_height_in, gsm, sheets_per_packet')
+      .eq('company_id', companyId).in('id', kgBoardIds)
+    if (boardErr) return NextResponse.json({ error: boardErr.message }, { status: 500 })
+    for (const b of (boards ?? []) as any[]) boardById.set(b.id, b)
+  }
+
   // Compute totals from items
-  const lineItems = (items || []).map((item: any, idx: number) => ({
-    ...item,
-    line_no:   idx + 1,
-    sort_order: idx + 1,
-    subtotal:  parseFloat(String(item.quantity ?? '0')) * parseFloat(String(item.unit_price ?? '0')),
-  }))
+  const lineItems = (items || []).map((item: any, idx: number) => {
+    const qtyPackets = parseFloat(String(item.quantity ?? '0'))
+    const rate = parseFloat(String(item.unit_price ?? '0'))
+    let subtotal: number
+    if (item.rate_basis === 'kg') {
+      const b = item.board_item_id ? boardById.get(item.board_item_id) : null
+      // Same formula the estimator costs board with (118), so a PO total and a
+      // quotation's board cost are comparable on the same board.
+      const kgPerSheet = b ? sheetWeightKg(Number(b.sheet_width_in ?? 0), Number(b.sheet_height_in ?? 0), Number(b.gsm ?? 0)) : 0
+      subtotal = kgPerSheet * qtyPackets * Number(b?.sheets_per_packet ?? 100) * rate
+    } else {
+      subtotal = qtyPackets * rate
+    }
+    return { ...item, line_no: idx + 1, sort_order: idx + 1, subtotal }
+  })
+
+  // A per-kg line whose board can't be weighed would silently total zero, and
+  // a purchase order that understates what is owed is worse than a refusal.
+  const unweighable = lineItems.find((l: any) =>
+    l.rate_basis === 'kg' && parseFloat(String(l.unit_price ?? '0')) > 0 && l.subtotal <= 0)
+  if (unweighable) {
+    return NextResponse.json({
+      error: `"${unweighable.description || 'A line'}" is priced per kg, but its weight cannot be worked out — link it to a board stock item that has a sheet size and a GSM, or price the line per packet.`,
+    }, { status: 400 })
+  }
   const subtotal = lineItems.reduce((s: number, i: any) => s + i.subtotal, 0)
   const taxRate  = parseFloat(String(body.tax_rate ?? '0')) / 100
   const taxAmt   = subtotal * taxRate
@@ -131,6 +168,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         quantity:    parseFloat(item.quantity || '1'),
         unit_id:     item.unit_id || null,
         unit_price:  parseFloat(item.unit_price || '0'),
+        // What that rate is PER (118). Board comes per kg; 'packet' is the
+        // fallback because it reproduces the old quantity x rate arithmetic.
+        rate_basis:  item.rate_basis || 'packet',
         subtotal:    item.subtotal,
         board_item_id: item.board_item_id || null,
         // Which job this line is being bought for (113). Blank means general

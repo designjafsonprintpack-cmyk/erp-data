@@ -62,7 +62,9 @@ const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
 
 const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
   product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '1', no_of_colors: '4',
-  board_type_id: '', paper_type_id: '', box_type_id: '', board_costing_method: 'per_sheet',
+  // Board is bought by the kilo, so that is what a new line costs on. Existing
+  // quotations are unaffected — each line's method is saved on the row.
+  board_type_id: '', paper_type_id: '', box_type_id: '', board_costing_method: 'per_kg',
   sheet_width_in: '', sheet_height_in: '', board_gsm: '', board_rate_per_sheet: '', board_rate_per_kg: '',
   unit_price: '0', notes: '',
   ups: '', wastage_percent: DEFAULT_WASTAGE,

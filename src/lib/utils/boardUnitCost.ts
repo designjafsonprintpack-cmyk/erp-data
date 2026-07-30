@@ -13,10 +13,39 @@
  *   there overstates every job's board cost by `sheets_per_packet`, i.e. 100×
  *   on board and 500× on a paper ream.
  *
- *   The shop BUYS in packets, so both entry points ask for a packet price and
- *   convert here. Same boundary rule as the stock quantities themselves:
- *   packets are for display and data entry, sheets are what gets stored.
+ *   BOARD IS BOUGHT BY THE KILO — Mehboob's correction, and the reason
+ *   `perSheetFromKgRate` exists. It uses the SAME weight formula the estimator
+ *   costs with (`sheetWeightPer100Kg`, from Cost.xlsx), so the rate a job is
+ *   costed at and the rate it was quoted at are finally the same arithmetic.
+ *   Paper invoices still come per ream, so the packet path stays too.
+ *
+ *   Either way the entry point asks in the unit the vendor's invoice uses and
+ *   converts here. Same boundary rule as the stock quantities themselves:
+ *   packets and kilos are for display and data entry, sheets are what gets
+ *   stored.
  */
+import { sheetWeightKg } from '@/lib/costing/sheetWeight'
+
+/**
+ * A per-KG rate → the per-sheet figure that gets stored. This is how board
+ * actually arrives.
+ *
+ * Returns null when the item has no sheet size or no GSM, because then its
+ * weight is genuinely unknown and there is no honest per-sheet figure to
+ * derive — the caller must say so rather than storing a 0 that would read as
+ * "free". 24 of the 51 items on live are in exactly that state.
+ */
+export function perSheetFromKgRate(
+  ratePerKg: number | null | undefined,
+  widthIn: number | null | undefined,
+  heightIn: number | null | undefined,
+  gsm: number | null | undefined,
+): number | null {
+  if (ratePerKg == null || !Number.isFinite(ratePerKg) || ratePerKg <= 0) return null
+  const kgPerSheet = sheetWeightKg(Number(widthIn ?? 0), Number(heightIn ?? 0), Number(gsm ?? 0))
+  if (!(kgPerSheet > 0)) return null
+  return ratePerKg * kgPerSheet
+}
 
 /** A packet price as typed by the user → the per-sheet figure that gets stored. */
 export function perSheetFromPacket(packetPrice: number | null | undefined, sheetsPerPacket: number): number | null {

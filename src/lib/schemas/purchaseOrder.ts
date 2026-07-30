@@ -15,8 +15,17 @@ const poLineItemSchema = z.object({
   specification: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   material_name: z.string().optional(),
+  /** Always PACKETS — what is physically delivered, whatever the rate basis. */
   quantity: z.union([z.string(), z.number()]).optional(),
+  /** The rate, in `rate_basis` units. */
   unit_price: z.union([z.string(), z.number()]).optional(),
+  /**
+   * What unit_price is per (118). Board is bought by the kilo, so 'kg' is the
+   * normal case; 'packet' covers paper reams and reproduces the pre-118
+   * arithmetic; 'unit' is a non-stock line. Defaults to 'packet' rather than
+   * being required, so an older client that omits it behaves exactly as before.
+   */
+  rate_basis: z.enum(['kg', 'packet', 'unit']).optional(),
   unit_id: z.string().uuid().optional().nullable(),
   /**
    * The job this line is being bought for (113), or null/absent for general

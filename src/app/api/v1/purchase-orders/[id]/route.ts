@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { updatePurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
-import { perSheetFromPacket, weightedUnitCost } from '@/lib/utils/boardUnitCost'
+import { perSheetFromKgRate, perSheetFromPacket, weightedUnitCost } from '@/lib/utils/boardUnitCost'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -54,8 +54,11 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     // movement and never created a lot, while the modal told the user "Board
     // inventory will be updated automatically". Both facts now come from the
     // PO itself, which is where they were recorded.
+    // rate_basis and unit_price come from the PO row too, not the request:
+    // what the vendor charged is a recorded fact, and letting a receive call
+    // restate the price would make the cost forgeable (118).
     const { data: lineRows, error: lineErr } = await supabase.from('purchase_order_items' as any)
-      .select('id, job_id, board_item_id')
+      .select('id, job_id, board_item_id, rate_basis, unit_price')
       .eq('po_id', params.id)
       .eq('company_id', companyId)
     if (lineErr) return NextResponse.json({ error: lineErr.message }, { status: 500 })
@@ -80,7 +83,8 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       // If the line is linked to a board stock item, credit stock — in SHEETS.
       if (boardItemId && packetsReceived > 0) {
         const { data: inv, error: invErr } = await supabase.from('board_inventory' as any)
-          .select('current_stock, sheets_per_packet, unit_cost').eq('id', boardItemId).eq('company_id', companyId).single()
+          .select('current_stock, sheets_per_packet, unit_cost, sheet_width_in, sheet_height_in, gsm')
+          .eq('id', boardItemId).eq('company_id', companyId).single()
         if (invErr) {
           console.error('[PO receive] board item lookup failed', invErr)
           warnings.push(`Could not read stock for a line on ${poNumber}: ${invErr.message}`)
@@ -93,15 +97,27 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           const sheetsReceived = packetsReceived * perPacket
           const newStock = Number((inv as any).current_stock) + sheetsReceived
 
-          // The PO line is priced PER PACKET, because that is how the shop
-          // buys. unit_cost — on the item and on the lot — is per SHEET, so
-          // the price has to cross the same boundary the quantity just did.
-          // It didn't: the lot was written at the raw packet price against a
-          // sheet quantity, i.e. 100× too high (500× on a paper ream). Nothing
-          // has spent that number yet (lot costs are all NULL on live), so
-          // there is no history to correct — but it was a live trap.
-          const receiptPerSheet = perSheetFromPacket(
-            item.unit_price != null ? parseFloat(String(item.unit_price)) : null, perPacket)
+          // The PO line's rate has to cross the same boundary the quantity just
+          // did, because unit_cost — on the item and on the lot — is per SHEET.
+          // It didn't: the raw rate was written straight onto a sheet quantity,
+          // i.e. 100× too high (500× on a paper ream). Nothing has spent that
+          // number yet (all lot costs are NULL on live), so there was no history
+          // to correct — but it was a live trap.
+          //
+          // Board is bought BY THE KILO, so 'kg' is the normal basis and the
+          // conversion goes through the estimator's own weight formula — that
+          // is what makes quoted cost and actual cost comparable at all. The
+          // basis is read off the PO row (118), never from the request body.
+          const lineRate = line?.unit_price != null ? parseFloat(String(line.unit_price)) : null
+          const receiptPerSheet = line?.rate_basis === 'kg'
+            ? perSheetFromKgRate(lineRate, (inv as any).sheet_width_in, (inv as any).sheet_height_in, (inv as any).gsm)
+            : perSheetFromPacket(lineRate, perPacket)
+          // A per-kg line on an item with no size or GSM has no derivable cost.
+          // Stock is still credited — the board physically arrived — but the
+          // rate is surfaced as a warning rather than stored as a silent 0.
+          if (line?.rate_basis === 'kg' && lineRate != null && lineRate > 0 && receiptPerSheet == null) {
+            warnings.push(`Stock was credited, but the per-kg rate on ${poNumber} could not be costed: the stock item has no sheet size or GSM. Set them in Board Inventory, then correct the cost with Edit.`)
+          }
           // Re-average the item's cost so job costing stops booking board at
           // zero. See boardUnitCost.ts for why 0 counts as unknown, not free.
           const newUnitCost = weightedUnitCost({

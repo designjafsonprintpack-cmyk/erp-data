@@ -33,6 +33,8 @@
 //     Price = (Total Cost x (1 + margin% / 100)) / Quantity. Still just a
 //     suggestion the estimator can override — see applyMargin in the form.
 
+import { sheetWeightPer100Kg } from './sheetWeight'
+
 export type UnitBasis =
   | 'per_sheet' | 'per_1000_sheets' | 'per_1000_sheets_per_color' | 'per_plate'
   | 'per_ups' | 'per_1000_boxes' | 'per_1000_boxes_carton' | 'per_sqft' | 'per_1000_boxes_wastage'
@@ -91,11 +93,9 @@ export interface CostingResult {
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-// Weight of ONE HUNDRED sheets, in kg — trade constant: L(in) x W(in) x GSM / 15500.
-function sheetWeightPer100Kg(widthIn: number, heightIn: number, gsm: number): number {
-  if (!widthIn || !heightIn || !gsm) return 0
-  return (widthIn * heightIn * gsm) / 15500
-}
+// sheetWeightPer100Kg moved to ./sheetWeight so the STORE can use the same
+// formula when converting a vendor's per-kg rate into a per-sheet cost. Same
+// constant, same behaviour — imported above, not redefined.
 
 // "Stepped 1000" block count: remainder <= 200 rounds down, otherwise up,
 // minimum 1 block for any quantity > 0.
