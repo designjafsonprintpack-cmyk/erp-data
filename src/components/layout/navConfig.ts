@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Briefcase,
   Image, Calendar, Package, Truck, TrendingUp,
   UserCog, Settings, Building2, Layers, CreditCard, ClipboardList,
-  ShieldCheck, ScanLine, Printer, Film, Scissors, Flame, FoldVertical, Warehouse,
+  ShieldCheck, ScanLine, Printer, Film, Scissors, Flame, FoldVertical, Warehouse, BookOpen,
   type LucideIcon,
   Activity, ListChecks,
 } from 'lucide-react'
@@ -23,6 +23,20 @@ export interface NavLink {
    * A link is shown when the user has `<module>::view`.
    */
   module: string
+  /**
+   * Shown to everyone, permissions ignored. Exactly one link uses this: Help.
+   *
+   * It cannot be gated on any module, because there IS no module that every
+   * role has — the `admin` role, for instance, has no `dashboard` permission at
+   * all on live, so gating Help on 'dashboard' would hide the manual from the
+   * very person most likely to be handed the system cold. A read-only guide
+   * grants no access, so there is nothing to protect here.
+   *
+   * Deliberately excluded from the mobile tab bar and the home tiles: those
+   * have four and six slots, and a manual should never take one from Scan or
+   * My Queue. It stays reachable in the drawer, which lists this whole array.
+   */
+  alwaysVisible?: boolean
 }
 
 export interface NavDivider {
@@ -89,7 +103,14 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Users',                                  href: '/dashboard/users',                    icon: UserCog,         color: '#64748b', module: 'users' },
   { label: 'Admin',                                  href: '/dashboard/admin',                    icon: Building2,       color: '#78716c', module: 'admin' },
   { label: 'Settings',                               href: '/dashboard/settings',                 icon: Settings,        color: '#94a3b8', module: 'settings' },
+  // The manual. Ungated on purpose — see NavLink.alwaysVisible.
+  { label: 'Help / Guide',    shortLabel: 'Help',    href: '/dashboard/help',                     icon: BookOpen,        color: '#8b5cf6', module: 'help', alwaysVisible: true },
 ]
+
+/** Is this link visible to a user who can view `module`? */
+export function isNavLinkVisible(link: NavLink, canView: (module: string) => boolean): boolean {
+  return link.alwaysVisible === true || canView(link.module)
+}
 
 /**
  * Preferred order of bottom-tab destinations per role slug.
@@ -139,7 +160,9 @@ export function buildMobileTabs(
   role: string,
   canView: (module: string) => boolean,
 ): NavLink[] {
-  const links = NAV_ITEMS.filter(isNavLink)
+  // alwaysVisible links (Help) are excluded: the bar has four slots and a
+  // manual must never displace Scan or My Queue. It stays in the drawer.
+  const links = NAV_ITEMS.filter(isNavLink).filter(l => !l.alwaysVisible)
   const byModule = new Map<string, NavLink>()
   for (const l of links) if (!byModule.has(l.module)) byModule.set(l.module, l)
 
@@ -196,8 +219,10 @@ export const HOME_ACTION_POOL: HomeAction[] = [
   { key: 'scan',  label: 'Scan Station', href: '/dashboard/scan',              icon: ScanLine,  color: '#a3e635', module: 'jobs' },
   { key: 'queue', label: 'My Queue',     href: '/dashboard/production/queue',  icon: ListChecks, color: '#38bdf8', module: 'jobs' },
   { key: 'floor', label: 'Floor View',   href: '/dashboard/production/floor',  icon: Activity,  color: '#f472b6', module: 'jobs' },
-  // NAV_ITEMS destinations, addressable by module name:
-  ...NAV_ITEMS.filter(isNavLink).map(l => ({
+  // NAV_ITEMS destinations, addressable by module name. Help is left out for
+  // the same reason it is left out of the tab bar — six tiles, all of which
+  // should be work.
+  ...NAV_ITEMS.filter(isNavLink).filter(l => !l.alwaysVisible).map(l => ({
     key: l.module, label: l.label, href: l.href, icon: l.icon, color: l.color, module: l.module,
   })),
 ]

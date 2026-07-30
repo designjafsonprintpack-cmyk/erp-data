@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { NAV_ITEMS, isDivider } from './navConfig'
+import { NAV_ITEMS, isDivider, isNavLinkVisible } from './navConfig'
 import { useNavPermissions } from '@/modules/settings/permissions/hooks/usePermission'
 
 interface SidebarProps {
@@ -29,7 +29,8 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
 
   // Until permissions resolve, show everything — a nav that briefly shows too
   // much is far better than one that flickers empty on every page load.
-  const items = ready ? NAV_ITEMS.filter(i => isDivider(i) || canView(i.module)) : NAV_ITEMS
+  // isNavLinkVisible, not canView directly: Help is ungated (see navConfig).
+  const items = ready ? NAV_ITEMS.filter(i => isDivider(i) || isNavLinkVisible(i, canView)) : NAV_ITEMS
 
   // Drop a section heading whose links were all filtered out.
   const visible = items.filter((item, idx) => {
