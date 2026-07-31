@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
-import { ArtworkThumb, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
+import { JobThumbStrip, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface Assignment {
   id: string; job_id: string; machine_id: string; operator_id: string | null
@@ -328,14 +328,10 @@ export default function FloorDashboardClient({
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center gap-2.5">
-                        <ArtworkThumb
+                        <JobThumbStrip
                           size="sm"
-                          interactive={false}
-                          url={jobThumbs[m.job_id as string]?.url ?? undefined}
-                          fileName={jobThumbs[m.job_id as string]?.fileName ?? m.job_title ?? ''}
-                          fileType={jobThumbs[m.job_id as string]?.fileType}
-                          version={jobThumbs[m.job_id as string]?.version ?? 1}
-                          approved={jobThumbs[m.job_id as string]?.approved}
+                          designs={jobThumbs[m.job_id as string]}
+                          fallbackName={m.job_title ?? ''}
                         />
                         <div className="min-w-0">
                           <Link href={`/dashboard/jobs/${m.job_id}`}
@@ -622,15 +618,11 @@ function AssignmentTable({
                   </button>
                 </div>
                 <div className="col-span-2">
-                  <ArtworkThumb
+                  <JobThumbStrip
                     size="sm"
-                    interactive={false}
                     className="mb-1"
-                    url={jobThumbs[a.job_id]?.url ?? undefined}
-                    fileName={jobThumbs[a.job_id]?.fileName ?? a.jobs?.job_title ?? ''}
-                    fileType={jobThumbs[a.job_id]?.fileType}
-                    version={jobThumbs[a.job_id]?.version ?? 1}
-                    approved={jobThumbs[a.job_id]?.approved}
+                    designs={jobThumbs[a.job_id]}
+                    fallbackName={a.jobs?.job_title ?? ''}
                   />
                   <Link href={`/dashboard/jobs/${a.job_id}`} className="text-xs font-mono text-[var(--color-accent)] hover:underline">{a.jobs?.job_number}</Link>
                   <p className={cn('text-xs mt-0.5 font-medium', priorityCfg.color)}>{priorityCfg.label}</p>

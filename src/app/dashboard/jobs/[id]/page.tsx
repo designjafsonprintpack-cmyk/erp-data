@@ -36,8 +36,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     supabase.from('job_wastage' as any)
       .select('*, wastage_reasons(name,category), machines(name), users(full_name)')
       .eq('job_id', params.id).is('deleted_at', null).order('occurred_at', { ascending: false }),
+    // Ordered by design first (migration 124) — a job can carry two separate
+    // designs and the tab groups by design_no, so version-only ordering would
+    // interleave the lid's v2 with the base's v3.
     supabase.from('job_artworks' as any)
       .select('*').eq('job_id', params.id).eq('company_id', companyId).is('deleted_at', null)
+      .order('design_no', { ascending: true })
       .order('version', { ascending: false }),
     // Ink usage (migration 102) — same shape as the wastage pair above.
     supabase.from('ink_types' as any)

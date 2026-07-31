@@ -11,9 +11,15 @@ const PREVIEWABLE_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'SV
 /**
  * GET /api/v1/jobs/thumbnails?ids=uuid1,uuid2,...
  *
- * Returns, for each job id, its LATEST artwork version as a ready-to-render
- * thumbnail: { url (signed, or null if not previewable / no artwork yet),
- * file_name, file_type, version, approved }.
+ * Returns, for each job id, an ARRAY — the latest version of **every design**
+ * on that job, in design order:
+ *   { url (signed, or null if not previewable), file_name, file_type,
+ *     version, approved, design_no, design_label }
+ *
+ * It used to return a single object, the newest row on the job. Since 124 a job
+ * can carry two separate DESIGNS (an HL lid and base, a carton and its insert)
+ * and the second one used to be stored as "v2" of the first — so every list
+ * showed design 2 and silently hid design 1.
  *
  * Wherever a job appears in a list (Jobs, Kanban, Production Floor, Planning)
  * only its job id is on hand — not an artwork row — so this does both steps
@@ -37,22 +43,25 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { data: artworks, error } = await supabase
     .from('job_artworks' as any)
-    .select('id, job_id, version, file_name, file_type, file_url, status')
+    .select('id, job_id, design_no, design_label, version, file_name, file_type, file_url, status')
     .in('job_id', jobIds)
     .is('deleted_at', null)
     .order('job_id', { ascending: true })
+    .order('design_no', { ascending: true })
     .order('version', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // First row per job_id wins — the ORDER BY above puts each job's highest
-  // version first within its group.
-  const latest = new Map<string, any>()
+  // First row per (job, design) wins — the ORDER BY puts each design's highest
+  // version first within its group. Keyed on the pair, not on job_id alone,
+  // which is what used to collapse a job's two designs into one thumbnail.
+  const latestPerDesign = new Map<string, any>()
   for (const a of (artworks ?? []) as any[]) {
-    if (!latest.has(a.job_id)) latest.set(a.job_id, a)
+    const key = `${a.job_id}::${a.design_no ?? 1}`
+    if (!latestPerDesign.has(key)) latestPerDesign.set(key, a)
   }
 
-  const previewable = Array.from(latest.values()).filter(a => {
+  const previewable = Array.from(latestPerDesign.values()).filter(a => {
     const ext = (a.file_type || (a.file_name as string).split('.').pop() || '').toUpperCase()
     return PREVIEWABLE_EXT.has(ext)
   })
@@ -70,16 +79,32 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     })
   }
 
-  const data: Record<string, { url: string | null; file_name: string; file_type: string | null; version: number; approved: boolean }> = {}
-  for (const [jobId, a] of Array.from(latest.entries())) {
-    data[jobId] = {
+  interface ThumbRow {
+    url: string | null
+    file_name: string
+    file_type: string | null
+    version: number
+    approved: boolean
+    design_no: number
+    design_label: string | null
+  }
+
+  const data: Record<string, ThumbRow[]> = {}
+  for (const a of Array.from(latestPerDesign.values())) {
+    ;(data[a.job_id] ||= []).push({
       url: signedByPath.get(a.file_url) ?? null,
       file_name: a.file_name,
       file_type: a.file_type,
       version: a.version,
       approved: a.status === 'approved',
-    }
+      design_no: a.design_no ?? 1,
+      design_label: a.design_label ?? null,
+    })
   }
+  // Map insertion order follows the job_id/design_no ORDER BY, but sorting here
+  // makes the contract independent of that — a caller reads data[jobId][0] as
+  // "design 1" and must not be at the mercy of a future query change.
+  for (const rows of Object.values(data)) rows.sort((x, y) => x.design_no - y.design_no)
 
   return NextResponse.json({ data })
 })

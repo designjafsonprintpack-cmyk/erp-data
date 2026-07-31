@@ -17,6 +17,13 @@ export const artworkSchema = z.object({
   file_size: z.union([z.string(), z.number()]).optional().nullable(),
   file_type: z.string().optional().nullable(),
   designer_notes: z.string().optional().nullable(),
+
+  // ─── Which DESIGN this belongs to (migration 124) ─────────────────────────
+  // Given → the upload is the next VERSION of that design.
+  // Omitted → it is a NEW DESIGN. A job's first upload is design 1 either way.
+  // Coerced because a <select> hands back a string.
+  design_no: z.coerce.number().int().min(1).optional(),
+  design_label: z.string().trim().max(60).optional().nullable(),
 }).refine(
   v => isAcceptedArtworkFile(v.file_name, null) || isAcceptedArtworkFile(`x.${v.file_type ?? ''}`, null),
   { path: ['file_name'], message: ARTWORK_REJECT_MESSAGE }

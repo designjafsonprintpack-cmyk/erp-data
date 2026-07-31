@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
-import { ArtworkThumb, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
+import { JobThumbStrip, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
 
 interface Assignment {
   id: string; machine_id: string; estimated_hours: number | null
@@ -301,14 +301,10 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                               <ChevronDown size={14} />
                             </button>
                           </div>
-                          <ArtworkThumb
+                          <JobThumbStrip
                             size="sm"
-                            interactive={false}
-                            url={jobThumbs[plan.job_id]?.url ?? undefined}
-                            fileName={jobThumbs[plan.job_id]?.fileName ?? plan.jobs?.job_title ?? ''}
-                            fileType={jobThumbs[plan.job_id]?.fileType}
-                            version={jobThumbs[plan.job_id]?.version ?? 1}
-                            approved={jobThumbs[plan.job_id]?.approved}
+                            designs={jobThumbs[plan.job_id]}
+                            fallbackName={plan.jobs?.job_title ?? ''}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -378,15 +374,11 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
                   const isOverdue = job.required_date && new Date(job.required_date) < new Date()
                   return (
                     <div key={job.id} className={cn('flex items-center gap-3 px-4 md:px-5 py-3', idx % 2 === 1 && 'bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_15%,transparent)]')}>
-                      <ArtworkThumb
+                      <JobThumbStrip
                         size="sm"
-                        interactive={false}
                         className="flex-shrink-0"
-                        url={jobThumbs[job.id]?.url ?? undefined}
-                        fileName={jobThumbs[job.id]?.fileName ?? job.job_title}
-                        fileType={jobThumbs[job.id]?.fileType}
-                        version={jobThumbs[job.id]?.version ?? 1}
-                        approved={jobThumbs[job.id]?.approved}
+                        designs={jobThumbs[job.id]}
+                        fallbackName={job.job_title}
                       />
                     <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-1 flex-1 min-w-0">
                       <div className="col-span-1 md:col-span-2">

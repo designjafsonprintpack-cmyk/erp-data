@@ -97,21 +97,54 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // 'artwork_approval' is the merged Artwork + Customer Approval stage added in
   // migration 086; 'artwork' is still carried by older stages and running jobs.
   if (action === 'complete' && (targetStageType === 'artwork' || targetStageType === 'artwork_approval')) {
-    const { data: approvedArtwork } = await supabase
+    // EVERY design must be approved, not just one row somewhere on the job
+    // (migration 124). A job can carry two separate designs — an HL lid and
+    // base, a carton and its insert — and the old check asked only for "any
+    // approved row", so approving the lid opened the gate for the base too and
+    // the shop could print a design the customer had never signed off.
+    const { data: artworks, error: artErr } = await supabase
       .from('job_artworks' as any)
-      .select('id')
+      .select('design_no, design_label, status')
       .eq('job_id', jobId)
       .eq('company_id', companyId)
-      .eq('status', 'approved')
       .is('deleted_at', null)
-      .limit(1)
-      .maybeSingle()
 
-    if (!approvedArtwork) {
+    // A failed read must not read as "no artwork" — that would block a job
+    // whose artwork is fine, with a message blaming the designer.
+    if (artErr) return NextResponse.json({ error: artErr.message }, { status: 500 })
+
+    const rows = (artworks ?? []) as any[]
+    if (rows.length === 0) {
       return NextResponse.json(
         { error: `Cannot complete "${targetStageName}" — no approved artwork version exists for this job yet.` },
         { status: 400 }
       )
+    }
+
+    // Group by design, then ask each group whether ANY of its versions is
+    // approved — a design is signed off once one of its revisions is.
+    const approvedByDesign = new Map<number, boolean>()
+    const labelByDesign = new Map<number, string | null>()
+    for (const a of rows) {
+      const d = Number(a.design_no) || 1
+      approvedByDesign.set(d, (approvedByDesign.get(d) ?? false) || a.status === 'approved')
+      if (a.design_label && !labelByDesign.get(d)) labelByDesign.set(d, a.design_label)
+    }
+
+    const unapproved = Array.from(approvedByDesign.entries())
+      .filter(([, approved]) => !approved)
+      .map(([d]) => {
+        const label = labelByDesign.get(d)
+        return label ? `Design ${d} (${label})` : `Design ${d}`
+      })
+
+    if (unapproved.length) {
+      const total = approvedByDesign.size
+      return NextResponse.json({
+        error: total === 1
+          ? `Cannot complete "${targetStageName}" — no approved artwork version exists for this job yet.`
+          : `Cannot complete "${targetStageName}" — this job has ${total} designs and ${unapproved.join(', ')} ${unapproved.length === 1 ? 'is' : 'are'} not approved yet.`,
+      }, { status: 400 })
     }
   }
 

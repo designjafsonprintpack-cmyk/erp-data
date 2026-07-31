@@ -27,6 +27,9 @@ interface ArtworkComment {
 }
 interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
+  /** Which DESIGN this belongs to (migration 124). Legacy rows are 1. */
+  design_no?: number | null
+  design_label?: string | null
   file_size: number | null; file_type: string | null; designer_notes: string | null
   status: ArtworkStatus; is_production_ready: boolean; approved_at: string | null; created_at: string
   approver_name?: string | null; approver_email?: string | null; decided_at?: string | null
@@ -52,6 +55,34 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
   const [loading, setLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [designerNotes, setDesignerNotes] = useState('')
+
+  // ─── Which design is being uploaded (migration 124) ───────────────────────
+  // '' = a NEW design; a number = another version of that design. Set when the
+  // modal OPENS (openUpload below) rather than here, because `designs` is
+  // derived further down and isn't available at useState time. Opening
+  // pre-selects design 1 when the job already has artwork: adding a revision is
+  // much the commoner act, and defaulting to "new design" would quietly
+  // fragment a job's version history.
+  const [targetDesign, setTargetDesign] = useState<string>('')
+  const [designLabel, setDesignLabel] = useState('')
+
+  /** Every design on this job, in order, each with its versions newest-first. */
+  const designs = (() => {
+    const byDesign = new Map<number, Artwork[]>()
+    for (const a of artworks) {
+      const d = a.design_no ?? 1
+      if (!byDesign.has(d)) byDesign.set(d, [])
+      byDesign.get(d)!.push(a)
+    }
+    return Array.from(byDesign.entries())
+      .sort((x, y) => x[0] - y[0])
+      .map(([designNo, versions]) => ({
+        designNo,
+        // The label lives on whichever version carried it; the newest wins.
+        label: versions.map(v => v.design_label).find(Boolean) ?? null,
+        versions: [...versions].sort((a, b) => b.version - a.version),
+      }))
+  })()
   const [linkModal, setLinkModal] = useState<Artwork | null>(null)
   const [linkExpiry, setLinkExpiry] = useState('7d')
   const [generatedLink, setGeneratedLink] = useState('')
@@ -67,6 +98,12 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
   const [preflightModal, setPreflightModal] = useState<Artwork | null>(null)
 
   const pickFile = (file: File | null) => setSelectedFile(file)
+
+  const openUpload = () => {
+    setTargetDesign(designs.length ? String(designs[0].designNo) : '')
+    setDesignLabel('')
+    setUploadModal(true)
+  }
 
   const viewFile = async (path: string) => {
     const supabase = createSupabaseClient()
@@ -94,6 +131,11 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           job_id: jobId, file_name: selectedFile.name, file_url: path,
           file_size: selectedFile.size, file_type: selectedFile.name.split('.').pop()?.toUpperCase(),
           designer_notes: designerNotes,
+          // '' means NEW DESIGN — the route reads a missing design_no as
+          // "another design" and numbers it max+1. Sending 0 or null would be
+          // a different thing entirely, so the key is omitted, not blanked.
+          ...(targetDesign ? { design_no: Number(targetDesign) } : {}),
+          ...(designLabel.trim() ? { design_label: designLabel.trim() } : {}),
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
@@ -102,7 +144,13 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       setUploadModal(false)
       setSelectedFile(null)
       setDesignerNotes('')
-      toast.success(`Artwork v${data.version} added`)
+      setTargetDesign('')
+      setDesignLabel('')
+      toast.success(
+        data.design_no > 1 || designs.length > 1
+          ? `Design ${data.design_no} v${data.version} added`
+          : `Artwork v${data.version} added`
+      )
     } catch (e: any) { toast.error(e.message || 'Failed') }
     finally { setLoading(false) }
   }
@@ -238,7 +286,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <button onClick={() => setUploadModal(true)}
+        <button onClick={openUpload}
           className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
           <Plus size={15} /> Add Artwork
         </button>
@@ -268,6 +316,17 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
 
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Only shown once a job actually HAS more than one design —
+                      on the overwhelming majority of jobs this chip would be
+                      noise saying "Design 1" on every single row. */}
+                  {designs.length > 1 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0
+                                     bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]
+                                     border-[color:color-mix(in_srgb,var(--color-accent)_25%,transparent)]
+                                     text-[var(--color-accent)]">
+                      {art.design_label || `Design ${art.design_no ?? 1}`}
+                    </span>
+                  )}
                   <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{art.file_name}</span>
                   <button onClick={() => openCommentsModal(art)}
                     className={cn('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer', ARTWORK_STATUS_CONFIG[art.status].color)}
@@ -340,7 +399,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       )}
 
       {/* Upload Modal */}
-      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title="Add Artwork Version" size="md"
+      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title={designs.length ? 'Add Artwork' : 'Add Artwork Version'} size="md"
         footer={<>
           <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={upload} disabled={loading || !selectedFile}
@@ -349,6 +408,43 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           </button>
         </>}>
         <div className="space-y-4">
+          {/* Which design? A job can carry more than one (migration 124) — an HL
+              lid and base, a carton and its insert. Before this, a second design
+              silently became "v2" of the first and disappeared from every list. */}
+          <div className="space-y-1.5">
+            <label htmlFor="jobartworktab-design" className="text-sm font-medium text-[var(--color-text-primary)]">This artwork is</label>
+            <select
+              id="jobartworktab-design"
+              className={inputCls}
+              value={targetDesign}
+              onChange={e => setTargetDesign(e.target.value)}
+            >
+              {designs.map(d => (
+                <option key={d.designNo} value={String(d.designNo)}>
+                  A new version of {d.label ? `${d.label} (Design ${d.designNo})` : `Design ${d.designNo}`}
+                </option>
+              ))}
+              <option value="">A separate new design</option>
+            </select>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              {targetDesign
+                ? 'Replaces the current version for approval. The old version stays in the history.'
+                : designs.length
+                  ? 'Both designs stay on the job, and Artwork cannot be completed until BOTH are approved.'
+                  : 'The first design on this job.'}
+            </p>
+          </div>
+
+          {!targetDesign && (
+            <div className="space-y-1.5">
+              <label htmlFor="jobartworktab-designlabel" className="text-sm font-medium text-[var(--color-text-primary)]">Design name</label>
+              <input id="jobartworktab-designlabel" className={inputCls} value={designLabel}
+                onChange={e => setDesignLabel(e.target.value)} maxLength={60}
+                placeholder="e.g. Lid, Base, Insert — optional" />
+              <p className="text-xs text-[var(--color-text-muted)]">Shown on the Job Card and under the thumbnail, so the floor can tell them apart.</p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label htmlFor="jobartworktab-1" className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
             <input id="jobartworktab-1" type="file" accept={ARTWORK_ACCEPT} onChange={e => pickFile(e.target.files?.[0] || null)}

@@ -67,6 +67,10 @@ export interface JobThumbData {
   fileType: string | null
   version: number
   approved: boolean
+  /** Which design on the job this is (migration 124). Legacy rows are 1. */
+  designNo: number
+  /** Optional human name — "Lid", "Base", "Insert". Display only. */
+  designLabel: string | null
 }
 
 /**
@@ -141,8 +145,8 @@ export function useArtworkThumbnails(items: ThumbSource[]): Record<string, strin
  * version is latest" query and the signed-URL batching server-side and hands
  * back one small object per job.
  */
-export function useJobThumbnails(jobIds: string[]): Record<string, JobThumbData> {
-  const [data, setData] = useState<Record<string, JobThumbData>>({})
+export function useJobThumbnails(jobIds: string[]): Record<string, JobThumbData[]> {
+  const [data, setData] = useState<Record<string, JobThumbData[]>>({})
 
   // Ids already asked for. Only the NEW ones go into the next request: with
   // "Load More" the caller's list grows by a page at a time, and re-sending
@@ -166,15 +170,21 @@ export function useJobThumbnails(jobIds: string[]): Record<string, JobThumbData>
         if (!res.ok) return
         const json = await res.json()
         if (cancelled) return
-        const next: Record<string, JobThumbData> = {}
-        for (const [jobId, row] of Object.entries<any>(json.data || {})) {
-          next[jobId] = {
+        const next: Record<string, JobThumbData[]> = {}
+        for (const [jobId, rows] of Object.entries<any>(json.data || {})) {
+          // The route returns one entry per DESIGN since 124. Array.isArray
+          // guards the moment a stale build of either side is deployed against
+          // the other — a bare object would otherwise map to [undefined].
+          const list = Array.isArray(rows) ? rows : [rows]
+          next[jobId] = list.filter(Boolean).map((row: any) => ({
             url: row.url ?? null,
             fileName: row.file_name,
             fileType: row.file_type ?? null,
             version: row.version,
             approved: !!row.approved,
-          }
+            designNo: row.design_no ?? 1,
+            designLabel: row.design_label ?? null,
+          }))
         }
         setData(prev => ({ ...prev, ...next }))
       } catch {
@@ -301,6 +311,88 @@ export function ArtworkThumb({
     <button type="button" onClick={onClick} aria-label={`Open ${fileName}`} className={boxClasses}>
       {content}
     </button>
+  )
+}
+
+/**
+ * Renders a job's artwork as one tile per DESIGN.
+ *
+ * WHY A COMPONENT AND NOT AN INLINE `.map()`
+ *   Five places render a job thumbnail — the Jobs list, Kanban, Production
+ *   Floor, Planning (twice) — and before 124 each one wrote out the same five
+ *   props by hand against `thumbs[id]?.…`. Extending that to "and now show the
+ *   second design too" five separate times is how they drift apart. The
+ *   fallback for a job with no artwork at all also lived in five copies.
+ *
+ * THE `max` PROP EXISTS BECAUSE THE ROW IS TIGHT
+ *   On the Jobs list the tile sits inline with the title and customer inside a
+ *   3-of-12 column; a second 60px tile there would squeeze the title to
+ *   nothing. So the list passes max={1} and gets a "+1" chip, while the
+ *   Planning and Floor CARDS have room and pass 2. Nothing is ever hidden
+ *   silently — if a design is not drawn, the chip says how many are missing.
+ */
+export function JobThumbStrip({
+  designs,
+  size = 'sm',
+  max = 2,
+  fallbackName,
+  className,
+}: {
+  /** From `useJobThumbnails()[jobId]`. Undefined or empty is handled. */
+  designs: JobThumbData[] | undefined
+  size?: ThumbSize
+  /** How many tiles to draw before collapsing the rest into a "+N" chip. */
+  max?: number
+  /** Shown on the placeholder tile when the job has no artwork yet. */
+  fallbackName: string
+  className?: string
+}) {
+  const list = designs ?? []
+
+  // No artwork yet — one empty tile, exactly as before 124, so a job without
+  // artwork looks identical to how it always has.
+  if (list.length === 0) {
+    return (
+      <ArtworkThumb
+        size={size}
+        interactive={false}
+        fileName={fallbackName}
+        version={1}
+        className={className}
+      />
+    )
+  }
+
+  const shown = list.slice(0, Math.max(1, max))
+  const hidden = list.length - shown.length
+
+  return (
+    <span className={cn('flex items-center gap-1 flex-shrink-0', className)}>
+      {shown.map(d => (
+        <ArtworkThumb
+          key={d.designNo}
+          size={size}
+          interactive={false}
+          url={d.url ?? undefined}
+          // The design label is what tells lid from base at a glance; the file
+          // name is the fallback because that is what it always showed.
+          fileName={d.designLabel || d.fileName || fallbackName}
+          fileType={d.fileType}
+          version={d.version}
+          approved={d.approved}
+        />
+      ))}
+      {hidden > 0 && (
+        <span
+          title={`${list.length} designs on this job`}
+          className="flex-shrink-0 px-1 h-5 rounded text-[10px] font-bold flex items-center
+                     bg-[var(--color-bg-elevated)] border border-[var(--color-border)]
+                     text-[var(--color-text-secondary)]"
+        >
+          +{hidden}
+        </span>
+      )}
+    </span>
   )
 }
 

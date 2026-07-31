@@ -78,20 +78,53 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if ('error' in parsed) return parsed.error
   const body = parsed.data
 
-  // Get next version number for this job
-  const { data: existing } = await supabase
+  // ─── Which design, and which version of it (migration 124) ────────────────
+  // A job can carry more than one DESIGN — an HL lid and base, a carton and its
+  // insert. Those are not revisions of each other, so `version` counts
+  // revisions WITHIN a design and `design_no` says which design.
+  //
+  // Before 124 every upload took max(version)+1 across the whole job, so a
+  // second design became "v2" of the first and vanished from every list, which
+  // only ever shows the latest version.
+  const { data: onJob, error: readErr } = await supabase
     .from('job_artworks' as any)
-    .select('version')
+    .select('design_no, version')
     .eq('job_id', body.job_id)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
-    .order('version', { ascending: false })
-    .limit(1)
 
-  const nextVersion = existing && existing.length > 0 ? (existing[0] as any).version + 1 : 1
+  // Checked, never swallowed: a failed read here would silently restart
+  // numbering at design 1 / v1 and collide with the unique index.
+  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 })
+
+  const rows = (onJob ?? []) as any[]
+  const maxDesign = rows.length ? Math.max(...rows.map(r => Number(r.design_no) || 1)) : 0
+
+  let designNo: number
+  if (body.design_no != null) {
+    // Adding a version to a design that must already exist. Creating design 5
+    // on a job that has 2 would leave a hole and make "how many designs does
+    // this job have" a lie.
+    if (body.design_no > maxDesign) {
+      return NextResponse.json(
+        { error: `This job has ${maxDesign} design${maxDesign === 1 ? '' : 's'}. Leave the design blank to add a new one.` },
+        { status: 400 }
+      )
+    }
+    designNo = body.design_no
+  } else {
+    // No design given → another design. First upload on a job lands on 1.
+    designNo = maxDesign + 1
+  }
+
+  const inDesign = rows.filter(r => (Number(r.design_no) || 1) === designNo)
+  const nextVersion = inDesign.length ? Math.max(...inDesign.map(r => Number(r.version) || 0)) + 1 : 1
 
   const { data, error } = await supabase.from('job_artworks' as any).insert({
     company_id:   companyId,
     job_id:       body.job_id,
+    design_no:    designNo,
+    design_label: body.design_label?.trim() || null,
     version:      nextVersion,
     file_name:    body.file_name,
     file_url:     body.file_url,
@@ -107,7 +140,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   await recordJobEvent({
     company_id: companyId, job_id: body.job_id,
     event_type: 'artwork_uploaded',
-    new_value: `v${nextVersion} — ${body.file_name}`,
+    new_value: `Design ${designNo}${body.design_label?.trim() ? ` (${body.design_label.trim()})` : ''} v${nextVersion} — ${body.file_name}`,
     actor_id: userTableId,
   }, supabase)
 

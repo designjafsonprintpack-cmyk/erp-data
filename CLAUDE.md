@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **123**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **124**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -1395,6 +1395,85 @@ background, the three box constants unchanged, and a PDF row still falling back
 to the file-type tile rather than a broken `<img>`), plus the built CSS grepped
 for `.object-contain{object-fit:contain}` — per §5, a class existing in source
 proves nothing until the rule is in `.next/static/css/`.
+
+### 124 — a job can carry more than one DESIGN
+Mehboob: *"jobs main kabi kabi 2 artwork b hoty hain."* Asked whether those are
+two versions of one design or two separate designs, he answered **two separate
+designs** — an HL lid and base, a carton and its insert, two designs ganged on
+one sheet. Neither is a revision of the other and neither is "older".
+
+**`job_artworks` modelled a job's artwork as ONE version chain.** Every upload
+took `max(version) + 1`, so the second design became "v2" of the first. Three
+consequences, all silent:
+
+1. **The second design was invisible.** Jobs list, Kanban, Production Floor,
+   Planning and the printed Job Card all show "the latest version", so design 2
+   replaced design 1 on screen and design 1 could not be seen anywhere except
+   the Job Detail artwork tab.
+2. **The artwork gate passed on a single approval.** It asked for ANY row with
+   `status = 'approved'`, so approving the lid opened the gate for the base and
+   the shop could print a design the customer never signed off. The pglite test
+   asserts the OLD rule would still have passed at the exact point the new one
+   refuses — otherwise the new assertion proves nothing.
+3. The customer approval link is per artwork row, so a customer approving "v2"
+   had only ever seen one of the two designs.
+
+**124 adds `design_no` (default 1) and `design_label`.** Version becomes a chain
+WITHIN a design; `(job_id, design_no, version)` is an artwork's real identity.
+- **Group on the NUMBER, never the label.** The label is optional free text and
+  will be blank half the time — "lid" / "Lid " / "LID" would fragment one job's
+  designs into three. The label is display only.
+- `DEFAULT 1` means **every existing row is design 1** and every current job
+  behaves exactly as before. No backfill beyond the default.
+- Unique index is **partial, `WHERE deleted_at IS NULL`**, so a soft-deleted v2
+  cannot block re-uploading v2. Probed live first: `job_artworks` held 2 rows on
+  2 different jobs, so nothing could conflict.
+- `CHECK (design_no >= 1)` — a 0 would sort ahead of design 1 and break every
+  "first design" read.
+
+Code, same commit:
+- **POST /api/v1/artwork**: `design_no` given → next VERSION of that design;
+  omitted → a NEW DESIGN (`max + 1`). A `design_no` beyond what exists is a 400,
+  not a hole in the numbering.
+- **The gate now requires EVERY design to have an approved version**, and names
+  the ones that don't ("Design 2 (Lid) is not approved yet"). A one-design job
+  gets the original wording — no "2 designs" talk on the 99% case.
+- **`/api/v1/jobs/thumbnails` returns an ARRAY per job** (latest version of each
+  design). `useJobThumbnails` is now `Record<string, JobThumbData[]>`, and it
+  wraps a bare object in an array so a stale build of either side degrades
+  instead of rendering `[undefined]`.
+- **`JobThumbStrip`** replaces five hand-written `<ArtworkThumb>` call sites.
+  The Jobs list passes `max={1}` — that tile shares a 3-of-12 column with the
+  title and customer, and a second 60px tile would squeeze the title to
+  nothing — and gets a **"+1" chip** instead, so a design is never dropped
+  silently. Planning and Floor cards have room and draw both.
+- **The printed Job Card prints one tile per design, each captioned.** That
+  sheet is what the operator holds at the press; printing one design's picture
+  while the other runs is the mistake the card exists to prevent. Signed in one
+  batch, mapped by index (Storage normalises paths).
+- The upload modal asks "a new version of Design N" vs "a separate new design",
+  **defaulting to a new version of design 1** when artwork already exists —
+  adding a revision is much the commoner act, and defaulting to "new design"
+  would fragment a job's history. The default is set when the modal opens, not
+  in `useState`, because `designs` is derived below the state declarations.
+- The per-row design chip only appears **once a job actually has more than one
+  design**, or it would read "Design 1" on every row in the system.
+
+Verified: **26 assertions on the migration against real Postgres** (columns,
+default, existing rows untouched, the unique index refusing a true duplicate
+while allowing the same version under a different design, a soft-deleted row
+not blocking re-upload, the CHECK, both real read queries, idempotent re-run,
+and the undo block keeping every artwork row), **18 render assertions** on
+`JobThumbStrip` (0/1/2/3 designs, the `max={1}` chip, an unsigned design still
+tiling, no hardcoded hex, no opacity-on-`var()`), and **26 wiring assertions**
+(all four list files on the shared strip with no hand-rolled thumb left, the
+route returning an array, the old single-approval query gone, the card printing
+per design).
+
+**NOT yet walked through the real HTTP routes** — that needs 124 on live first.
+The walk script is written and waiting in the scratchpad (`design_test.mjs`);
+it refuses to run until it can read `design_no`, creates a two-design job,
+and asserts the gate refuses at one approval and passes at two.
 
 ### Open threads
 - **Only Customers has a Restore tab.** Vendors, machines, departments and the

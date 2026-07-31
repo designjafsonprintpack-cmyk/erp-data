@@ -11,7 +11,7 @@ import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
-import { ArtworkThumb, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
+import { JobThumbStrip, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
 import { Pagination } from '@/components/ui/Pagination'
 
 /** Rows per page. The server-rendered first page in page.tsx uses the same
@@ -84,7 +84,7 @@ function daysLabel(required_date: string | null, status: JobStatus): { text: str
  * but the total is 13 with selection, not 12. Don't "correct" it back to 12 by
  * shrinking a column: status and stage both clip badly at span 1.
  */
-const jobColumns = (thumbs: Record<string, JobThumbData>, density: Density): DataListColumn<Job>[] => [
+const jobColumns = (thumbs: Record<string, JobThumbData[]>, density: Density): DataListColumn<Job>[] => [
   {
     key: 'job_number', header: 'Job #', span: 1, role: 'identity',
     render: j => (
@@ -98,17 +98,17 @@ const jobColumns = (thumbs: Record<string, JobThumbData>, density: Density): Dat
     // Widened 2 -> 3; the thumbnail needs the room.
     key: 'title', header: 'Title / Customer', span: 3, role: 'title',
     render: j => {
-      const t = thumbs[j.id]
       return (
         <span className="flex items-center gap-2.5 min-w-0">
-          <ArtworkThumb
+          {/* max={1}: this tile shares a 3-of-12 column with the title and the
+              customer name, so a second 60px tile would squeeze the title to
+              nothing. A job with two designs gets a "+1" chip instead — the
+              second design is never silently dropped, just not drawn here. */}
+          <JobThumbStrip
+            designs={thumbs[j.id]}
             size={density === 'compact' ? 'xs' : 'sm'}
-            interactive={false}
-            url={t?.url ?? undefined}
-            fileName={t?.fileName ?? j.job_title}
-            fileType={t?.fileType}
-            version={t?.version ?? 1}
-            approved={t?.approved}
+            max={1}
+            fallbackName={j.job_title}
           />
           <span className="block min-w-0">
             <span className="block text-sm font-medium text-[var(--color-text-primary)] truncate">{j.job_title}</span>

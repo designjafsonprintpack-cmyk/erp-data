@@ -40,18 +40,44 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
   // Latest artwork version's thumbnail, if there is one and it's an image.
   // Print cards are single-job pages, so this is one query and (at most) one
   // signed URL — no batching needed the way a list of jobs would.
-  const { data: latestArtwork } = await supabase.from('job_artworks' as any)
-    .select('file_url, file_name, file_type')
+  // EVERY design, latest version of each (migration 124) — not just the newest
+  // row on the job. A job can carry two separate designs (an HL lid and base,
+  // a carton and its insert), and this sheet is what the operator holds at the
+  // press: printing one design's picture while the other runs is exactly the
+  // mistake the Job Card exists to prevent.
+  const { data: artworkRows } = await supabase.from('job_artworks' as any)
+    .select('file_url, file_name, file_type, design_no, design_label, version')
     .eq('job_id', params.id).is('deleted_at', null)
-    .order('version', { ascending: false }).limit(1).maybeSingle()
-  let artworkThumbUrl: string | null = null
-  if (latestArtwork) {
-    const la = latestArtwork as any
-    const ext = (la.file_type || la.file_name.split('.').pop() || '').toUpperCase()
-    if (PREVIEWABLE_EXT.has(ext)) {
-      const { data: signed } = await supabase.storage.from('artwork').createSignedUrl(la.file_url, 3600)
-      artworkThumbUrl = signed?.signedUrl ?? null
-    }
+    .order('design_no', { ascending: true })
+    .order('version', { ascending: false })
+
+  const latestPerDesign: any[] = []
+  const seenDesign = new Set<number>()
+  for (const a of ((artworkRows ?? []) as any[])) {
+    const d = a.design_no ?? 1
+    if (seenDesign.has(d)) continue
+    seenDesign.add(d)
+    latestPerDesign.push(a)
+  }
+
+  // Signed in one batch rather than a call per design.
+  const printable = latestPerDesign.filter(a =>
+    PREVIEWABLE_EXT.has((a.file_type || String(a.file_name).split('.').pop() || '').toUpperCase()))
+  const artworkThumbs: { url: string; label: string }[] = []
+  if (printable.length) {
+    const { data: signed } = await supabase.storage.from('artwork')
+      .createSignedUrls(printable.map(a => a.file_url), 3600)
+    // Mapped by index, not by the returned path, which Storage may normalise —
+    // the same rule the thumbnails route and the client hook both follow.
+    signed?.forEach((row, i) => {
+      const src = printable[i]
+      if (row?.signedUrl && src) {
+        artworkThumbs.push({
+          url: row.signedUrl,
+          label: src.design_label || (seenDesign.size > 1 ? `Design ${src.design_no ?? 1}` : ''),
+        })
+      }
+    })
   }
 
   // A repeat whose printed content changed (migration 097). The parent's number
@@ -119,6 +145,12 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
              press to check he has mounted the right job; a cropped preview is
              worse than a small one. White letterboxing is invisible on paper. */
           .artwork-thumb { width: 30mm; height: 38mm; object-fit: contain; border: 1px solid #d0d7de; border-radius: 4px; flex-shrink: 0; }
+          /* One cell per design, so a two-design job prints both side by side.
+             Hardcoded hex like the rest of this file — print must never follow
+             the theme (CLAUDE.md §3). */
+          .artwork-cell { display: flex; flex-direction: column; align-items: center; gap: 1mm; flex-shrink: 0; }
+          .artwork-caption { font-size: 8px; color: #57606a; max-width: 30mm; text-align: center;
+                             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           /* Changed-repeat banner. Deliberately the loudest thing on the sheet:
              the operator has run this job before and will reach for the old
              plate out of habit unless something stops them. Heavy border rather
@@ -148,10 +180,15 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               <div style={{ fontSize: 11, color: '#57606a', marginTop: 2 }}>Digital Job Card</div>
             </div>
             <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              {artworkThumbUrl && (
-                // eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL, not a local asset
-                <img className="artwork-thumb" src={artworkThumbUrl} alt={`Artwork for ${j.job_number}`} />
-              )}
+              {/* One tile per DESIGN. A job with a lid and a base prints both,
+                  each labelled, so the press has the whole job in front of it. */}
+              {artworkThumbs.map((t, i) => (
+                <div key={i} className="artwork-cell">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase Storage URL, not a local asset */}
+                  <img className="artwork-thumb" src={t.url} alt={`${t.label || 'Artwork'} for ${j.job_number}`} />
+                  {t.label && <div className="artwork-caption">{t.label}</div>}
+                </div>
+              ))}
               <div>
                 <div className="job-number">{j.job_number}</div>
                 <div style={{ marginTop: 4 }}>
