@@ -6,7 +6,7 @@ import { createSupabaseClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Printer, PauseCircle, PlayCircle, RefreshCw, CheckCircle2,
   SkipForward, Clock, User, Calendar, Package, ChevronRight, AlertTriangle,
-  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet, Stamp
+  MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet, Stamp, Combine
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { MoneyGate } from '@/components/ui/MoneyGate'
@@ -394,6 +394,16 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
             className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
             <RefreshCw size={14} /> Repeat Job
           </button>
+          {/* Gang this job with another (126). Hidden once it IS in a gang —
+              the panel on the Overview tab takes over then — and on a job that
+              is finished, which cannot be ganged anyway. The gang screen does
+              the real eligibility check; this only carries the job across. */}
+          {!gangMembership && !['completed', 'dispatched', 'cancelled'].includes(String((job as any).status)) && (
+            <Link href={`/dashboard/gangs/new?job=${job.id}`}
+              className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Combine size={14} /> Gang Run
+            </Link>
+          )}
           {isSuperadmin && (
             <button onClick={() => setDeleteModal(true)}
               className="flex items-center gap-1.5 px-3 h-11 lg:h-8 rounded-md border border-[color:color-mix(in_srgb,var(--color-danger)_40%,transparent)] text-sm text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors">

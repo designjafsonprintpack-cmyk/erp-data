@@ -1841,8 +1841,58 @@ Verified: **23 assertions on the split** (the total preserved across 1, 7,
 3,999, 4,001, 999,999; paisa-level money; 2:3:5 across three jobs; a
 deterministic lead) and **12 wiring assertions**. `tsc` 0 errors, build clean.
 
-**126 has NOT been run on live, and the gang has not been walked through the
-real HTTP routes** — that needs the migration applied first.
+### Gang runs walked end to end on live, 2026-07-31 — 54 assertions
+126 was applied to live, then a whole gang was driven through the **real HTTP
+routes**: a customer, a two-line Sales Order, two jobs at 10,000 and 20,000 on
+the same board and sheet, ganged 3 + 5, run to Printing, and broken up again.
+
+Proven, not assumed: the candidates route offering only the job that shares
+customer/board/sheet; the preview reporting **3,750 sheets and 2 setups
+separately vs 4,000 ganged**, with 3 + 5 suggested and flagged as a suggestion;
+creation **refused without `overage_agreed`** and refused again on a 3 + 4 split
+(*"adds up to 7 ups and the die holds 8 — 1 would be wasted on every sheet"*);
+`GANG-2026-0001` at 4,000 sheets; **Job A rewritten to 12,000 at 3 ups and Job B
+to 20,000 at 5 ups, both giving sheet_qty 4,000**; the member row keeping Job
+A's own 8 ups and 10,000; **the Sales Order line moved to 12,000, its subtotal
+to PKR 120,000 and the header total re-added to PKR 320,000**; a
+`gang_created` event on both jobs; a second gang refused.
+
+Then production: **exactly ONE requisition for the run, for 4,000 sheets** (not
+one job's 1,250, and not one MRN each); Board Issue refused while it was
+unissued, naming the run; completing it on Job A **completing Job B's too**
+(`also_updated: 1`); Printing refused with *"no plates have been issued to
+GANG-2026-0001 — add plates to any job in the run"*; then **Printing starting on
+Job B off Job A's plates** and completing Job A's with it; Packing confirmed NOT
+shared; the run moving to `in_progress`. Finally the break-up: refused at 409
+once production had started, forced, and **Job A restored to 10,000 at 8 ups
+with sheet_qty back to 1,250 and its Sales Order line back to 10,000**, both
+jobs carrying `gang_removed`, and the pair re-gangable.
+
+Live was returned to its exact prior state: 481 jobs, 48 customers, 5 live
+artwork rows, counters JOB 3 / CUST 49 / GANG 0 / MRN 1 / SO 0, temp user gone.
+
+**Two skipped templates, both correct, one worth knowing:**
+- `Proofing Run` has no Packing stage, so the backfill skipped it. Right — a
+  proof run is never ganged.
+- **`Label / Sticker` has no BOARD ISSUE stage** (it starts at Planning →
+  Artwork → Printing), so the backfill found no start point and marked nothing
+  shared. **Label jobs therefore cannot be ganged today.** Its Printing and Die
+  Cutting could legitimately be shared; tick them in Settings if that is ever
+  wanted. Flagged, not guessed at — the migration deliberately skips rather than
+  invents a boundary.
+
+**Job Detail carries a "Gang Run" button** straight to
+`/dashboard/gangs/new?job=<id>`, hidden once the job IS in a gang (the Overview
+panel takes over) and on a finished job. Verified against live: present on
+`JOB-2026-00001`, absent on a completed legacy job, and the gang screen opens
+from the link. 7 assertions.
+
+**A test-fixture fault worth remembering:** the walk inserted a plate with
+`status: 'in_use'` and got a null back. That value has been illegal since
+**106** replaced the plates CHECK — `'mounted'` is what a plate on the press is.
+The insert's error was not being read, so it surfaced as a TypeError three lines
+later rather than as the constraint violation it was. Check the error on a
+fixture insert too, not only in product code.
 
 ### Open threads
 - **The other three cron routes stand open when `CRON_SECRET` is unset.** They
