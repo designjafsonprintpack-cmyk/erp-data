@@ -4,6 +4,30 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PUBLIC_ROUTES = ['/login', '/auth/callback', '/auth/reset-password']
 const PRINT_ROUTES = ['/print']
 
+/**
+ * Customer-facing token links — the token IS the credential (CLAUDE.md §3):
+ * a crypto-random token with an expiry on the row, validated server-side with
+ * the service-role client. There is no session and there never will be one.
+ *
+ * WHAT WAS BROKEN
+ *   None of these three were listed anywhere in this file, so every one of them
+ *   fell through to `if (!user && !isPublicRoute)` and **redirected the customer
+ *   to /login**. The artwork approval link, the quotation approval link and the
+ *   customer portal have all been unreachable for the people they were built
+ *   for. Nothing errored — the visitor just landed on a login screen for a
+ *   company they don't work at.
+ *
+ *   It survived because every test of this feature went through
+ *   /api/v1/public/... , and `isApiRoute` returns early two checks above. The
+ *   API half was always reachable; only the page a human opens was not.
+ *
+ * WHY NOT JUST ADD THEM TO PUBLIC_ROUTES
+ *   That list also does the reverse: a logged-in user visiting one is bounced
+ *   to /dashboard. A staff member checking the link they just sent would never
+ *   see it. These routes are open to everybody, signed in or not.
+ */
+const TOKEN_ROUTES = ['/artwork/approve', '/approve', '/portal']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -30,8 +54,15 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
   const isPrintRoute  = PRINT_ROUTES.some(r => pathname.startsWith(r))
   const isApiRoute = pathname.startsWith('/api/')
+  // Prefix match with a boundary, so /approve/<token> matches but a future
+  // /approvals page would not be silently made public.
+  const isTokenRoute = TOKEN_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`))
 
   if (isApiRoute) return supabaseResponse
+
+  // Open to everyone — signed in or not. Access is decided by the token itself,
+  // server-side, on the page and in the route it calls.
+  if (isTokenRoute) return supabaseResponse
 
   // Print routes: allow if logged in, redirect to login if not
   if (isPrintRoute) {
