@@ -37,6 +37,8 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
   const [newAddress, setNewAddress] = useState<null | Record<string, string>>(null)
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'contact' | 'address' | 'customer'; id: string; name: string } | null>(null)
+  /** Server's "this customer has 4 jobs attached" message, awaiting a yes/no. */
+  const [dependentWarning, setDependentWarning] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'addresses' | 'ledger' | 'activity'>('info')
   const canSeeMoney = useMoneyVisible()
 
@@ -94,7 +96,15 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
     finally { setLoading(false) }
   }
 
-  const confirmDelete = async () => {
+  /**
+   * Deleting the customer now asks the server first, which answers 409 with
+   * what is attached ("This customer has 4 jobs…"). `force` carries the user's
+   * answer to that second question.
+   *
+   * The response was previously never read at all — a 409 would have been
+   * ignored and the page would have navigated away as if the delete worked.
+   */
+  const confirmDelete = async (force = false) => {
     if (!deleteTarget) return
     setLoading(true)
     try {
@@ -105,12 +115,35 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
         await fetch('/api/v1/addresses', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteTarget.id }) })
         setAddresses(prev => prev.filter(a => a.id !== deleteTarget.id))
       } else {
-        await fetch(`/api/v1/customers/${customer.id}`, { method: 'DELETE' })
+        const res = await fetch(`/api/v1/customers/${customer.id}${force ? '?force=1' : ''}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+
+        if (res.status === 409 && json?.code === 'HAS_DEPENDENTS') {
+          // Hand the question to the user rather than deciding for them. The
+          // first dialog closes so the two are never stacked.
+          setDependentWarning(json.error as string)
+          setDeleteTarget(null)
+          return
+        }
+        if (!res.ok) { toast.error(json?.error || 'Delete failed'); return }
         router.push('/dashboard/customers')
       }
       toast.success('Removed')
     } catch { toast.error('Failed') }
     finally { setLoading(false); setDeleteTarget(null) }
+  }
+
+  /** Second step: they saw what is attached and chose to go ahead. */
+  const confirmForceDelete = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/customers/${customer.id}?force=1`, { method: 'DELETE' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(json?.error || 'Delete failed'); return }
+      toast.success('Customer deleted — you can restore it from Customers → Deleted')
+      router.push('/dashboard/customers')
+    } catch { toast.error('Failed') }
+    finally { setLoading(false); setDependentWarning(null) }
   }
 
   return (
@@ -351,9 +384,22 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
       {activeTab === 'activity' && <CustomerActivityTab customerId={customer.id} />}
       {activeTab === 'ledger' && canSeeMoney && <CustomerLedgerTab customerId={customer.id} />}
 
-      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => confirmDelete(false)}
         title={`Delete ${deleteTarget?.type === 'customer' ? 'Customer' : deleteTarget?.type === 'contact' ? 'Contact' : 'Address'}`}
-        message={`Remove "${deleteTarget?.name}"? This cannot be undone.`} loading={loading} />
+        message={
+          deleteTarget?.type === 'customer'
+            // No longer "cannot be undone" — a deleted customer now sits in the
+            // Deleted tab and can be restored. Saying otherwise was both untrue
+            // and the reason a mistake felt unrecoverable.
+            ? `Remove "${deleteTarget?.name}"? You can restore it later from Customers → Deleted.`
+            : `Remove "${deleteTarget?.name}"? This cannot be undone.`
+        }
+        loading={loading} />
+
+      {/* Second gate — only appears when the server reports attached records. */}
+      <ConfirmDialog open={!!dependentWarning} onClose={() => setDependentWarning(null)} onConfirm={confirmForceDelete}
+        title="This customer has work attached"
+        message={dependentWarning ?? ''} loading={loading} />
     </div>
   )
 }

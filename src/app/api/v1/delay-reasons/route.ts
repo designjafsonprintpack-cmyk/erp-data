@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { delayReasonSchema, delayReasonUpdateSchema } from '@/lib/schemas/settingsConfig'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 export const GET = withErrorHandling(async function GET() {
   const supabase = createSupabaseServerClient()
@@ -26,6 +27,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const parsed = await parseBody(req, delayReasonSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  const dupe = await guardDuplicateName(supabase, 'delay reason', {
+    table: 'delay_reasons', companyId, name: (body as any).name,
+  })
+  if (dupe) return dupe
+
   const { data, error } = await supabase.from('delay_reasons' as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
@@ -35,13 +42,23 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const companyId = await getCompanyId(user, supabase)
   const userTableId = await getUserTableId(user, supabase)
   const denied = await requirePermission(userTableId, 'settings', 'edit', supabase)
   if (denied) return denied
   const parsed = await parseBody(req, delayReasonUpdateSchema)
   if ('error' in parsed) return parsed.error
   const { id, ...fields } = parsed.data
-  const { data, error } = await supabase.from('delay_reasons' as any).update(fields).eq('id', id).select().single()
+
+  if ((fields as any).name !== undefined) {
+    const dupe = await guardDuplicateName(supabase, 'delay reason', {
+      table: 'delay_reasons', companyId, name: (fields as any).name, excludeId: id,
+    })
+    if (dupe) return dupe
+  }
+
+  // company_id added — see the matching note in departments PATCH.
+  const { data, error } = await supabase.from('delay_reasons' as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 })

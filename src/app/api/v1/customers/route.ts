@@ -9,6 +9,7 @@ import { parseBody } from '@/lib/utils/validate'
 import { customerSchema } from '@/lib/schemas/customer'
 import { runNewCustomerRule } from '@/lib/utils/automationEngine'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -25,11 +26,17 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '25')
   const offset = (page - 1) * limit
+  // `?deleted=1` lists the soft-deleted ones so they can be restored. Without
+  // it a mistaken delete was only reversible by hand against the database —
+  // which is exactly what "Ags Molasses" needed.
+  const deletedOnly = searchParams.get('deleted') === '1'
 
   // jobs(count) matches the server-rendered first page — without it the count
   // column would blank out the moment anyone searched or paged.
   let query = supabase.from('customers' as any).select('*, jobs(count)', { count: 'exact' })
-    .is('deleted_at', null).eq('is_active', true)
+  query = deletedOnly
+    ? query.not('deleted_at', 'is', null)
+    : query.is('deleted_at', null).eq('is_active', true)
 
   if (stage) query = query.eq('pipeline_stage', stage)
   if (search) {
@@ -59,6 +66,20 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const parsed = await parseBody(req, customerSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  // ─── Duplicate NAME — the check this route never had ──────────────────────
+  // "Ags Molasses" and "AGS Molasses" both existed live, and the NTN/phone
+  // check below never fired because the second row had all three blank. This
+  // one runs first, ignores `force`, and also catches a soft-deleted match so
+  // the answer is "restore it" rather than "make another one". See
+  // duplicateName.ts for why name is a block while phone/NTN stays a warning.
+  const dupeName = await guardDuplicateName(supabase, 'customer', {
+    table: 'customers',
+    companyId,
+    name: body.name,
+    codeColumn: 'customer_code',
+  })
+  if (dupeName) return dupeName
 
   // Duplicate detection: an exact match on NTN or phone/mobile is a strong
   // signal this customer already exists. Warn (409) instead of silently

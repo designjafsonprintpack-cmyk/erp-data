@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { costItemTypeUpdateSchema } from '@/lib/schemas/costItemType'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -20,6 +21,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const parsed = await parseBody(req, costItemTypeUpdateSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+  if (body.name !== undefined) {
+    const dupe = await guardDuplicateName(supabase, 'cost item type', {
+      table: 'cost_item_types', companyId, name: body.name, excludeId: params.id,
+    })
+    if (dupe) return dupe
+  }
+
   const patch: Record<string, any> = {}
   if (body.name !== undefined) patch.name = body.name
   if (body.unit_basis !== undefined) patch.unit_basis = body.unit_basis

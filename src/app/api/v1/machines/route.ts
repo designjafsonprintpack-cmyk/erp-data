@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { machineSchema, machineUpdateSchema } from '@/lib/schemas/machine'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -38,6 +39,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const parsed = await parseBody(req, machineSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  // Two machines with the same name make the planning board unreadable — and
+  // 112's day_order shuffle is chosen against a machine by name on screen.
+  const dupe = await guardDuplicateName(supabase, 'machine', {
+    table: 'machines', companyId, name: (body as any).name,
+  })
+  if (dupe) return dupe
+
   const { data, error } = await supabase.from('machines' as any)
     .insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -55,6 +64,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest) {
   const parsed = await parseBody(req, machineUpdateSchema)
   if ('error' in parsed) return parsed.error
   const { id, ...fields } = parsed.data
+
+  if ((fields as any).name !== undefined) {
+    const dupe = await guardDuplicateName(supabase, 'machine', {
+      table: 'machines', companyId, name: (fields as any).name, excludeId: id,
+    })
+    if (dupe) return dupe
+  }
+
   const { data, error } = await supabase.from('machines' as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

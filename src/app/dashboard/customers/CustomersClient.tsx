@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronRight, Users } from 'lucide-react'
+import { Plus, ChevronRight, Users, Undo2 } from 'lucide-react'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
@@ -31,11 +31,20 @@ const BIZ_COLORS: Record<string, string> = {
   government: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
 }
 
+/**
+ * The Deleted tab is a real tab rather than a stage, because it changes WHICH
+ * rows are fetched (`?deleted=1`), not how they are filtered. Before this
+ * existed, a customer deleted by mistake could only be brought back by editing
+ * the database by hand — which is what "Ags Molasses" and its 4 jobs needed.
+ */
+const DELETED_TAB = '__deleted__'
+
 const STAGE_TABS = [
   { value: '', label: 'All' },
   { value: 'lead', label: 'Leads' },
   { value: 'prospect', label: 'Prospects' },
   { value: 'customer', label: 'Customers' },
+  { value: DELETED_TAB, label: 'Deleted' },
 ]
 const STAGE_BADGE: Record<string, string> = {
   lead: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',
@@ -116,6 +125,42 @@ const CUSTOMER_COLUMNS: DataListColumn<Customer>[] = [
   },
 ]
 
+/**
+ * On the Deleted tab the chevron is useless — the row is already gone from
+ * every other screen — so it becomes the way back. The column is swapped
+ * rather than appended so the 12-column total stays exactly as it was.
+ *
+ * `role: 'meta'` instead of `'desktop'`, because on a phone a desktop-only
+ * column is not rendered at all and Restore would be unreachable there.
+ */
+function customerColumns(
+  deleted: boolean,
+  onRestore: (c: Customer) => void,
+): DataListColumn<Customer>[] {
+  if (!deleted) return CUSTOMER_COLUMNS
+  return [
+    ...CUSTOMER_COLUMNS.slice(0, -1),
+    {
+      key: 'restore', header: 'Restore', span: 1, role: 'meta', label: 'Restore', align: 'right',
+      render: c => (
+        <button
+          type="button"
+          onClick={e => {
+            // The whole row is a link to the customer. Without both of these the
+            // click navigates instead of restoring.
+            e.preventDefault()
+            e.stopPropagation()
+            onRestore(c)
+          }}
+          className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)] transition-colors"
+        >
+          <Undo2 size={13} /> Restore
+        </button>
+      ),
+    },
+  ]
+}
+
 export default function CustomersClient({ initialCustomers, initialTotal }: { initialCustomers: Customer[]; initialTotal: number }) {
   const router = useRouter()
   const [customers, setCustomers] = useState(initialCustomers)
@@ -125,13 +170,17 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
   const [stageFilter, setStageFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const showDeleted = stageFilter === DELETED_TAB
 
   // Replaces the list rather than appending — numbered pages, not Load More.
   const doSearch = useCallback(async (q: string, stage: string, pageNo: number) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ search: q, limit: String(PAGE_SIZE), page: String(pageNo) })
-      if (stage) params.set('stage', stage)
+      // Deleted is a different SET of rows, not a pipeline_stage value — sending
+      // it as `stage` would filter live customers by a stage nothing has.
+      if (stage === DELETED_TAB) params.set('deleted', '1')
+      else if (stage) params.set('stage', stage)
       const res = await fetch(`/api/v1/customers?${params.toString()}`)
       const json = await res.json()
       setCustomers((json.data ?? []) as Customer[])
@@ -140,6 +189,20 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
     } catch { toast.error('Search failed') }
     finally { setLoading(false) }
   }, [])
+
+  const handleRestore = async (c: Customer) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/customers/${c.id}`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(json?.error || 'Restore failed'); return }
+      toast.success(`${c.name} restored`)
+      // Refetch rather than splicing — the row has left this list entirely.
+      doSearch(search, stageFilter, page)
+      router.refresh()
+    } catch { toast.error('Restore failed') }
+    finally { setLoading(false) }
+  }
 
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -175,15 +238,21 @@ export default function CustomersClient({ initialCustomers, initialTotal }: { in
       <div className={cn(loading && 'opacity-60')}>
         <DataList<Customer>
           rows={customers}
-          columns={CUSTOMER_COLUMNS}
+          columns={customerColumns(showDeleted, handleRestore)}
           getRowId={c => c.id}
           rowHref={c => `/dashboard/customers/${c.id}`}
           stickyHeader
           empty={
             <div className="flex flex-col items-center py-16">
               <Users size={32} className="text-[var(--color-text-muted)] opacity-30 mb-3" />
-              <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">{search ? 'No results found' : 'No customers yet'}</p>
-              <p className="text-xs text-[var(--color-text-muted)]">{search ? 'Try a different search' : 'Add your first customer to get started'}</p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                {showDeleted ? 'Nothing deleted' : search ? 'No results found' : 'No customers yet'}
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {showDeleted
+                  ? 'Deleted customers show up here so you can bring them back'
+                  : search ? 'Try a different search' : 'Add your first customer to get started'}
+              </p>
             </div>
           }
         />

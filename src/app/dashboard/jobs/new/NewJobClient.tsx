@@ -1,11 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, History, X, RefreshCw, Search, Sparkles, FilePenLine, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { MoneyGate } from '@/components/ui/MoneyGate'
 import { toast } from '@/components/ui/Toast'
+import { ConfirmDialog } from '@/components/ui/Modal'
 import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
 import { CHANGE_ASPECTS } from '@/modules/jobs/constants/changeAspects'
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
@@ -39,6 +40,8 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   const router = useRouter()
   const [form, setForm] = useState<JobFormData>({ ...EMPTY_JOB_FORM, workflow_template_id: defaultWorkflowId })
   const [loading, setLoading] = useState(false)
+  /** Server's "JOB-… already has this title" message, awaiting a yes/no. */
+  const [duplicateJob, setDuplicateJob] = useState<string | null>(null)
 
   // Repeat mode reuses the existing POST /api/v1/jobs/[id]/repeat endpoint
   // rather than duplicating the spec-copying logic here — that route already
@@ -48,6 +51,33 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   const [repeat, setRepeat] = useState({ ...EMPTY_REPEAT })
   const [repeatSearch, setRepeatSearch] = useState('')
   const setRep = (k: keyof typeof EMPTY_REPEAT, v: any) => setRepeat(p => ({ ...p, [k]: v }))
+
+  // Both Repeat pickers search BY THE SERVER, for the same reason the copy
+  // picker below does: `repeatableJobs` is 200 of 479 jobs, so filtering it in
+  // the browser meant 279 jobs could not be repeated at all — including most of
+  // the legacy 2025 series, which is exactly the work that gets reordered.
+  // Declared here, above every reader, so nothing hits it in the temporal dead
+  // zone during render.
+  const [filteredJobs, setFilteredJobs] = useState<any[]>(repeatableJobs)
+  const [repeatLoading, setRepeatLoading] = useState(false)
+
+  useEffect(() => {
+    if (mode === 'new') return
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setRepeatLoading(true)
+      try {
+        const res = await fetch(`/api/v1/jobs/spec-search?q=${encodeURIComponent(repeatSearch.trim())}`)
+        const json = await res.json()
+        if (!cancelled) setFilteredJobs((json.data ?? []) as any[])
+      } catch {
+        // Keep the last good list rather than emptying the dropdown mid-typing.
+      } finally {
+        if (!cancelled) setRepeatLoading(false)
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [repeatSearch, mode])
 
   // ─── Repeat with Changes ──────────────────────────────────────────────────
   // Unlike exact repeat, this one drives the SAME full spec form as New Job —
@@ -65,7 +95,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
 
   const selectChangedParent = (id: string) => {
     setChangedParentId(id)
-    const p = repeatableJobs.find((j: any) => j.id === id)
+    const p = filteredJobs.find((j: any) => j.id === id)
     if (!p) return
     // Every field stays editable afterwards — this is a starting point, the
     // same way applyLineItem() works for a sales order.
@@ -97,15 +127,91 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
     }))
   }
 
-  const changedParent = repeatableJobs.find((j: any) => j.id === changedParentId)
+  const changedParent = filteredJobs.find((j: any) => j.id === changedParentId)
 
-  const q = repeatSearch.trim().toLowerCase()
-  const filteredJobs = q
-    ? repeatableJobs.filter((j: any) =>
-        [j.job_number, j.job_title, j.customers?.name, j.die_number]
-          .some((f: any) => String(f ?? '').toLowerCase().includes(q)))
-    : repeatableJobs
-  const parentJob = repeatableJobs.find((j: any) => j.id === repeat.parent_job_id)
+  // ─── Copy specs from an existing job (plain New Job, NOT a repeat) ────────
+  // Mehboob: "aik job jo already save hay same spec wala, doosra job aata hy
+  // new name k sath — to purany job main say sary spec kasy copy ho gy."
+  //
+  // Until now the only way to avoid retyping was "Repeat with Changes", which
+  // sets parent_job_id / is_repeat / repeat_kind, demands at least one "what
+  // changed" tick, and shouts REPEAT on the printed Job Card. For a job that is
+  // genuinely NEW and merely shares a spec, all of that is false record.
+  //
+  // This copies the tedious half and links nothing. Safe to leave unlinked:
+  // plate reuse is chosen by hand from any in-storage plate of the right size,
+  // so it does not depend on a parent job (checked, not assumed).
+  const [copiedFromId, setCopiedFromId] = useState('')
+  const [copySearch, setCopySearch] = useState('')
+  const [copyCandidates, setCopyCandidates] = useState<any[]>(repeatableJobs)
+  const [copyLoading, setCopyLoading] = useState(false)
+
+  // Searched BY THE SERVER, not by filtering the pre-loaded array.
+  // `repeatableJobs` is capped at 200 of 479 jobs, so a browser-side filter can
+  // only ever find a job that happened to be in that first page — and the 478
+  // legacy jobs share one created_at, so which 200 arrive is not even stable.
+  // Copying a spec from an OLD job is exactly the case that would have failed.
+  useEffect(() => {
+    if (mode !== 'new') return
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setCopyLoading(true)
+      try {
+        const res = await fetch(`/api/v1/jobs/spec-search?q=${encodeURIComponent(copySearch.trim())}`)
+        const json = await res.json()
+        if (!cancelled) setCopyCandidates((json.data ?? []) as any[])
+      } catch {
+        // Leave the last good list on screen rather than blanking the dropdown.
+      } finally {
+        if (!cancelled) setCopyLoading(false)
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [copySearch, mode])
+
+  const copiedFrom = copyCandidates.find((j: any) => j.id === copiedFromId)
+
+  /**
+   * Fills the production spec only.
+   *
+   * Deliberately NOT copied — each is a per-order decision that must be made
+   * consciously on a new job, and silently inheriting them is how a wrong
+   * quantity or a stale price reaches the floor:
+   *   job_title      the whole point is a new name
+   *   quantity       a new order has its own
+   *   required_date  likewise
+   *   quoted_amount  a differently-named job is priced on its own
+   *   sales order    a new job starts unattached
+   */
+  const copySpecsFrom = (id: string) => {
+    setCopiedFromId(id)
+    const p = copyCandidates.find((j: any) => j.id === id)
+    if (!p) return
+    setForm(prev => ({
+      ...prev,
+      customer_id:          p.customer_id || prev.customer_id,
+      size_l: s(p.size_l), size_w: s(p.size_w), size_h: s(p.size_h),
+      sheet_width_in: s(p.sheet_width_in), sheet_height_in: s(p.sheet_height_in),
+      box_type_id:          p.box_type_id || '',
+      no_of_colors:         s(p.no_of_colors),
+      die_number:           p.die_number || '',
+      gsm:                  s(p.gsm),
+      ups:                  s(p.ups),
+      board_type_id:        p.board_type_id || '',
+      paper_type_id:        p.paper_type_id || '',
+      lamination_type_id:   p.lamination_type_id || '',
+      uv_coating:           p.uv_coating || '',
+      foil_type_id:         p.foil_type_id || '',
+      special_finishing:    p.special_finishing || '',
+      pasting:              p.pasting || '',
+      workflow_template_id: p.workflow_template_id || defaultWorkflowId,
+    }))
+  }
+
+  // Read from the fetched list, not the pre-loaded one — a job found by search
+  // may not be in `repeatableJobs` at all, and looking it up there would leave
+  // the summary card and the spec prefill silently empty.
+  const parentJob = filteredJobs.find((j: any) => j.id === repeat.parent_job_id)
 
   const { draftAvailable, draftSavedAt, restoreDraft, discardDraft, clearDraft } = useDraftAutosave({
     key: 'jafson_draft_new_job',
@@ -192,7 +298,11 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   const selectedSO = salesOrders.find((s: any) => s.id === form.sales_order_id)
   const selectedSOItems = selectedSO?.sales_order_items ?? []
 
-  const save = async () => {
+  /**
+   * @param force Set once the user has answered the "a job like this already
+   *              exists" warning. Never sent on the first attempt.
+   */
+  const save = async (force = false) => {
     const isChanged = mode === 'changed'
     if (isChanged && !changedParentId) { toast.error('Select the job this repeats'); return }
     if (!form.customer_id) { toast.error('Please select a customer'); return }
@@ -212,10 +322,27 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           repeat_kind:     'changed',
           changed_aspects: changedAspects,
           change_note:     changeNote || null,
-        } : form),
+          ...(force ? { force: true } : {}),
+        } : { ...form, ...(force ? { force: true } : {}) }),
       })
+
+      // The same customer already has an open job with this title. A warning,
+      // not a refusal — a genuine second run of the same carton is normal work.
+      // The server has not consumed a job number at this point, so answering No
+      // leaves no gap in the JOB series.
+      if (res.status === 409) {
+        const e = await res.json()
+        if (e.code === 'DUPLICATE_JOB') {
+          setDuplicateJob(e.error || 'A job like this already exists.')
+          setLoading(false)
+          return
+        }
+        throw new Error(e.error)
+      }
+
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
+      setDuplicateJob(null)
       clearDraft()
       toast.success(isChanged ? `Changed repeat ${data.job_number} created!` : `Job ${data.job_number} created!`)
       router.push(`/dashboard/jobs/${data.id}`)
@@ -320,9 +447,11 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
                   </option>
                 ))}
               </select>
-              {filteredJobs.length === 0 && (
-                <p className="text-xs text-[var(--color-text-muted)]">No jobs match that search.</p>
-              )}
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {repeatLoading ? 'Searching…'
+                  : filteredJobs.length === 0 ? 'No jobs match that search.'
+                  : `Showing ${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} — type above to search every job, old and new.`}
+              </p>
             </div>
 
             {parentJob && (
@@ -388,9 +517,11 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
                     </option>
                   ))}
                 </select>
-                {filteredJobs.length === 0 && (
-                  <p className="text-xs text-[var(--color-text-muted)]">No jobs match that search.</p>
-                )}
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {repeatLoading ? 'Searching…'
+                    : filteredJobs.length === 0 ? 'No jobs match that search.'
+                    : `Showing ${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} — type above to search every job, old and new.`}
+                </p>
               </div>
 
               {changedParent && (
@@ -451,6 +582,60 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             </div>
           </Section>
         </>
+      )}
+
+      {/* Copy specs — plain New Job only. In 'changed' mode the parent already
+          fills the form, and in 'repeat' mode there is no spec form at all. */}
+      {mode === 'new' && (
+        <Section title="Same spec as an old job?">
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Pick the old job and its full specification is copied in — size, board, GSM,
+              colours, die, ups, finishing and workflow. Everything stays editable, and this
+              does <strong>not</strong> mark the new job as a repeat.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className={labelCls}>Copy specs from</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                <input className={cn(inputCls, 'pl-9')} value={copySearch} onChange={e => setCopySearch(e.target.value)}
+                  placeholder="Search by job number, title, customer or die number…" />
+              </div>
+              <select className={inputCls} value={copiedFromId} onChange={e => copySpecsFrom(e.target.value)}>
+                <option value="">Start from blank…</option>
+                {copyCandidates.map((j: any) => (
+                  <option key={j.id} value={j.id}>
+                    {j.job_number} — {j.job_title} ({j.customers?.name || 'No customer'})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {copyLoading
+                  ? 'Searching…'
+                  : copyCandidates.length === 0
+                    ? 'No jobs match that search.'
+                    : `Showing ${copyCandidates.length} job${copyCandidates.length === 1 ? '' : 's'} — type above to search all jobs, old and new.`}
+              </p>
+            </div>
+
+            {copiedFrom && (
+              <div className="rounded-lg border p-3 text-sm
+                bg-[color:color-mix(in_srgb,var(--color-accent)_8%,transparent)]
+                border-[color:color-mix(in_srgb,var(--color-accent)_25%,transparent)]">
+                <p className="text-[var(--color-text-primary)]">
+                  Specs copied from <span className="font-semibold">{copiedFrom.job_number}</span>.
+                </p>
+                <p className="text-[var(--color-text-secondary)] mt-1 text-xs">
+                  Job title, quantity, required date and amount are <strong>not</strong> copied —
+                  set those yourself so nothing carries over by accident. If this is really the
+                  same product running again, use <strong>Repeat</strong> above instead, so the
+                  two jobs stay linked.
+                </p>
+              </div>
+            )}
+          </div>
+        </Section>
       )}
 
       {/* Customer & SO */}
@@ -669,7 +854,10 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <RefreshCw size={15} /> {loading ? 'Creating…' : 'Create Repeat Job'}
           </button>
         ) : (
-          <button onClick={save}
+          // Arrow function, not `onClick={save}` — a bare reference hands the
+          // click event straight into save()'s `force` parameter, so every
+          // first attempt would silently skip the duplicate check.
+          <button onClick={() => save(false)}
             disabled={loading || !form.customer_id || !form.job_title
               || (mode === 'changed' && (!changedParentId || !changedAspects.length))}
             className="flex items-center gap-2 px-5 h-11 lg:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
@@ -678,6 +866,19 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           </button>
         )}
       </div>
+
+      {/* Suspected duplicate — overridable on purpose. A repeat order is real
+          work, so this asks rather than refuses. */}
+      <ConfirmDialog
+        open={!!duplicateJob}
+        onClose={() => setDuplicateJob(null)}
+        onConfirm={() => { setDuplicateJob(null); save(true) }}
+        title="A job like this already exists"
+        message={duplicateJob ?? ''}
+        confirmLabel="Create anyway"
+        confirmVariant="primary"
+        loading={loading}
+      />
     </div>
   )
 }

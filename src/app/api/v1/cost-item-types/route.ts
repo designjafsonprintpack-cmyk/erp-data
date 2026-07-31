@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { costItemTypeSchema } from '@/lib/schemas/costItemType'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
 
 export const GET = withErrorHandling(async function GET() {
@@ -34,6 +35,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const parsed = await parseBody(req, costItemTypeSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  // A duplicate cost line is worse than a duplicate name elsewhere: two rows
+  // called "Plate Cost" means the same cost gets entered twice on a job and
+  // the margin comes out wrong.
+  const dupe = await guardDuplicateName(supabase, 'cost item type', {
+    table: 'cost_item_types', companyId, name: body.name,
+  })
+  if (dupe) return dupe
 
   // New custom items always append after the workflow-ordered defaults
   // rather than landing wherever alphabetical sort happens to put them.

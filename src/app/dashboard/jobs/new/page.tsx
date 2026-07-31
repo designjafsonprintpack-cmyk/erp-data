@@ -23,15 +23,24 @@ export default async function NewJobPage() {
     supabase.from('coating_types' as any).select('id,name').eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('workflow_templates' as any).select('id,name,is_default').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('sales_orders' as any).select('id,so_number,customer_id,customers(name),sales_order_items(id,product_desc,size_l,size_w,size_h,quantity,no_of_colors,board_type_id,paper_type_id,gsm)').eq('company_id', companyId).eq('status','confirmed').is('deleted_at', null).order('created_at', { ascending: false }).limit(50),
-    // Candidates for "Repeat Job". Capped at 200 — the picker has a search box,
-    // and an unbounded jobs select would grow without limit on a live shop.
-    // "Repeat with Changes" pre-fills the whole spec form from the parent, so
-    // this select carries every field that form binds to — not just the four
-    // shown in the exact-repeat summary card.
+    // First paint for the three job pickers (Repeat, Repeat with Changes, and
+    // "Same spec as an old job?"). All three now search through
+    // GET /api/v1/jobs/spec-search, which replaces this list within ~300ms —
+    // the browser-side filter this used to feed could only ever see these 200
+    // of 479 jobs, so 279 were unreachable no matter what was typed.
+    //
+    // `quoted_amount` is deliberately NOT selected here. It used to be, for
+    // every role, which put the price of 200 jobs in the page HTML with only a
+    // client-side MoneyGate between it and the screen. The search route returns
+    // it instead, gated on canSeeMoneyServer().
     supabase.from('jobs' as any)
-      .select('id,job_number,job_title,description,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,gsm,board_type_id,paper_type_id,lamination_type_id,foil_type_id,uv_coating,special_finishing,pasting,workflow_template_id,quoted_amount,customer_id,customers(name)')
+      .select('id,job_number,job_title,description,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,gsm,board_type_id,paper_type_id,lamination_type_id,foil_type_id,uv_coating,special_finishing,pasting,workflow_template_id,customer_id,customers(name)')
       .eq('company_id', companyId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(200),
+      .order('created_at', { ascending: false })
+      // The 478 legacy jobs share one backdated created_at, so without this the
+      // 200 that arrive differ between renders.
+      .order('id', { ascending: false })
+      .limit(200),
     // Real GSMs that actually exist in stock, per board type. GSM is a property
     // of the STOCK ITEM (one board comes in many weights), not of the board
     // type — so the job's GSM options are sourced from here, never from

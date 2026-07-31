@@ -8,8 +8,14 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { settingsResourceSchema, settingsResourceUpdateSchema } from '@/lib/schemas/settingsResource'
 import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 const VALID: Record<string, string> = { units: 'units', currencies: 'currencies', taxes: 'taxes' }
+
+// The units seed ran twice on 2026-07-15 and left 28 rows where there should
+// have been 14 — two of every unit, "Sheet" twice, "KG" twice, with no way to
+// tell which was real. Nothing in this route would have stopped it.
+const NOUNS: Record<string, string> = { units: 'unit', currencies: 'currency', taxes: 'tax' }
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { resource: string } }) {
   const table = VALID[params.resource]
@@ -36,6 +42,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const parsed = await parseBody(req, settingsResourceSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  const dupe = await guardDuplicateName(supabase, NOUNS[params.resource] ?? 'record', {
+    table, companyId, name: (body as any).name,
+  })
+  if (dupe) return dupe
+
   const { data, error } = await supabase.from(table as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
@@ -54,6 +66,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const parsed = await parseBody(req, settingsResourceUpdateSchema)
   if ('error' in parsed) return parsed.error
   const { id, ...fields } = parsed.data
+
+  if ((fields as any).name !== undefined) {
+    const dupe = await guardDuplicateName(supabase, NOUNS[params.resource] ?? 'record', {
+      table, companyId, name: (fields as any).name, excludeId: id,
+    })
+    if (dupe) return dupe
+  }
+
   const { data, error } = await supabase.from(table as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

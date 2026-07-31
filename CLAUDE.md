@@ -1147,7 +1147,192 @@ roles proven non-empty — 21 assertions.
 `qc = 5` against a real 14; the 200-row stat cards 103 fixed; now this). Any
 `select()` on a table that can exceed 1000 rows is a bug until proven otherwise.
 
+### Duplicates, delete guards and Restore (no migration)
+Mehboob: *"customer main Ags Molasses tha jo ghalti say delete ho gya us k 4
+jobs b thay"* — then *"dublicate entry b na ho, same name phir say add ho gya
+sirf capital letter aur small letter ka ferq tha."*
+
+**What actually happened**, read off the live rows: `CUST-2026-0001` "Ags
+Molasses" (the legacy import, 4 jobs) and `CUST-2026-0049` "AGS Molasses"
+(created by hand at 11:32:17) were both live at once. Both were deleted 35
+seconds apart while trying to clean that up. **The 4 jobs were never touched** —
+a customer soft-delete does not cascade — but they pointed at a row no screen
+would show. `CUST-2026-0001` was restored and asserted back (16 assertions);
+the empty duplicate was deliberately left deleted.
+
+**Why nothing stopped it.** `customers` POST *did* have duplicate detection —
+on NTN and phone/mobile only, **never on the name** — and the duplicate row had
+all three blank (`''`), so `body.ntn?.trim()` was falsy and **not one check
+ran**. PATCH had no check at all. Every other named table (vendors, the eight
+material-type tables, units/currencies/taxes, machines, departments,
+job_statuses, delay_reasons, cost_item_types) had none of any kind, and DELETE
+nowhere looked at what was attached.
+
+Three shared helpers, so the answer is the same everywhere:
+
+- **`duplicateName.ts`** — `normalizeName()` (trim → collapse whitespace →
+  lowercase) plus `guardDuplicateName()`. Wired into POST **and** PATCH of all
+  eleven routes above.
+  - **Name is a HARD block; phone/NTN stays a warning with `force`.** A phone
+    can legitimately be shared (two branches, one landline). Two rows reading
+    "AGS Molasses" in a dropdown cannot be told apart by anyone afterwards, and
+    the fix is free — give one a distinguishing name. `force` is deliberately
+    **not** honoured for a name.
+  - **Soft-deleted rows are included on purpose**, so re-adding a deleted name
+    answers *"restore it instead"* (`DUPLICATE_NAME_DELETED`) rather than
+    orphaning the first row for good.
+  - **The `ilike` narrowing puts a wildcard BETWEEN each word**, not around the
+    whole string. Wrapping the trimmed value meant `"AGS   Molasses"` never
+    found the stored `"AGS Molasses"` — ilike is case-insensitive but not
+    whitespace-insensitive. **Caught by a failing assertion, not by reading the
+    code**, and the failed run created a customer the script had not recorded,
+    which is why the cleanup now sweeps by name as well as by id.
+  - Deliberately NOT fuzzy: "AGS Molasses" vs "AGS Molasses Pvt Ltd" pass. There
+    is no safe near-match threshold to guess at.
+- **`deleteGuard.ts`** — counts dependents (`{ count: 'exact', head: true }`,
+  never a fetched array) and answers 409 with them; `?force=1` proceeds.
+  Customers check jobs/quotations/sales_orders/invoices/dispatch_orders, vendors
+  check purchase_orders/board_inventory/board_inventory_lots.
+  **Warn, don't block** — a customer entered by mistake with a job entered by
+  mistake still has to be removable. That is only safe because delete is now
+  recoverable; **do not reuse this to guard a hard delete.**
+- **`duplicateJob.ts`** — a **warning only, never a block**. Running the same
+  carton again is the business, not a mistake. Flags same customer + same
+  normalized title when the twin is **still open, or was created in the last 24
+  hours** — which catches a double submit while leaving a normal repeat of
+  finished work alone. Skipped outright when `parent_job_id` is set (pressing
+  Repeat already answers the question).
+  **Placed before `get_next_sequence_number`**: that RPC consumes a real job
+  number, so warning after calling it would burn one per warning and leave
+  permanent gaps in the JOB series. Asserted.
+
+Restore: `?deleted=1` on the customers GET, `POST /api/v1/customers/[id]` to
+undo, and a **Deleted tab with a Restore button** on the list.
+- Restore uses the **`edit`** permission, not `delete` — gating it behind
+  `delete` means the people most likely to spot the mistake cannot fix it.
+- **The restore clash check counts LIVE rows only.** Using the shared helper
+  as-is would have let the deleted "AGS Molasses" twin block the real one from
+  coming back — the exact pair on live. Asserted both ways.
+- The Restore column is `role: 'meta'`, not `'desktop'`, or it would not render
+  on a phone at all. `ConfirmDialog`'s "This cannot be undone" is gone for
+  customers, because it is no longer true.
+
+**Two client bugs found on the way:** the customer DELETE call never read its
+response, so a 409 would have been ignored and the page would have navigated
+away as though the delete worked; and `onClick={save}` on New Job passes the
+click event straight into the new `force` parameter, which would have skipped
+the duplicate check on every first attempt. Both fixed.
+
+Also fixed in passing: `departments`, `job_statuses` and `delay_reasons` PATCH
+updated **by id alone with no `company_id` filter**, leaving RLS as the only
+tenant boundary — every other route in the codebase filters it explicitly.
+
+Verified: **44 assertions through the real HTTP routes against live** (temp
+superadmin, cleanup written first, `npm run dev -- -p 3123`) — capitals,
+extra spaces and `force:true` all refused on a name; a different name and a
+row keeping its own name both allowed; the job warning raised, overridden,
+skipped for a repeat, and not raised for a different customer; the refused job
+proven to consume no job number; delete refused naming "3 jobs" and proven to
+have changed nothing; `force=1` soft-deleting with all 3 jobs surviving; the
+Deleted list, restore, the already-live 400, and both twin cases. Live was
+returned to its exact prior state — **9 further assertions**: 48 live
+customers, only the AGS duplicate still deleted, Ags Molasses restored with its
+4 jobs, 479 jobs, counters back to CUST 49 / JOB 1 / VND 5, temp user gone.
+
+### "Same spec as an old job?" — copy specs without making it a repeat
+Mehboob: *"aik job jo already save hay same spec wala, doosra job aata hy new
+name k sath — to purany job main say sary spec kasy copy ho gy."*
+
+**What existed:** only "Repeat with Changes", which fills the whole spec form
+from the parent — but also sets `parent_job_id` / `is_repeat` / `repeat_kind`,
+**demands at least one "what changed" tick**, and shouts REPEAT on the printed
+Job Card. For a job that is genuinely new and merely shares a spec, every one
+of those is false record. The alternative was retyping ~18 fields.
+
+New Job (plain mode only) now carries a **Copy specs from** picker. It copies
+the production spec — size, sheet, box type, board, GSM, colours, ups, die,
+lamination, coating, foil, finishing, pasting, workflow, customer — and links
+nothing.
+
+- **Deliberately NOT copied: job title, quantity, required date, quoted
+  amount.** Each is a per-order decision, and silently inheriting one is how a
+  wrong quantity or a stale price reaches the floor. The title especially — a
+  new name is the whole premise, and leaving it blank also means the new
+  duplicate-job warning does not fire on a legitimate copy.
+- **Safe to leave unlinked** because plate reuse does not depend on a parent
+  job: the operator picks any in-storage plate of the matching size from a
+  dropdown (`PlatesClient` filters on `status === 'in_storage' && plate_size`).
+  Checked before deciding, not assumed.
+- The panel says outright that if it really is the same product running again,
+  Repeat is the right button — so the two features don't blur.
+
+**`GET /api/v1/jobs/spec-search`** backs it, and exists because the picker
+would otherwise have been useless for the exact case he described.
+`jobs/new/page.tsx` pre-loads `.limit(200)` and the old picker filtered that
+array **in the browser** — with 479 jobs live, **279 of them could not be found
+no matter what was typed**, and since the 478 legacy jobs share one backdated
+`created_at`, which 200 arrived was not even stable. Same defect §6 records:
+a filter that stays in the browser silently reinstates the cap.
+- Customer name is matched by **resolving names to ids first**, then
+  `customer_id.in.(…)` — PostgREST cannot put an embedded column inside a
+  parent-level `.or()`, and the browser filter it replaces did support customer
+  name, so dropping it would have been a quiet regression.
+- Returns **no `quoted_amount`**: the route is open to anyone with `jobs create`,
+  which by 120's line includes the production side, and the copy never uses it.
+- `.eq('job_kind','production')` so press proofs aren't offered as a spec to
+  copy, and `.order('id')` as the tiebreaker the legacy jobs need.
+
+Verified: **21 assertions through the real routes against live** — a real job
+proven to sit outside the pre-loaded 200 and then proven findable by the new
+route; every field the copy fills present in the payload; `quoted_amount`
+absent; search by job number, by customer name (all 4 Ags Molasses jobs), and a
+nonsense search returning an empty list rather than an error; the 50-row cap;
+401 without a session; and a job created from a copied spec proven to have
+`parent_job_id` NULL, `is_repeat` false, no `repeat_kind`, with GSM and die
+number carried across. Live returned to its prior state (jobs 479, JOB counter
+1, temp user removed) — 4 further assertions.
+
+**Then both Repeat pickers were moved onto it too** (*"ker do"*), so all three
+job pickers on the page share one server-side search. Two things that needed
+care:
+- **`parentJob` / `changedParent` / `selectChangedParent()` had to switch from
+  `repeatableJobs` to the fetched list.** A job found by search is very often
+  NOT in the pre-loaded 200, so looking it up there would have left the
+  exact-repeat summary card blank and the changed-repeat prefill empty —
+  silently, with no error.
+- `filteredJobs` is declared **above every reader**; `changedParent` reads it
+  during render, so a later `const` would be a temporal-dead-zone crash.
+- The route grew `quantity` (the exact-repeat card shows it) and
+  `quoted_amount` (the changed-repeat prefill writes it).
+
+**`quoted_amount` is stripped SERVER-SIDE here** — the one place in this
+codebase where a money gate is real rather than a display gate (119's rule is
+that the API still returns the figures). It can afford to be: the field has
+exactly one consumer. It also **closes a leak**: `jobs/new/page.tsx` was
+selecting `quoted_amount` for 200 jobs **for every role**, so the price sat in
+the page HTML with only a client-side `MoneyGate` between it and the screen. A
+Planning or Production user could read it in the source. That column is now out
+of the page select entirely, and the page also gained the `.order('id')`
+tiebreaker its 200-row window needed.
+
+Verified: **20 further assertions against live** — `gm` and `planning` first
+proven to genuinely differ on `money::view` before trusting anything;
+`planning` gets all 50 rows with **every** `quoted_amount` null and every spec
+field intact, `gm` gets the amounts; every field `selectChangedParent()` writes
+present in the payload; **279 jobs measured as sitting outside the pre-loaded
+200**, with 5 sampled and all 5 now findable; and the rendered New Job page
+proven to contain no `quoted_amount` at all. Live unchanged afterwards (479
+jobs, 48 customers, counters, 14 users) — 5 more.
+
 ### Open threads
+- **Only Customers has a Restore tab.** Vendors, machines, departments and the
+  master-data lists all soft-delete with no way back from the UI — same gap,
+  same fix, not done unasked. `deleteGuard` is already wired to vendors.
+- **`vendors` PATCH spreads the raw request body into the update** (`.update(body)`)
+  rather than using an explicit allowlist the way `customers` PATCH does. A
+  mass-assignment risk: `company_id`, `is_active` and `deleted_at` are
+  client-settable on that route today. Flagged, not fixed — it needs its own
+  pass over the vendor schema.
 - **`planning` still has 22 view modules** (purchase, dispatch, workflow,
   machines, quotations, sales_orders, all six production stages…), which is why
   its sidebar is 23 links and auto-collapses. Tightening it was offered and not

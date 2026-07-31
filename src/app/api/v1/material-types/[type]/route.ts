@@ -7,6 +7,7 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { materialTypeSchema, materialTypeUpdateSchema } from '@/lib/schemas/settingsConfig'
 import { REFERENCE_DATA_CACHE_HEADERS } from '@/lib/utils/cacheHeaders'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 const VALID_TABLES: Record<string, string> = {
   board:      'board_types',
@@ -17,6 +18,20 @@ const VALID_TABLES: Record<string, string> = {
   lamination: 'lamination_types',
   coating:    'coating_types',
   box:        'box_types',
+}
+
+// What each one is called in the duplicate message. A master list that grows a
+// second "Ecano"/"Econo Board" is how 12 board descriptions ended up matching
+// no board type at all.
+const NOUNS: Record<string, string> = {
+  board:      'board type',
+  paper:      'paper type',
+  ink:        'ink type',
+  glue:       'glue type',
+  foil:       'foil type',
+  lamination: 'lamination type',
+  coating:    'coating type',
+  box:        'box type',
 }
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { type: string } }) {
@@ -48,6 +63,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   const parsed = await parseBody(req, materialTypeSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  const dupe = await guardDuplicateName(supabase, NOUNS[params.type] ?? 'record', {
+    table, companyId, name: (body as any).name,
+  })
+  if (dupe) return dupe
+
   const { data, error } = await supabase.from(table as any).insert({ ...body, company_id: companyId }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
@@ -68,6 +89,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const parsed = await parseBody(req, materialTypeUpdateSchema)
   if ('error' in parsed) return parsed.error
   const { id, ...fields } = parsed.data
+
+  if ((fields as any).name !== undefined) {
+    const dupe = await guardDuplicateName(supabase, NOUNS[params.type] ?? 'record', {
+      table, companyId, name: (fields as any).name, excludeId: id,
+    })
+    if (dupe) return dupe
+  }
+
   const { data, error } = await supabase.from(table as any).update(fields).eq('id', id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

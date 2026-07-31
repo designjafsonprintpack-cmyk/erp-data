@@ -7,6 +7,7 @@ import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { vendorSchema } from '@/lib/schemas/vendor'
+import { guardDuplicateName } from '@/lib/utils/duplicateName'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -42,6 +43,17 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const parsed = await parseBody(req, vendorSchema)
   if ('error' in parsed) return parsed.error
   const body = parsed.data
+
+  // Vendors had NO duplicate check of any kind — a second "Saud Traders" was
+  // one click away, and board stock is grouped by vendor on the monthly report
+  // (114), so a split vendor splits the report.
+  const dupeName = await guardDuplicateName(supabase, 'vendor', {
+    table: 'vendors',
+    companyId,
+    name: body.name,
+    codeColumn: 'vendor_code',
+  })
+  if (dupeName) return dupeName
 
   const { data: vendorCode } = await (supabase as any).rpc('get_next_sequence_number', {
     p_company_id: companyId, p_document_type: 'VND',

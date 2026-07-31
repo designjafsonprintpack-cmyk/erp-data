@@ -75,6 +75,11 @@ export const jobSchema = z.object({
     'board_gsm', 'colors', 'die', 'finishing', 'other',
   ])).optional(),
   change_note: blankToNull(z.string().optional().nullable()),
+
+  // Acknowledges the "a job like this already exists" warning and creates it
+  // anyway. A WARNING, never a block — see duplicateJob.ts for why a job can
+  // legitimately be entered twice and a customer name cannot.
+  force: z.boolean().optional(),
 })
 
 // PATCH accepts everything create does (all optional here) plus `status`,

@@ -22,6 +22,8 @@ export default function NewCustomerPage() {
 
   // Pending duplicate warning: null until the API reports a possible match.
   const [duplicate, setDuplicate] = useState<{ message: string; names: string[] } | null>(null)
+  /** A refusal the user cannot override — an existing name. Message only. */
+  const [blocked, setBlocked] = useState<string | null>(null)
 
   const createAnyway = async () => {
     setLoading(true)
@@ -49,6 +51,17 @@ export default function NewCustomerPage() {
       // security warning on a phone.
       if (res.status === 409) {
         const e = await res.json()
+
+        // A NAME clash is not overridable, unlike a shared phone or NTN. Offering
+        // "Create anyway" here would send force:true, the server would refuse it
+        // again, and the user would sit in a loop — so it shows the reason and
+        // stops. See duplicateName.ts for why the two are treated differently.
+        if (e.code === 'DUPLICATE_NAME' || e.code === 'DUPLICATE_NAME_DELETED') {
+          setBlocked(e.error || 'A customer with this name already exists.')
+          setLoading(false)
+          return
+        }
+
         setDuplicate({
           message: e.error || 'A similar customer already exists.',
           names: (e.duplicates || []).map((d: any) => `${d.name} (${d.customer_code})`),
@@ -179,6 +192,17 @@ export default function NewCustomerPage() {
         confirmLabel="Create anyway"
         confirmVariant="primary"
         loading={loading}
+      />
+
+      {/* Name already taken — nothing to confirm, so both buttons close it. */}
+      <ConfirmDialog
+        open={!!blocked}
+        onClose={() => setBlocked(null)}
+        onConfirm={() => setBlocked(null)}
+        title="This name is already used"
+        message={blocked ?? ''}
+        confirmLabel="OK"
+        confirmVariant="primary"
       />
 
     </div>

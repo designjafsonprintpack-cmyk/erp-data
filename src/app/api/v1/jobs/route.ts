@@ -11,6 +11,7 @@ import { parseBody } from '@/lib/utils/validate'
 import { jobSchema } from '@/lib/schemas/job'
 import { withCurrentStageNames } from '@/lib/utils/currentStageNames'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
+import { findDuplicateJobs, duplicateJobResponse } from '@/lib/utils/duplicateJob'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -121,6 +122,25 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
       { error: 'Select at least one thing that changed on this repeat.' },
       { status: 400 }
     )
+  }
+
+  // ─── Suspected duplicate job ──────────────────────────────────────────────
+  // A WARNING, not a block — the same carton genuinely does get run again, and
+  // that is what Repeat is for. Skipped outright when parent_job_id is set,
+  // because pressing Repeat already answers this question. Press proofs are
+  // created by their own route and never reach here.
+  //
+  // Placed BEFORE get_next_sequence_number deliberately: that function consumes
+  // a real job number, so returning a 409 after calling it would burn one on
+  // every warning and leave permanent gaps in the JOB series.
+  if (!parentJob && !body.force) {
+    const dupes = await findDuplicateJobs(supabase, {
+      companyId,
+      customerId: body.customer_id,
+      jobTitle: body.job_title,
+    })
+    const warn = duplicateJobResponse(dupes)
+    if (warn) return warn
   }
 
   // Generate job number
