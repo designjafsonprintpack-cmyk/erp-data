@@ -8,6 +8,7 @@ import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { artworkApprovalLinkSchema } from '@/lib/schemas/artwork'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
+import { buildArtworkShareText, type ArtworkShareContext } from '@/lib/utils/artworkShareText'
 
 const EXPIRY_MS: Record<string, number | null> = {
   '7d':   7  * 24 * 60 * 60 * 1000,
@@ -54,8 +55,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   // Only move status forward if it isn't already at/past this point in the
   // flow — re-sending a link for an artwork that's already approved/
   // rejected shouldn't silently reset its outcome.
+  //
+  // The job/customer/design columns come along for the share message built at
+  // the bottom. The embed MUST carry the FK hint: since migration 104 added
+  // jobs.proof_artwork_id there are two relationships between these tables and
+  // PostgREST refuses to guess, failing the whole query.
   const { data: current } = await supabase.from('job_artworks' as any)
-    .select('status, job_id').eq('id', params.id).eq('company_id', companyId).single()
+    .select('status, job_id, version, design_no, design_label, jobs!job_artworks_job_id_fkey(job_number, job_title, customers(name))')
+    .eq('id', params.id).eq('company_id', companyId).single()
   if (current && ['draft', 'internal_review'].includes((current as any).status)) {
     updateData.status = 'waiting_customer_approval'
   }
@@ -122,5 +129,39 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   }
 
   const approvalUrl = `${req.nextUrl.origin}/artwork/approve/${token}`
-  return NextResponse.json({ data, approval_url: approvalUrl })
+
+  // ─── What the link IS, sent back with it ──────────────────────────────────
+  // A bare token URL says nothing about which job or which design it opens, so
+  // four links sent together are indistinguishable to whoever receives them.
+  // The route builds the share message once and both screens display it — see
+  // artworkShareText.ts.
+  const cur = (current as any) ?? {}
+  // How many designs this job has: it decides whether the message names the
+  // design at all. Few rows per job, so no cap concern.
+  const { data: designRows } = await supabase.from('job_artworks' as any)
+    .select('design_no')
+    .eq('job_id', cur.job_id ?? '')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+
+  const designCount = new Set(((designRows ?? []) as any[]).map(r => Number(r.design_no) || 1)).size
+
+  const share: ArtworkShareContext = {
+    url: approvalUrl,
+    job_number:    cur.jobs?.job_number ?? null,
+    job_title:     cur.jobs?.job_title ?? null,
+    customer_name: cur.jobs?.customers?.name ?? null,
+    design_no:     cur.design_no ?? 1,
+    design_label:  cur.design_label ?? null,
+    design_count:  designCount || 1,
+    version:       Number(cur.version) || Number((data as any)?.version) || 1,
+    expires_at:    (updateData.approval_token_expires_at as string | null) ?? null,
+  }
+
+  return NextResponse.json({
+    data,
+    approval_url: approvalUrl,
+    share,
+    share_text: buildArtworkShareText(share),
+  })
 })

@@ -18,7 +18,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase.from('job_artworks' as any)
-    .select('id, job_id, version, file_url, file_name, status, designer_notes, approval_token_expires_at, company_id, jobs!job_artworks_job_id_fkey(job_number, job_title, customers(name))')
+    .select('id, job_id, version, design_no, design_label, file_url, file_name, status, designer_notes, approval_token_expires_at, company_id, jobs!job_artworks_job_id_fkey(job_number, job_title, customers(name))')
     .eq('approval_token', params.token)
     .is('deleted_at', null)
     .maybeSingle()
@@ -48,9 +48,19 @@ export const GET = withErrorHandling(async function GET(req: NextRequest, { para
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
+  // Which design of the job this is (migration 124). A job can carry two
+  // separate designs — a lid and a base — each with its own approval link, and
+  // without this the two pages are word-for-word identical to the customer
+  // being asked to sign them off. Only named when the job really has more than
+  // one, so the ordinary single-design job reads exactly as before.
+  const { data: designRows } = await supabase.from('job_artworks' as any)
+    .select('design_no').eq('job_id', row.job_id).is('deleted_at', null)
+  const designCount = new Set(((designRows ?? []) as any[]).map(r => Number(r.design_no) || 1)).size
+
   return NextResponse.json({
     data: {
       id: row.id, version: row.version, status: row.status, file_name: row.file_name,
+      design_no: row.design_no ?? 1, design_label: row.design_label ?? null, design_count: designCount || 1,
       designer_notes: row.designer_notes, preview_url: signed?.signedUrl || null,
       job_number: row.jobs?.job_number, job_title: row.jobs?.job_title, customer_name: row.jobs?.customers?.name,
       comments: comments ?? [], company_name: companyName,

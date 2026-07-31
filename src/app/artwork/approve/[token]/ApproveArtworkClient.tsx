@@ -13,6 +13,8 @@ interface Comment {
 }
 interface Artwork {
   id: string; version: number; status: string; file_name: string
+  /** Which design of the job (migration 124) — named only when count > 1. */
+  design_no?: number | null; design_label?: string | null; design_count?: number
   designer_notes: string | null; preview_url: string | null
   job_number: string; job_title: string; customer_name: string | null
   comments: Comment[]
@@ -242,6 +244,15 @@ export default function ApproveArtworkClient({ token }: { token: string }) {
             <div className="p-6 border-b border-[#22252c]">
               <p className="text-xs text-[#8a8f9c] uppercase tracking-wide">Job {artwork.job_number} — Version {artwork.version}</p>
               <p className="text-xl font-bold text-[#e6e8ec]">{artwork.job_title}</p>
+              {/* Which design, when the job carries more than one (migration
+                  124) — otherwise two approval links for the same job open two
+                  identical-looking pages. Hardcoded hex like the rest of this
+                  page: it leaves the building and must not follow the theme. */}
+              {(artwork.design_count ?? 1) > 1 && (
+                <p className="inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold text-[#7aa2f7] bg-[#1b2130] border border-[#2b3450]">
+                  {artwork.design_label || `Design ${artwork.design_no ?? 1}`}
+                </p>
+              )}
               {artwork.customer_name && <p className="text-sm text-[#8a8f9c] mt-1">For {artwork.customer_name}</p>}
             </div>
 

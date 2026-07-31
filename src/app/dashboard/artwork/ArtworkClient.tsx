@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Upload, CheckCircle2, Image as ImageIcon, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
+import { Upload, CheckCircle2, Image as ImageIcon, Plus, Trash2, ExternalLink, Filter, Link2, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { ARTWORK_ACCEPT, ARTWORK_ACCEPT_LABEL, ARTWORK_REJECT_MESSAGE, isAcceptedArtworkFile } from '@/lib/utils/artworkFileTypes'
@@ -12,6 +12,8 @@ import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/Artwork
 import { MarkupOverlay, markNumber } from '@/components/artwork/MarkupOverlay'
 import type { MarkupShape } from '@/lib/schemas/publicToken'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
+import { artworkShareLabel, type ArtworkShareContext } from '@/lib/utils/artworkShareText'
+import { ApprovalLinkShare } from '@/components/artwork/ApprovalLinkShare'
 import { Pagination } from '@/components/ui/Pagination'
 import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 
@@ -29,6 +31,9 @@ interface ArtworkComment {
 }
 interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
+  /** Which DESIGN this belongs to (migration 124). Legacy rows are 1. */
+  design_no?: number | null
+  design_label?: string | null
   file_size: number | null; file_type: string | null; designer_notes: string | null
   status: ArtworkStatus; is_production_ready: boolean; approved_at: string | null; created_at: string
   approver_name?: string | null; approver_email?: string | null; decided_at?: string | null
@@ -72,6 +77,11 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
   const [linkModal, setLinkModal] = useState<Artwork | null>(null)
   const [linkExpiry, setLinkExpiry] = useState('7d')
   const [generatedLink, setGeneratedLink] = useState('')
+  // The message that goes out WITH the link — who it's for, which job, which
+  // design, when it expires. Built by the route so this screen and Job Detail
+  // can't word it differently. See artworkShareText.ts.
+  const [share, setShare] = useState<ArtworkShareContext | null>(null)
+  const [shareText, setShareText] = useState('')
   const [linkLoading, setLinkLoading] = useState(false)
   const [commentsModal, setCommentsModal] = useState<Artwork | null>(null)
   const [commentsModalImageUrl, setCommentsModalImageUrl] = useState<string | null>(null)
@@ -186,6 +196,8 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
   const openLinkModal = (art: Artwork) => {
     setLinkModal(art)
     setGeneratedLink('')
+    setShare(null)
+    setShareText('')
     setLinkExpiry('7d')
   }
 
@@ -198,17 +210,29 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
         body: JSON.stringify({ expiry: linkExpiry }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      const { data, approval_url } = await res.json()
+      const { data, approval_url, share: shareCtx, share_text } = await res.json()
       setGeneratedLink(approval_url)
+      setShare(shareCtx ?? null)
+      // Falls back to the bare URL if an older build of the route is deployed,
+      // so the button never copies an empty string.
+      setShareText(share_text || approval_url)
       setArtworks(prev => prev.map(a => a.id === linkModal.id ? { ...a, status: data.status } : a))
     } catch (e: any) { toast.error(e.message || 'Failed to generate link') }
     finally { setLinkLoading(false) }
   }
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(generatedLink)
-    toast.success('Link copied')
-  }
+  /** How many designs a job carries — decides whether a design is named at all,
+   *  here and in the copied message. */
+  const designCountForJob = (jobId: string) =>
+    new Set(artworks.filter(a => a.job_id === jobId).map(a => a.design_no ?? 1)).size
+
+  /** "Design 2 (Lid) · Version 3", or "Version 3" on a single-design job. */
+  const linkLabel = (art: Artwork | null) => art
+    ? artworkShareLabel({
+        design_no: art.design_no ?? 1, design_label: art.design_label ?? null,
+        design_count: designCountForJob(art.job_id) || 1, version: art.version,
+      })
+    : ''
 
   // Prefer the fully-loaded comment list (accurate resolved state, updates
   // live) once the panel's been opened; until then, fall back to the
@@ -375,6 +399,11 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
                         approved={art.status === 'approved'}
                         onClick={() => viewFile(art.file_url)}
                       />
+                      {designCountForJob(art.job_id) > 1 && (
+                        <p className="mt-1.5 text-[11px] font-medium text-[var(--color-accent)] truncate">
+                          {art.design_label || `Design ${art.design_no ?? 1}`}
+                        </p>
+                      )}
                       <p className="mt-1.5 text-xs text-[var(--color-text-primary)] truncate" title={art.file_name}>
                         {art.file_name}
                       </p>
@@ -432,6 +461,19 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
                     {/* File info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
+                        {/* Which DESIGN (124) — only once the job really has
+                            more than one, or every row in the system would
+                            read "Design 1". Without it two designs of one job
+                            look identical, which is half of why an approval
+                            link sent on its own said nothing. */}
+                        {designCountForJob(art.job_id) > 1 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0
+                                           bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]
+                                           border-[color:color-mix(in_srgb,var(--color-accent)_25%,transparent)]
+                                           text-[var(--color-accent)]">
+                            {art.design_label || `Design ${art.design_no ?? 1}`}
+                          </span>
+                        )}
                         <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{art.file_name}</span>
                         <button onClick={() => openCommentsModal(art)}
                           className={cn('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer', ARTWORK_STATUS_CONFIG[art.status].color)}
@@ -552,7 +594,7 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
       </Modal>
 
       {/* Approval Link Modal */}
-      <Modal open={!!linkModal} onClose={() => setLinkModal(null)} title={`Approval Link — v${linkModal?.version}`} size="md">
+      <Modal open={!!linkModal} onClose={() => setLinkModal(null)} title={`Approval Link — ${linkLabel(linkModal)}`} size="md">
         <div className="space-y-4">
           {!generatedLink ? (
             <>
@@ -572,21 +614,8 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
               </button>
             </>
           ) : (
-            <>
-              <div className="space-y-1.5">
-                <label htmlFor="artworkclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Share this link with the customer</label>
-                <div className="flex items-center gap-2">
-                  <input id="artworkclient-5" readOnly value={generatedLink} className={inputCls} onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button aria-label="Copy approval link" title="Copy approval link" onClick={copyLink} className="w-11 h-11 md:w-9 md:h-9 flex-shrink-0 flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)] transition-colors">
-                    <Copy size={14} />
-                  </button>
-                </div>
-              </div>
-              <button onClick={() => setLinkModal(null)}
-                className="w-full h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-                Done
-              </button>
-            </>
+            <ApprovalLinkShare share={share} shareText={shareText} link={generatedLink}
+              onDone={() => setLinkModal(null)} />
           )}
         </div>
       </Modal>
