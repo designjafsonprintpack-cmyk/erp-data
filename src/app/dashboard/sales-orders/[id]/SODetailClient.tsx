@@ -75,7 +75,7 @@ export default function SODetailClient({ so }: { so: SO }) {
           {/* The printed SO is a priced document and the route now refuses it
               (403) without `money::view`, so the button goes too rather than
               leaving a dead end. */}
-          <MoneyGate hide>
+          <MoneyGate scope="sales" hide>
             <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
               <Printer size={14} /> Print
             </button>
@@ -128,7 +128,7 @@ export default function SODetailClient({ so }: { so: SO }) {
         </div>
 
         {/* Financials — the whole card, heading included. */}
-        <MoneyGate hide>
+        <MoneyGate scope="sales" hide>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
           <div className="flex items-center gap-2 mb-3">
             <FileText size={14} className="text-[var(--color-text-muted)]" />
@@ -194,12 +194,12 @@ export default function SODetailClient({ so }: { so: SO }) {
                 <span className="text-sm text-[var(--color-text-secondary)]">{item.no_of_colors ?? '—'}</span>
               </div>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
-                <MoneyGate>
+                <MoneyGate scope="sales">
                   <span className="text-sm text-[var(--color-text-primary)]">{Number(item.unit_price).toLocaleString()}</span>
                 </MoneyGate>
               </div>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
-                <MoneyGate>
+                <MoneyGate scope="sales">
                   <span className="text-sm font-semibold text-[var(--color-text-primary)]">{Number(item.subtotal).toLocaleString()}</span>
                 </MoneyGate>
               </div>

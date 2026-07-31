@@ -50,7 +50,14 @@ export const ERP_MODULES = [
   // Seeded by migration 119. Unlike every other module this one gates NO page —
   // it decides whether rupee amounts are rendered on pages the user can already
   // open (rates, totals, cost, margin, balances). See MoneyGate.
-  { key: 'money',          label: 'Money & Rates' },
+  //
+  // THREE SCOPES, not one (120). `money` is the master and satisfies both of
+  // the narrow ones in code. The narrow ones exist because money belongs to the
+  // document you own: Sales prices the job, Purchase buys the board, and the
+  // production floor owns neither.
+  { key: 'money',          label: 'Money & Rates (all)' },
+  { key: 'money_sales',    label: 'Money (Sales) — quotation & order prices' },
+  { key: 'money_purchase', label: 'Money (Purchase) — PO & board rates' },
 ] as const
 
 export type ModuleKey = typeof ERP_MODULES[number]['key']

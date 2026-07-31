@@ -133,7 +133,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
   )
   const [loading, setLoading] = useState(false)
   const [openCalc, setOpenCalc] = useState<number | null>(null)
-  const canSeeMoney = useMoneyVisible()
+  const canSeeMoney = useMoneyVisible('sales')
 
   // Autosave only applies to brand-new quotations — never in edit mode, to
   // avoid ever restoring a stale local draft over a real saved record.
@@ -454,12 +454,12 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
                       which also stops anyone pricing a quotation they are not
                       allowed to see the price of. */}
                   <div>
-                    <MoneyGate>
+                    <MoneyGate scope="sales">
                       <input className={inputCls} type="number" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
                     </MoneyGate>
                   </div>
                   <div className="text-right">
-                    <MoneyGate>
+                    <MoneyGate scope="sales">
                       <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                         {lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                       </span>
@@ -469,7 +469,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
                     {/* The Cost panel is board rate, cost per unit, profit
                         amount and suggested price — nothing in it survives the
                         gate, so the button goes with it. */}
-                    <MoneyGate hide>
+                    <MoneyGate scope="sales" hide>
                       <button onClick={() => setOpenCalc(isOpen ? null : idx)}
                         className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
                           isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
@@ -666,7 +666,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
         </div>
 
         {/* Totals */}
-        <MoneyGate hide>
+        <MoneyGate scope="sales" hide>
         <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
           <div className="flex justify-end">
             <div className="w-72 space-y-2">

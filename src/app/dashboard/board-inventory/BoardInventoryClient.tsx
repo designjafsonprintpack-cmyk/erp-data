@@ -242,7 +242,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
   const [search, setSearch] = useState('')
   const [showLowOnly, setShowLowOnly] = useState(false)
   const [addModal, setAddModal] = useState(false)
-  const canSeeMoney = useMoneyVisible()
+  const canSeeMoney = useMoneyVisible('purchase')
   const [movementModal, setMovementModal] = useState<{ item: BoardItem; action: MovementAction } | null>(null)
   const [view, setView] = useState<'items' | 'report'>('items')
   const [lotsItem, setLotsItem] = useState<BoardItem | null>(null)
@@ -664,7 +664,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                     per ream, so per-packet stays available.
                     Blank is allowed and changes nothing: an unpriced delivery
                     must not drag the item's average toward zero. */}
-                <MoneyGate hide>
+                <MoneyGate scope="purchase" hide>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor="boardinventoryclient-in-rate" className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -862,7 +862,7 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
         <label htmlFor={`${idPrefix}-7`} className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
         <input id={`${idPrefix}-7`} type="number" step="0.01" className={inputCls} value={form.reorder_level} onChange={e => set('reorder_level', e.target.value)} placeholder="100" />
       </div>
-      <MoneyGate hide>
+      <MoneyGate scope="purchase" hide>
       <div className="space-y-1.5">
         {/* Per SHEET, and now labelled as such. The field never said which unit
             it meant, and the one consumer that spends it (store issue → job
@@ -896,7 +896,7 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
 function BoardLotHistory({ itemId }: { itemId: string }) {
   const [lots, setLots] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const canSeeMoney = useMoneyVisible()
+  const canSeeMoney = useMoneyVisible('purchase')
 
   useState(() => {
     fetch(`/api/v1/board-inventory/${itemId}/lots`)

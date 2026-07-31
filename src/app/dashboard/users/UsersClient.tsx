@@ -23,10 +23,27 @@ const ROLE_CFG: Record<string, { label: string; color: string }> = {
   ceo:           { label: 'CEO',            color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]' },
   gm:            { label: 'General Manager',color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
   admin:         { label: 'Admin',          color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
+  // The two manager tiers (119, 121, 122) share the accent, one step down from
+  // the warning tier that GM and Admin sit on.
+  production_manager: { label: 'Production Manager', color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
+  store_manager: { label: 'Store Manager',  color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
   manager:       { label: 'Manager',        color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
   production:    { label: 'Production',     color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
   sales:         { label: 'Sales',          color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
   accounts:      { label: 'Accounts',       color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+  // The shop-floor roles. All had a real `roles` row but no entry here, so
+  // every one of them rendered in the grey "Staff" colour with only the
+  // database name to tell them apart — which is most of the staff now on the
+  // system. Label is still read from `roles.name` first (see roleLabel); these
+  // exist for the colour and for the fallback dropdown.
+  printing:      { label: 'Production Operator', color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  planning:      { label: 'Planning',       color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  artwork:       { label: 'Artwork',        color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  plates:        { label: 'Plate Making',   color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
+  store:         { label: 'Store',          color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  purchase:      { label: 'Purchase',       color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  dispatch:      { label: 'Dispatch',       color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },
+  qc:            { label: 'Quality Control', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
   staff:         { label: 'Staff',          color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
   readonly:      { label: 'Read Only',      color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
 }

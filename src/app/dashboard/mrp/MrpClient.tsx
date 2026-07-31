@@ -185,7 +185,7 @@ export default function MrpClient() {
               <label htmlFor="mrpclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">Quantity (sheets)</label>
               <input id="mrpclient-2" type="number" className={inputCls} value={poForm.quantity} onChange={e => setPoForm(p => ({ ...p, quantity: e.target.value }))} />
             </div>
-            <MoneyGate hide>
+            <MoneyGate scope="purchase" hide>
               <div className="space-y-1.5">
                 <label htmlFor="mrpclient-3" className="text-sm font-medium text-[var(--color-text-primary)]">Unit Price (PKR)</label>
                 <input id="mrpclient-3" type="number" className={inputCls} value={poForm.unit_price} onChange={e => setPoForm(p => ({ ...p, unit_price: e.target.value }))} placeholder="0" />

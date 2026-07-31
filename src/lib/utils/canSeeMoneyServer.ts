@@ -19,12 +19,30 @@ import { hasPermission } from './requirePermission'
  * Uses `has_permission()` (migration 005), which already short-circuits
  * superadmin and owner and does the user_roles → role_permissions join.
  */
-export async function canSeeMoneyServer(supabase: SupabaseClient): Promise<boolean> {
+export type ServerMoneyScope = 'sales' | 'purchase' | 'cost'
+
+/** Same three scopes as the client hook, same master-satisfies-all rule (120). */
+const SCOPE_MODULE: Record<ServerMoneyScope, string | null> = {
+  sales: 'money_sales',
+  purchase: 'money_purchase',
+  cost: null,
+}
+
+export async function canSeeMoneyServer(
+  supabase: SupabaseClient,
+  scope: ServerMoneyScope = 'cost',
+): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
   const userTableId = await getUserTableId(user, supabase)
   if (!userTableId) return false
-  return hasPermission(userTableId, 'money', 'view', supabase)
+
+  // The master satisfies every scope, so it is asked first — one RPC for the
+  // seven roles that hold it, two only for Sales and Purchase.
+  if (await hasPermission(userTableId, 'money', 'view', supabase)) return true
+  const narrow = SCOPE_MODULE[scope]
+  if (!narrow) return false
+  return hasPermission(userTableId, narrow, 'view', supabase)
 }
 
 export default canSeeMoneyServer

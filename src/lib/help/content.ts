@@ -840,6 +840,63 @@ export const ROLE_GUIDES: RoleGuide[] = [
     ],
   },
   {
+    slug: 'production_manager',
+    title: 'Production Manager',
+    oneLiner: 'Poori factory ka kaam — plan, floor, aur har job ka kharcha bhi.',
+    keyModules: ['planning', 'jobs', 'production', 'qc', 'board_inventory', 'reports'],
+    dailyFlow: [
+      { do: 'Planning — aaj ke din ka order set karein aur machine lagayein.', why: 'Shop floor bilkul yahi tarteeb dekhta hai. Order theek na ho to kis job ko pehle chalana hai, koi nahi bata sakta.' },
+      { do: 'Floor View se dekhein is waqt kahan kya chal raha hai.' },
+      { do: 'Board Issue aur Plates ke atke hue kaam par nazar rakhein.', why: 'Active plate ke baghair Printing bilkul start nahi hoti — yeh hard block hai.' },
+      { do: 'Reports → Costing aur Wastage.', why: 'Aap un chand logon mein hain jinhein job ka asal kharcha aur margin dikhta hai.' },
+    ],
+    cannot: [
+      'Quotation, Sales Order, Purchase Order aur Invoice — in mein se koi bhi aap nahi bana ya dekh sakte. ' +
+      'Yeh Sales, Purchase aur Accounts ka kaam hai.',
+      'QC ka pass/fail aap nahi kar sakte — inspection karna QC hi ka kaam hai. ' +
+      'Aap uska nateeja dekh sakte hain.',
+      'Settings, Users aur delete — yeh sirf Super Admin / Owner / CEO / GM ke paas hain.',
+    ],
+  },
+  {
+    slug: 'store_manager',
+    title: 'Store Manager',
+    oneLiner: 'Store aur board dono ka malik — maal andar, maal bahar, aur kis bhaao aaya.',
+    keyModules: ['store', 'board_inventory', 'purchase', 'reports'],
+    dailyFlow: [
+      { do: 'Board Inventory → Stock In se aaya hua maal chadhayein.', why: 'Quantity PACKETS mein likhein. Rate PER KG poocha jaata hai — form khud per-sheet cost bana kar item ka weighted average update karta hai, aur wahi cost job par lagti hai.' },
+      { do: 'Store (MRN) se job ke liye board issue karein.', why: 'Board Issue stage shuru hote hi draft MRN khud ban jaata hai — naya banane ki zaroorat nahi. Issue kiye baghair wo stage complete nahi hoti.' },
+      { do: 'Wapas aaya hua board Return to Store se chadhayein.', why: 'Wo alag column mein report hota hai, aur uska apna lot banta hai — warna FIFO ka hisaab bigad jaata hai.' },
+      { do: 'MRP dekhein — kis board ki kami hai.' },
+      { do: 'Reports → Board Stock se mahine ka Opening / Received / Issued / Balance nikalein.', why: 'Purana mahina bhi jab chahein dobara nikal sakte hain — ledger 015 se mehfooz hai.' },
+    ],
+    cannot: [
+      'Customer ka rate, job ka cost aur margin aap ko nahi dikhte — sirf KHAREED ka rate dikhta hai (board aur purchase order). ' +
+      'Bechne wala rate Sales ke paas hai, cost aur margin management ke paas.',
+      'Store Incharge ka role isi kaam ka hai magar usay koi rate nahi dikhta — rate sirf Store Manager tak hai.',
+    ],
+  },
+  {
+    slug: 'manager',
+    title: 'Manager',
+    oneLiner: 'Apne department ka incharge — kaam chalana, plate, dieline aur board ki demand.',
+    keyModules: ['production', 'jobs', 'plates', 'artwork', 'board_inventory', 'qc'],
+    dailyFlow: [
+      { do: 'My Queue kholein — is waqt aap ke department par jo jobs khari hain wahi aati hain.' },
+      { do: 'Job Start karein, wastage aur ink record karein, phir Complete.' },
+      { do: 'Plate chahiye to Plates se set banayein aur job par assign karein.' },
+      { do: 'Dieline ya artwork ka kaam Artwork screen se karein.' },
+      { do: 'Board Inventory dekhein — kitna maal hai aur kitna chahiye.', why: 'Demand batana aap ka kaam hai; maal nikalna Store ka aur khareedna Purchase ka.' },
+    ],
+    cannot: [
+      'Koi bhi rate ya kharcha aap ko nahi dikhta — na board ka rate, na job ka cost, na margin. ' +
+      'Yeh Production Manager se shuru hota hai. Board kitna hai wo dikhta hai, kis bhaao aaya wo nahi.',
+      'Nayi job aap nahi bana sakte — wo Sales ya Planning se aati hai. Saamne wali job edit kar sakte hain.',
+      'Board stock nikalna (Store), khareedna (Purchase) aur QC ka pass/fail — teenon aap ke paas nahi. ' +
+      'Apne hi department ke kaam ko khud pass karna theek nahi, is liye QC alag rakha gaya hai.',
+    ],
+  },
+  {
     slug: 'printing',
     title: 'Production Operator',
     oneLiner: 'Machine par khara banda — Printing, Lamination, Die Cutting, Hot Foil, Folder Gluing aur Packing, sab aik hi role.',
@@ -914,10 +971,33 @@ export const ROLE_GUIDES: RoleGuide[] = [
    July 2026 and stay deleted).
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * The four bands of the map. A step's band is DATA on the step, not a range of
+ * step numbers, because inserting a step (a second approval, a new stage)
+ * would silently re-band everything after it.
+ */
+export type JourneyPhase = 'sales' | 'job' | 'production' | 'money'
+
+export const JOURNEY_PHASES: { key: JourneyPhase; label: string; hint: string }[] = [
+  { key: 'sales',      label: 'Sales',      hint: 'Rate se pakke order tak' },
+  { key: 'job',        label: 'Job',        hint: 'Yahin se shop ka kaam shuru' },
+  { key: 'production', label: 'Production', hint: 'Asal 10 stages' },
+  { key: 'money',      label: 'Paisa',      hint: 'Job band hone ke baad' },
+]
+
 export interface JourneyStep {
   /** Display number in the timeline. */
   n: number
   title: string
+  /**
+   * Two or three words for the map chip. `title` is too long to draw — half of
+   * them start with "Stage N — ", which the number badge already says.
+   * Written out rather than sliced off `title`, because seven of the seventeen
+   * steps are not stages and have no prefix to slice.
+   */
+  short: string
+  /** Which band of the map this sits in. */
+  phase: JourneyPhase
   /** Role slugs whose people do this. Used to mark "yeh aap ka kaam hai". */
   who: string[]
   whoLabel: string
@@ -937,6 +1017,7 @@ export interface JourneyStep {
 export const JOURNEY: JourneyStep[] = [
   {
     n: 1, title: 'Customer aur uska kaam',
+    short: 'Customer', phase: 'sales',
     who: ['sales'], whoLabel: 'Sales',
     where: 'Customers', href: '/dashboard/customers',
     what: ['Naya customer add karein, ya purana dhoond lein.', 'Contact person add karein — quotation isi ke naam jaayegi.'],
@@ -944,6 +1025,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 2, title: 'Rate banana (Quotation)',
+    short: 'Quotation', phase: 'sales',
     who: ['sales'], whoLabel: 'Sales / Estimator',
     where: 'Quotations → New Quotation', href: '/dashboard/quotations',
     what: [
@@ -956,6 +1038,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 3, title: 'Customer se approval',
+    short: 'Customer approval', phase: 'sales',
     who: ['sales'], whoLabel: 'Sales → Customer',
     where: 'Quotation → Sent',
     what: ['Quotation Sent karein.', 'Link customer ko bhejein — wo khud Approve ya Reject karega.'],
@@ -964,6 +1047,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 4, title: 'Sales Order',
+    short: 'Sales Order', phase: 'sales',
     who: ['sales'], whoLabel: 'Sales',
     where: 'Quotation → Convert to Sales Order', href: '/dashboard/sales-orders',
     what: ['Convert dabayein.', 'Sales Order ko Confirmed karein.'],
@@ -972,6 +1056,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 5, title: 'Job banti hai',
+    short: 'Job banti hai', phase: 'job',
     who: ['sales', 'planning', 'admin'], whoLabel: 'Sales ya Planning',
     where: 'Jobs → New Job', href: '/dashboard/jobs/new',
     what: [
@@ -987,6 +1072,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 6, title: 'Stage 1 — Artwork & Customer Approval', isStage: true,
+    short: 'Artwork', phase: 'production',
     who: ['artwork'], whoLabel: 'Artwork',
     where: 'Artwork', href: '/dashboard/artwork',
     what: ['Design upload karein.', 'Customer ko approval link bhejein.', 'Uske marks dekh kar theek karein aur dobara bhejein.'],
@@ -995,6 +1081,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 7, title: 'Stage 2 — Planning', isStage: true,
+    short: 'Planning', phase: 'production',
     who: ['planning'], whoLabel: 'Planning',
     where: 'Planning', href: '/dashboard/planning',
     what: ['Job ko din par plan karein.', 'Us din ke andar order set karein.', 'Machine attach karein.'],
@@ -1002,6 +1089,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 8, title: 'Stage 3 — Board Issue', isStage: true,
+    short: 'Board Issue', phase: 'production',
     who: ['store'], whoLabel: 'Store',
     where: 'Store (MRN)', href: '/dashboard/store',
     what: ['MRN kholein, board item aur quantity daalein.', 'MRN ko Issued karein.'],
@@ -1013,6 +1101,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 9, title: 'Plate banana — stage nahi, magar Printing is par ruki hai',
+    short: 'Plates', phase: 'production',
     who: ['plates'], whoLabel: 'Plate Making',
     where: 'Plates', href: '/dashboard/plates',
     what: ['Generate Set se CMYK ka poora set banayein.', 'Plate job par assign karein.'],
@@ -1021,6 +1110,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 10, title: 'Stage 4 — Printing', isStage: true,
+    short: 'Printing', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['My Queue se job par Start.', 'Wastage, ink aur shift (A / B / C) record karein.', 'Complete.'],
@@ -1031,6 +1121,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 11, title: 'Stage 5 — UV Coating (optional)', isStage: true,
+    short: 'UV Coating', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['Start → kaam → Complete.'],
@@ -1038,6 +1129,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 12, title: 'Stage 6 — Die Cutting', isStage: true,
+    short: 'Die Cutting', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['Start → kaam → Complete.'],
@@ -1047,6 +1139,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 13, title: 'Stage 7 — Folder Gluing / Pasting (optional)', isStage: true,
+    short: 'Folder Gluing', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['Start → kaam → Complete.'],
@@ -1054,12 +1147,14 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 14, title: 'Stage 8 — Packing', isStage: true,
+    short: 'Packing', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['Start → packing → Complete.'],
   },
   {
     n: 15, title: 'Stage 9 — Quality Check', isStage: true,
+    short: 'Quality Check', phase: 'production',
     who: ['qc'], whoLabel: 'Quality Control',
     where: 'QC', href: '/dashboard/qc',
     what: ['Job dekh kar Pass / Conditional Pass / Fail record karein.', 'Fail par reprint request banayein.'],
@@ -1068,6 +1163,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 16, title: 'Stage 10 — Dispatch', isStage: true,
+    short: 'Dispatch', phase: 'production',
     who: ['dispatch'], whoLabel: 'Dispatch',
     where: 'Dispatch', href: '/dashboard/dispatch',
     what: ['Dispatch note (DISP-) banayein, quantity aur vehicle daalein.', 'Print kar ke driver ko dein.', 'Complete karein.'],
@@ -1075,6 +1171,7 @@ export const JOURNEY: JourneyStep[] = [
   },
   {
     n: 17, title: 'Invoice aur payment',
+    short: 'Invoice', phase: 'money',
     who: ['accounts'], whoLabel: 'Accounts',
     where: 'Finance', href: '/dashboard/finance',
     what: ['Invoice (INV-) banayein aur bhejein.', 'Payment aane par record karein.'],

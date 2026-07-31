@@ -1,7 +1,7 @@
 'use client'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
-import { useCanSeeMoney } from '@/modules/settings/permissions/hooks/usePermission'
+import { useCanSeeMoney, type MoneyScope } from '@/modules/settings/permissions/hooks/usePermission'
 
 /**
  * Hides rupee amounts from anyone without `money::view` (migration 119).
@@ -31,6 +31,17 @@ import { useCanSeeMoney } from '@/modules/settings/permissions/hooks/usePermissi
  */
 interface MoneyGateProps {
   children: ReactNode
+  /**
+   * WHICH money this is (migration 120). Defaults to 'cost' — the strictest —
+   * so a money site nobody remembered to scope stays hidden from Sales and
+   * Purchase rather than being accidentally shown to them. Same reasoning as
+   * the hook failing closed: the safe direction is tighter, not looser.
+   *
+   *   'sales'    quotation / sales-order prices, and the estimator's calculator
+   *   'purchase' PO rates, board unit cost, Stock In rate
+   *   'cost'     job costing, margin, invoices, ledgers, Reports
+   */
+  scope?: MoneyScope
   /** Render nothing instead of a mask when the user may not see money. */
   hide?: boolean
   /** Replaces the default `•••` mask. Ignored when `hide` is set. */
@@ -38,8 +49,8 @@ interface MoneyGateProps {
   className?: string
 }
 
-export function MoneyGate({ children, hide, fallback, className }: MoneyGateProps) {
-  const { canSeeMoney } = useCanSeeMoney()
+export function MoneyGate({ children, hide, fallback, className, scope = 'cost' }: MoneyGateProps) {
+  const { canSeeMoney } = useCanSeeMoney(scope)
 
   if (canSeeMoney) return <>{children}</>
   if (hide) return null
@@ -59,10 +70,11 @@ export function MoneyGate({ children, hide, fallback, className }: MoneyGateProp
 /**
  * The same decision as a boolean, for the places a wrapper cannot reach:
  * building an export row, a `title` attribute, a chart series, a string sent to
- * a toast. Fails closed exactly as MoneyGate does.
+ * a toast. Fails closed exactly as MoneyGate does, and defaults to the same
+ * strictest scope.
  */
-export function useMoneyVisible(): boolean {
-  return useCanSeeMoney().canSeeMoney
+export function useMoneyVisible(scope: MoneyScope = 'cost'): boolean {
+  return useCanSeeMoney(scope).canSeeMoney
 }
 
 /** Mask a value inside a string that is being built, not rendered. */

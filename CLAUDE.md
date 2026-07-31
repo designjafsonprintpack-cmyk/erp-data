@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **119**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **122**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -832,6 +832,17 @@ restores exactly the 15 roles and 252 permissions), and 84 on the money gate
 (fail-closed first paint, every money site within reach of a gate, no ungated
 money page left).
 
+**119 has been run on live and probed read-only (2026-07-31): 52 assertions,
+all passing.** `money` present with all 9 actions; `Production Manager` live and
+active; `money::view` granted to exactly accounts / admin / ceo / gm / owner /
+production_manager / superadmin and to nobody else; production_manager's 22 view
+modules exactly as intended with no `delete` / `settings` / `approve` / `reject`
+anywhere; **261 permissions and 16 roles** (252 + 9, 15 + 1), counted with
+`{ count: 'exact', head: true }` rather than by totalling a fetched array.
+The probe reports any `money::view` row switched OFF by hand in Settings rather
+than treating it as a failure — that is a legitimate state (it is how Sales or
+Purchase would be given rates back), but it must be visible.
+
 ### Artwork accepts JPG + PNG + WEBP (no migration)
 Upload was **JPG-only, checked by identical hand-written code in TWO places** —
 `ArtworkClient` and `JobArtworkTab` — and by **nothing at all on the server**.
@@ -868,13 +879,193 @@ derived mime type, the zod schema refusing a PDF and an unknown extension, and
 both uploaders proven to have lost the old regex, message, `accept` attribute
 and "JPG only" help text.
 
+### Help → "Job ka safar" now opens with a diagram (no migration)
+Mehboob asked for images in the workflow tutorial. Offered screenshots vs a
+drawn diagram; he picked the diagram, for the reason that decided it: **a
+screenshot is stale the day a button moves**, and this UI moves weekly.
+
+`src/components/help/JourneyMap.tsx` renders the whole journey as four bands
+(Sales → Job → Production → Paisa) of step chips, above the existing written
+list. Two rules it is built on:
+- **It holds no content of its own.** Every chip's number, label, band, owner
+  and lock come off the same `JOURNEY` array the written list uses, so the
+  picture cannot disagree with the prose. A hand-drawn copy would already be
+  wrong — Lamination and Hot Foil were removed from Standard Carton by hand,
+  and 110 changed which template a job even gets. The assertion script checks
+  the map names neither of them.
+- **HTML/CSS, not `<svg>`.** An SVG needs a viewBox and fixed coordinates, so
+  on a 360px phone it is either 6px text or a sideways scroll — and §6's rule
+  is that it has to FIT. Flex wrapping reflows at every width, inherits the
+  theme variables directly, and leaves the labels as real text.
+
+`JourneyStep` gained `short` (the chip label — written out, not sliced off
+`title`, because 7 of the 17 steps have no "Stage N — " prefix to slice) and
+`phase`. **Phase is data on the step, not a range of step numbers**, so
+inserting a step can't silently re-band everything after it.
+
+The **lock marker is derived from `gate`**, not a second flag — one less thing
+to keep in sync.
+
+Verified: 112 assertions — all 17 steps present as chips, bands and their
+counts, one lock per gated step, the viewer's own steps counted per role (and a
+role with none reading sensibly rather than "aap ke 0 step"), no hardcoded hex,
+no opacity-on-`var()`, no runtime `grid-cols-N`. Measured in a real browser at
+360px: **zero overflowing elements and no sideways scroll**, chips wrapping 2
+per row on a phone and 4 on desktop.
+
+### Money, split into three scopes (migration 120) — 119's correction
+119 read the instruction literally and made `money::view` one all-or-nothing
+switch. That was one switch too few, and Mehboob said so the same day:
+
+> *"Sales apni quotation ka rate dekh sake baqi nahi, Purchase apne PO ka dekh
+> sake baqi nahi, mere kehne ka matlab yeh tha ke production wale rates na dekh
+> saken — production manager se aage wale log."*
+
+**The line is not seniority, it is ownership.** Money belongs to the document
+you own: Sales prices the job, Purchase buys the board, and the production floor
+owns neither. 120 adds two narrow modules beside the master:
+
+| | sees |
+|---|---|
+| `money` (119) | every amount, everywhere — management + Accounts + production_manager |
+| `money_sales` | quotation & sales-order rates, line totals, **and the estimator's cost calculator** — Sales |
+| `money_purchase` | PO rates and totals, board unit cost, Stock In rate — Purchase |
+
+- **`money::view` is the master and satisfies all three in code**, so the seven
+  roles that already hold it needed no behaviour change. They are granted the
+  scopes anyway so the Settings matrix isn't showing an unticked box that is
+  really on — the same reason 119 granted `money` to superadmin.
+- **`scope` defaults to `'cost'`, the strictest.** A money site nobody
+  remembered to scope stays hidden from Sales and Purchase rather than being
+  accidentally shown — the same "fail to the tight setting" reasoning as the
+  hook failing closed. `'cost'` deliberately has **no narrow module**: internal
+  cost and margin are exactly what the master is for, and a fourth row that only
+  ever mirrored it would be one more thing to keep in sync.
+- **The quotation's cost calculator is `sales`, not `cost`.** Sales *is* the
+  estimator here (see JOURNEY step 2, "Sales / Estimator") — the calculator is
+  how the price gets made, so without it a salesman cannot quote at all.
+- **Vendor ledger and Record Payment stay `cost`, not `purchase`** — 105's
+  separation of duties: whoever raises a PO does not also settle it.
+- The **printed Sales Order** (both print pages and `/api/v1/print/so`) is
+  `sales`; invoices and the dispatch challan's charges line stay `cost`.
+
+**Consequence to know: Store loses the purchase-rate box on a manual Stock In.**
+Store is on the production side of the line, so it gets no scope — but Store is
+also who physically receives board, and that rate is what keeps
+`board_inventory.unit_cost` (a weighted average, 117) true. Receiving *against a
+PO* is unaffected — the rate comes off the PO line Purchase entered. Only a
+walk-in / cash Stock In loses it. One tick fixes it if it bites:
+Settings → Roles & Permissions → Store → Money (Purchase) → View.
+
+Verified: 50 assertions on 120 against real Postgres — grants asserted as a
+**diff against the post-119 snapshot**, not a whole-table total (119's own
+production_manager grant covers 21 modules and would have swamped it);
+idempotent; a scope switched off by hand stays off; the undo block leaves 119
+working alone. Plus 59 code assertions — scope resolution per role (including
+that `money::print` and `finance::view` are near-misses that must not pass),
+every gated file proven to carry exactly its intended scope, `cost` files proven
+to carry **none** (so a stray `sales` there would fail), and no file importing
+the gate left without a decided scope.
+
+### The Manager role, and real staff loaded (migration 121)
+Mehboob brought in the staff list (`D:\Packaging\Jafson\Business Card\`). Seven
+people have the title "Manager" and there was no role for any of them — `roles`
+had the operator (`printing`) and the whole-floor `production_manager` (119),
+but nobody who runs **one** department. 121 adds `manager`, specced from his own
+two descriptions: runs its department's stages, plus **plates**, **dielines
+(artwork)** and **board demand**, without owning the plan, the purchasing or the
+money. The slug was already anticipated by `ROLE_CFG` and `FALLBACK_ROLES` in
+UsersClient, so no frontend change was needed for the label to appear.
+
+**Manager sits below the money line 120 drew** — no `money`, no `money_sales`,
+no `money_purchase`. They can see how much board there is; not what it cost.
+No `approve`/`reject` either: a department manager signing off their own
+department's work is exactly what 105's separation exists to prevent.
+
+**Thirteen of the fourteen are live** (created 2026-07-31 through the same two steps
+the admin route uses, with the auth-account rollback on insert failure): Syed
+Shoaib + Muhammad Imran (production_manager), Muhammad Tanveer (gm), Hassan Raza (ceo),
+Jafar Shah (owner), Rana Abrar + Muhammad Shahzad (accounts), Mehboob Ahmed
+(artwork), M. Afaq Mirza (store), Muhammad Saqib (qc), and — once 121 was on
+live — Riaz Ahmad, Aslam Pervaiz and Zahid Mahmood (manager). Verified per user that
+**095's trigger wrote the `user_roles` row** — without it they log in with zero
+permissions, the exact failure 095 was written to fix. Phones normalised to
+`923…` with no spaces, which is the shape WhatsApp needs.
+
+**The first CSV had `production@` on THREE people**, plus two more shared
+addresses. Email is the login id, so that was a hard stop; Mehboob issued
+`supervisor@`, `store@`, `qc@` and `owner@` and it cleared. The loader now
+**aborts on a duplicate inside the input** before creating anything, rather than
+discovering it halfway through.
+
+**Jafar Shah was moved ceo -> owner** on Mehboob's instruction. Only
+`users.role` was touched: 095's trigger fires `AFTER INSERT OR UPDATE OF role`
+and retires the previous link itself, so he ended with one active `user_roles`
+row (owner) and the ceo one deactivated — asserted, not assumed. Note the
+trigger no-ops on an unknown slug rather than stripping permissions, so the
+target role has to exist before the update or nothing happens and nothing says so.
+
+Two mappings were taken from the job, not the CSV's Role column, and flagged
+rather than assumed: **M. Afaq Mirza (Store Incharge) → `store`** and
+**Muhammad Saqib (dept Quality Control) → `qc`**. Both say "Manager" in the CSV,
+but `manager` can only *read* store and QC (121) — a store incharge who cannot
+issue an MRN, or a QC man who cannot pass a job, would be useless.
+
+- **There is no `Accounts` department**, so the two accounts staff have
+  `department_id = NULL`. Harmless (Accounts owns no workflow stage) but worth
+  adding in Settings → Departments if he wants it on their profile.
+
+**Help had a blank tab for any role with no written guide** — the role tab was
+`{tab === 'role' && guide && …}` and nothing else, which is what every role
+added from Settings gets, and what `production_manager` got from the moment 119
+created it. Both new roles now have guides (all 17 live roles do), and the
+no-guide case falls back to the role's database description plus the
+live-permission screen list, which is useful on its own.
+
+Verified: 49 assertions on 121 against real Postgres (its permission set line by
+line against Mehboob's two sentences, no money of any scope, no
+`delete`/`settings`/`approve`/`reject`, cannot create a job, idempotent, a
+permission switched off by hand stays off, undo clean) and 81 on the guides and
+mobile hints.
+
+### 122 — the Store Manager, and why Store needed its own tier
+**120's flagged consequence came true.** It had warned that giving Store no
+money scope would take the purchase-rate box off a manual Stock In. Then Mehboob
+corrected the staff sheet: Aqib Ali is not the HR Manager the CSV calls him, he
+is the **Store Manager, and board inventory is his**.
+
+The `store` role already did all the WORK (Store/MRN, Board Inventory, Purchase,
+Reports, Dashboard, with create/edit) — the only gap was money, and for someone
+who receives board and checks it against the vendor's invoice that gap is the
+job. Without it, board arriving without a PO can never have its cost recorded
+and `board_inventory.unit_cost` — a weighted average since 117 — drifts with
+nothing to flag it. `store` can also raise a PO but could not type a rate on it.
+
+**Why a new role and not just giving `store` the scope:** permissions attach to
+a role, not a person (095's trigger keeps exactly one active role per user), so
+granting it to `store` would also hand buying rates to M. Afaq Mirza, the Store
+Incharge, who issues material rather than buying it. Mehboob chose to keep that
+line — `store_manager` for Aqib, plain `store` for Afaq.
+
+`store_manager` is **`store`'s permission set plus `money_purchase`, exactly** —
+no `money` master, no `money_sales`, no jobs/vendors/production. It is built by
+**SELECTing from the live `store` role** rather than re-listing modules, so the
+two cannot drift; adjusting `store` in Settings and re-running lines the manager
+back up with it (asserted).
+
+Also fixed in the same pass: **ten roles had no `ROLE_CFG` entry** in
+UsersClient — production_manager, store_manager, store, printing, planning,
+artwork, plates, purchase, dispatch and qc all rendered in the grey "Staff"
+colour, which is most of the staff now on the system. The label was always right
+(it reads `roles.name` first); only the colour was missing.
+
+Verified: 54 assertions on 122 against real Postgres — that it equals
+store + money_purchase and nothing more, that **`store` itself gained and lost
+nothing**, idempotent, a permission switched off by hand stays off, a module
+later added to `store` flows through on re-run, and undo leaves `store` exactly
+as found.
+
 ### Open threads
-- **Sales and Purchase can no longer see a rate — including on their own
-  documents.** 119 follows Mehboob's list literally (accounts / admin / gm /
-  production manager), so a salesman cannot price his own quotation and a
-  purchaser cannot price his own PO. Both are **one tick** in Settings → Roles
-  & Permissions → Money & Rates → View, which is exactly why it is a permission
-  row and not a hardcoded role list. Ask before assuming this is a bug.
 - **`planning` still has 22 view modules** (purchase, dispatch, workflow,
   machines, quotations, sales_orders, all six production stages…), which is why
   its sidebar is 23 links and auto-collapses. Tightening it was offered and not
@@ -884,6 +1075,20 @@ and "JPG only" help text.
   requires `rp.is_active`, so an Admin genuinely cannot open the dashboard or
   the customer list. Flip them in Settings → Roles & Permissions if that wasn't
   intended. (Admin also has no `admin` module at all — 243 of 252.)
+- **Aqib Ali is the last one uncreated**, waiting only on **migration 122**
+  (`store_manager`). Re-run the loader in the scratchpad after it; the loader is
+  idempotent and skips everyone already made.
+- **Zahid Mahmood's address was `r&d@`** (invalid — `&` fails zod's `.email()`)
+  and he was created on `rd@jafsonprintpack.pk`. **The CSV at
+  `D:\Packaging\Jafson\Business Card\` still says `r&d@`**, so fix it there too
+  or the next load re-breaks.
+- **Staff phones are a mix of `+923…` and `923…`** — the ones Mehboob has edited
+  in Settings → Users picked up a `+`. **This is harmless**: `sendWhatsApp()`
+  does `replace(/[^\d]/g, '')` before sending, so both reach Meta identically.
+  Checked rather than assumed; do not "fix" it.
+- **Staff passwords are `firstname7510` and sit in plaintext in the CSV.**
+  Everyone can change their own from the Header; superadmin can reset from
+  Settings → Users. Worth doing once the accounts are handed out.
 - **The first real job is now in flight** (counts taken 2026-07-30):
   `JOB-2026-00001`, `status = in_progress`, 1 `job_workflow_instances` row and
   10 `job_stage_progress` rows. The other 478 are the completed legacy import,

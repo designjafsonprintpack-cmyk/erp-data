@@ -153,19 +153,19 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
                   columns, so dropping these two cells would shove the spec
                   columns across the row. */}
               <div className="col-span-1 md:col-span-2 text-sm text-[var(--color-text-secondary)] text-right md:text-left">
-                <MoneyGate>
+                <MoneyGate scope="sales">
                   <span className="md:hidden text-xs text-[var(--color-text-muted)]">@ </span>PKR {Number(item.unit_price).toLocaleString()}
                 </MoneyGate>
               </div>
               <div className="col-span-2 md:col-span-3 text-right text-sm font-semibold text-[var(--color-text-primary)] border-t md:border-0 border-[var(--color-border-subtle)] pt-1.5 md:pt-0">
-                <MoneyGate>PKR {Number(item.subtotal).toLocaleString()}</MoneyGate>
+                <MoneyGate scope="sales">PKR {Number(item.subtotal).toLocaleString()}</MoneyGate>
               </div>
             </div>
           ))}
         </div>
         {/* Totals — the whole block goes, since Subtotal / Discount / Total
             with the figures blanked out says nothing at all. */}
-        <MoneyGate hide>
+        <MoneyGate scope="sales" hide>
           <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] flex justify-end">
             <div className="w-64 space-y-2">
               <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">
@@ -236,8 +236,8 @@ function VersionHistoryView({ quotationId }: { quotationId: string }) {
   const [rightIdx, setRightIdx] = useState(0)
   // Above the early returns below — a hook cannot sit behind a conditional.
   // The revision diff is built as STRINGS, so it needs the boolean rather than
-  // the <MoneyGate> wrapper.
-  const canSeeMoney = useMoneyVisible()
+  // the <MoneyGate scope="sales"> wrapper.
+  const canSeeMoney = useMoneyVisible('sales')
   const fmt = (n: number) =>
     canSeeMoney
       ? `PKR ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

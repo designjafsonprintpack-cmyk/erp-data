@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { NAV_ITEMS, isNavLink, type NavLink as NavLinkType } from '@/components/layout/navConfig'
 import { useNavPermissions } from '@/modules/settings/permissions/hooks/usePermission'
+import { JourneyMap } from '@/components/help/JourneyMap'
 import {
   CONCEPTS, JOURNEY, JOURNEY_VARIANTS, MODULE_GUIDES, ROLE_GUIDES,
   moduleGuide, roleGuide, type HelpSection,
@@ -195,8 +196,41 @@ export function HelpClient({ roles, roleModules, allModules }: {
         </div>
       )}
 
+      {/* A role with no written guide used to render this tab COMPLETELY BLANK —
+          `{tab === 'role' && guide && …}` and nothing else. That is what any
+          role added in Settings gets, and it is what `production_manager` got
+          from the moment migration 119 created it. The screen list below is
+          computed from live permissions, so it is useful on its own; only the
+          prose is missing. */}
+      {tab === 'role' && !guide && (
+        <div className="space-y-4">
+          <Card>
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+              {roleRow?.name || slug}
+            </h2>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+              {roleRow?.description
+                || 'Is role ka likha hua guide abhi nahi bana. Neeche wo screens hain jo is role ko live permissions ke hisaab se khulti hain — wo list hamesha sahi hoti hai.'}
+            </p>
+          </Card>
+
+          <Card>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+              {isMine ? 'Aap ki screens' : 'Is role ki screens'} ({myLinks.length})
+            </h3>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+              {myLinks.map(l => <LinkChip key={l.href} link={l} allowed />)}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {tab === 'journey' && (
         <div className="space-y-4">
+          {/* The picture first, then the same steps written out. Someone who
+              only wants "where am I in this" gets it without reading. */}
+          <JourneyMap slug={slug} />
+
           <Card>
             <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
               Customer ki call se le kar paise tak

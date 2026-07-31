@@ -160,11 +160,11 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
                 <input type="number" min="1" max="8" className={cn(inputCls, 'h-8')} value={item.no_of_colors} onChange={e => setItem(idx, 'no_of_colors', e.target.value)} placeholder="4" />
                 {/* Fixed gridTemplateColumns — both cells have to stay, so
                     these mask rather than disappear. */}
-                <MoneyGate>
+                <MoneyGate scope="sales">
                   <input type="number" className={cn(inputCls, 'h-8')} value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
                 </MoneyGate>
                 <div className="h-8 flex items-center justify-end">
-                  <MoneyGate>
+                  <MoneyGate scope="sales">
                     <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </MoneyGate>
                 </div>
@@ -177,7 +177,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         </div>
 
         {/* Totals */}
-        <MoneyGate hide>
+        <MoneyGate scope="sales" hide>
         <div className="border-t border-[var(--color-border)] px-5 py-4 flex justify-end">
           <div className="w-72 space-y-2">
             <div className="flex justify-between text-sm">

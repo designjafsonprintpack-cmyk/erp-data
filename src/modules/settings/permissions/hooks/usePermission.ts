@@ -159,7 +159,44 @@ export function useNavPermissions() {
 // ─────────────────────────────────────────────────────────────────────────────
 export const MONEY_MODULE = 'money'
 
-export function useCanSeeMoney(): { ready: boolean; canSeeMoney: boolean } {
+/**
+ * WHICH money — three scopes, not one (migration 120).
+ *
+ * 119 made this a single all-or-nothing switch, which took the rate off a
+ * salesman's own quotation and a purchaser's own PO. Mehboob's correction: the
+ * line is not seniority, it is ownership. Money belongs to the document you
+ * own, and the production floor owns none of it.
+ *
+ *   'sales'    — what the customer pays: quotation and sales-order rates,
+ *                line totals, and the estimator's cost calculator on the
+ *                quotation screen (Sales IS the estimator here).
+ *   'purchase' — what we pay: PO rates and totals, board unit cost, Stock In
+ *                purchase rate.
+ *   'cost'     — everything else, and the default: job costing and margin,
+ *                Reports figures, invoices and ledgers, dispatch charges.
+ *                Management and Accounts only.
+ *
+ * `money::view` is the MASTER and satisfies all three, so the seven roles that
+ * already hold it need nothing further.
+ */
+export type MoneyScope = 'sales' | 'purchase' | 'cost'
+
+const SCOPE_MODULE: Record<MoneyScope, string | null> = {
+  sales: 'money_sales',
+  purchase: 'money_purchase',
+  // 'cost' has no narrow module on purpose — internal cost and margin are
+  // exactly what the master switch is for, and a fourth permission row that
+  // only ever mirrors it would be one more thing to keep in sync.
+  cost: null,
+}
+
+export function moneyScopeAllowed(perms: Set<string>, scope: MoneyScope): boolean {
+  if (perms.has('*') || perms.has(`${MONEY_MODULE}::view`)) return true
+  const narrow = SCOPE_MODULE[scope]
+  return narrow !== null && perms.has(`${narrow}::view`)
+}
+
+export function useCanSeeMoney(scope: MoneyScope = 'cost'): { ready: boolean; canSeeMoney: boolean } {
   const [state, setState] = useState<{ ready: boolean; allowed: boolean }>(
     { ready: false, allowed: false }
   )
@@ -169,11 +206,11 @@ export function useCanSeeMoney(): { ready: boolean; canSeeMoney: boolean } {
     loadPermissions()
       .then(({ perms }) => {
         if (cancelled) return
-        setState({ ready: true, allowed: perms.has('*') || perms.has(`${MONEY_MODULE}::view`) })
+        setState({ ready: true, allowed: moneyScopeAllowed(perms, scope) })
       })
       .catch(() => { if (!cancelled) setState({ ready: true, allowed: false }) })
     return () => { cancelled = true }
-  }, [])
+  }, [scope])
 
   return { ready: state.ready, canSeeMoney: state.allowed }
 }

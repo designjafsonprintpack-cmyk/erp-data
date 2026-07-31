@@ -285,11 +285,18 @@ export const MOBILE_TAB_PRIORITY: Record<string, string[]> = {
   ceo:        ['dashboard', 'reports', 'jobs', 'quotations'],
   gm:         ['dashboard', 'jobs', 'dispatch', 'reports'],
   admin:      ['dashboard', 'jobs', 'dispatch', 'reports'],
+  // Runs the whole floor (119) — leads with the plan, then the work.
+  production_manager: ['dashboard', 'planning', 'jobs', 'production'],
+  // Runs ONE department (121) — leads with the queue, like an operator, but
+  // gets plates rather than QC because making them is part of the job.
+  manager:    ['dashboard', 'jobs', 'production', 'plates'],
 
   sales:      ['dashboard', 'quotations', 'customers', 'sales_orders'],
   artwork:    ['dashboard', 'artwork', 'jobs', 'plates'],
   planning:   ['dashboard', 'planning', 'jobs', 'board_inventory'],
   store:      ['dashboard', 'store', 'board_inventory', 'purchase'],
+  // Same screens as Store; the difference is the rates, not the nav (122).
+  store_manager: ['dashboard', 'store', 'board_inventory', 'purchase'],
 
   printing:   ['dashboard', 'printing', 'jobs', 'plates'],
   lamination:    ['dashboard', 'lamination', 'jobs', 'qc'],
@@ -394,11 +401,14 @@ export const MOBILE_HOME_PRIORITY: Record<string, string[]> = {
   ceo:        ['reports', 'jobs', 'quotations', 'floor', 'dispatch', 'customers'],
   gm:         ['jobs', 'floor', 'dispatch', 'qc', 'reports', 'planning'],
   admin:      ['jobs', 'floor', 'dispatch', 'qc', 'reports', 'users'],
+  production_manager: ['floor', 'planning', 'jobs', 'queue', 'qc', 'reports'],
+  manager:    ['queue', 'scan', 'floor', 'jobs', 'plates', 'artwork'],
 
   sales:      ['quotations', 'sales_orders', 'customers', 'jobs', 'scan', 'dispatch'],
   artwork:    ['artwork', 'jobs', 'plates', 'scan', 'qc', 'floor'],
   planning:   ['planning', 'jobs', 'board_inventory', 'floor', 'queue', 'scan'],
   store:      ['store', 'board_inventory', 'scan', 'purchase', 'queue', 'jobs'],
+  store_manager: ['store', 'board_inventory', 'purchase', 'scan', 'reports', 'queue'],
 
   printing:      ['queue', 'scan', 'printing', 'floor', 'jobs', 'qc'],
   lamination:    ['queue', 'scan', 'lamination', 'floor', 'jobs', 'qc'],

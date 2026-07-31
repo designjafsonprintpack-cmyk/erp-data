@@ -48,7 +48,7 @@ const COLUMNS: DataListColumn<QT>[] = [
     // Masked rather than dropped: DataList spans are fixed, so removing the
     // cell would knock every following column out of line.
     render: qt => (
-      <MoneyGate>
+      <MoneyGate scope="sales">
         <span className="text-sm font-semibold text-[var(--color-text-primary)]">
           PKR {Number(qt.total_amount).toLocaleString()}
         </span>

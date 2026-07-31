@@ -63,7 +63,7 @@ const COLUMNS: DataListColumn<SO>[] = [
   {
     key: 'total', header: 'Total', span: 1, role: 'meta', label: 'Total', align: 'right',
     render: so => (
-      <MoneyGate>
+      <MoneyGate scope="sales">
         <span className="text-sm font-semibold text-[var(--color-text-primary)]">
           {Number(so.total_amount).toLocaleString()}
         </span>

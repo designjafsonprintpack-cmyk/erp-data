@@ -14,7 +14,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
   // Same priced document as the /print/sales-orders page, so the same gate.
   // Migration 119; fails closed.
-  if (!(await canSeeMoneyServer(supabase))) return new NextResponse('Forbidden', { status: 403 })
+  if (!(await canSeeMoneyServer(supabase, 'sales'))) return new NextResponse('Forbidden', { status: 403 })
   const companyId = await getCompanyId(user, supabase)
 
   const { data, error } = await supabase
