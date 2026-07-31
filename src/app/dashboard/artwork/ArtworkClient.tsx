@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Upload, CheckCircle2, Image as ImageIcon, Plus, Trash2, ExternalLink, Filter, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, List, LayoutGrid, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { ARTWORK_ACCEPT, ARTWORK_ACCEPT_LABEL, ARTWORK_REJECT_MESSAGE, isAcceptedArtworkFile } from '@/lib/utils/artworkFileTypes'
 import { Modal } from '@/components/ui/Modal'
 import { formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
@@ -135,8 +136,8 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
     if (!form.job_id || !selectedFile) {
       toast.error('Job and a file are required'); return
     }
-    if (!/\.(jpe?g)$/i.test(selectedFile.name) && selectedFile.type !== 'image/jpeg') {
-      toast.error('Only JPG files are accepted'); return
+    if (!isAcceptedArtworkFile(selectedFile.name, selectedFile.type)) {
+      toast.error(ARTWORK_REJECT_MESSAGE); return
     }
     setLoading(true)
     try {
@@ -537,10 +538,10 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
           </div>
           <div className="space-y-1.5">
             <label htmlFor="artworkclient-2" className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
-            <input id="artworkclient-2" type="file" accept=".jpg,.jpeg,image/jpeg"
+            <input id="artworkclient-2" type="file" accept={ARTWORK_ACCEPT}
               onChange={e => pickFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
-            <p className="text-xs text-[var(--color-text-muted)]">JPG only.</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{ARTWORK_ACCEPT_LABEL}</p>
             {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
           <div className="space-y-1.5">

@@ -6,6 +6,7 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { runAiArtworkPreflight } from '@/lib/utils/aiArtworkPreflight'
+import { artworkMimeType } from '@/lib/utils/artworkFileTypes'
 
 export const POST = withErrorHandling(async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -18,14 +19,19 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest, { p
   if (denied) return denied
 
   const { data: artwork } = await supabase.from('job_artworks' as any)
-    .select('id, file_url, file_type, job_id, jobs!job_artworks_job_id_fkey(job_title, quantity, size_l, size_w, board_types(name))')
+    .select('id, file_url, file_name, file_type, job_id, jobs!job_artworks_job_id_fkey(job_title, quantity, size_l, size_w, board_types(name))')
     .eq('id', params.id).eq('company_id', companyId).maybeSingle()
 
   if (!artwork) return NextResponse.json({ error: 'Artwork not found' }, { status: 404 })
   const art = artwork as any
 
-  if (art.file_type && !art.file_type.toLowerCase().includes('jpeg') && !art.file_type.toLowerCase().includes('jpg')) {
-    return NextResponse.json({ error: 'AI pre-flight only supports JPG artwork (matches the upload restriction).' }, { status: 400 })
+  // The mime type is DERIVED, not assumed. This route used to hardcode
+  // `image/jpeg` for every file, which was harmless while upload was JPG-only
+  // and would be a lie for every PNG and WEBP now that it isn't.
+  // null means "not an image we can send" — a legacy PDF/AI/EPS row.
+  const mimeType = artworkMimeType(art.file_name ?? '', art.file_type)
+  if (!mimeType) {
+    return NextResponse.json({ error: 'AI pre-flight only supports JPG, PNG and WEBP artwork.' }, { status: 400 })
   }
 
   // Download the actual file bytes from private Storage — this route runs
@@ -40,7 +46,7 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest, { p
   const arrayBuffer = await fileBlob.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-  const result = await runAiArtworkPreflight(base64, 'image/jpeg', {
+  const result = await runAiArtworkPreflight(base64, mimeType, {
     jobTitle: art.jobs?.job_title || 'Unknown job',
     quantity: art.jobs?.quantity || 0,
     boardType: art.jobs?.board_types?.name || null,

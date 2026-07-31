@@ -6,6 +6,7 @@ import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/Artwork
 import { MarkupOverlay, markNumber } from '@/components/artwork/MarkupOverlay'
 import type { MarkupShape } from '@/lib/schemas/publicToken'
 import { toast } from '@/components/ui/Toast'
+import { ARTWORK_ACCEPT, ARTWORK_ACCEPT_LABEL, ARTWORK_REJECT_MESSAGE, isAcceptedArtworkFile } from '@/lib/utils/artworkFileTypes'
 import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
@@ -76,8 +77,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
 
   const upload = async () => {
     if (!selectedFile) { toast.error('Choose a file'); return }
-    if (!/\.(jpe?g)$/i.test(selectedFile.name) && selectedFile.type !== 'image/jpeg') {
-      toast.error('Only JPG files are accepted'); return
+    if (!isAcceptedArtworkFile(selectedFile.name, selectedFile.type)) {
+      toast.error(ARTWORK_REJECT_MESSAGE); return
     }
     setLoading(true)
     try {
@@ -350,9 +351,9 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="jobartworktab-1" className="text-sm font-medium text-[var(--color-text-primary)]">File <span className="text-[var(--color-danger)]">*</span></label>
-            <input id="jobartworktab-1" type="file" accept=".jpg,.jpeg,image/jpeg" onChange={e => pickFile(e.target.files?.[0] || null)}
+            <input id="jobartworktab-1" type="file" accept={ARTWORK_ACCEPT} onChange={e => pickFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-[var(--color-text-primary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent)] file:text-[var(--color-on-accent)] hover:file:bg-[var(--color-accent-hover)]" />
-            <p className="text-xs text-[var(--color-text-muted)]">JPG only.</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{ARTWORK_ACCEPT_LABEL}</p>
             {selectedFile && <p className="text-xs text-[var(--color-text-muted)]">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>}
           </div>
           <div className="space-y-1.5">

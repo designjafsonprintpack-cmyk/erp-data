@@ -832,6 +832,42 @@ restores exactly the 15 roles and 252 permissions), and 84 on the money gate
 (fail-closed first paint, every money site within reach of a gate, no ungated
 money page left).
 
+### Artwork accepts JPG + PNG + WEBP (no migration)
+Upload was **JPG-only, checked by identical hand-written code in TWO places** —
+`ArtworkClient` and `JobArtworkTab` — and by **nothing at all on the server**.
+The list now lives once in `src/lib/utils/artworkFileTypes.ts`
+(`ARTWORK_ACCEPT`, `isAcceptedArtworkFile()`, `artworkMimeType()`), read by both
+forms and asserted in `artworkSchema` so the route can no longer record a row
+for a file the form would have refused.
+
+- **PNG and WEBP needed nothing downstream.** `ArtworkThumb`'s `IMAGE_EXT`,
+  `api/v1/jobs/thumbnails` and the printed Job Card already listed both, and the
+  approval page is a plain `<img src={preview_url}>` + `MarkupOverlay`. Only the
+  upload gate was in the way.
+- **PDF was raised and declined** — Mehboob: *"pdf rahny do"*. It is the one
+  type that cannot work as-is: a PDF will not render in an `<img>`, so the
+  customer would be asked to approve a grey file-type tile with nothing to mark
+  up. Doing it properly means rasterising the PDF at upload and storing that
+  preview beside it (a new column). **His shape for it, if it ever comes back:
+  one page, low resolution.** Don't add PDF to the accept list without that
+  preview step — accepting a type the chain renders as a grey tile is worse
+  than refusing it.
+- **AI pre-flight hardcoded `image/jpeg` for every file.** Harmless while
+  upload was JPG-only, a lie for every PNG. It now derives the type with
+  `artworkMimeType()` and refuses (rather than mislabels) a legacy PDF/AI/EPS
+  row, whose file-type tile still renders exactly as before.
+- **Three independent `PREVIEWABLE_EXT` copies** (ArtworkThumb,
+  `jobs/thumbnails`, the printed Job Card) are a broader "can a browser draw
+  this" list, not the accept list — deliberately not merged, but the assertion
+  script checks all three know every accepted type, so an added type cannot
+  silently show as a grey tile.
+
+Verified: 68 assertions — accept/reject per extension and per mime (including
+an empty `type`, which some Android pickers send and the old check failed), the
+derived mime type, the zod schema refusing a PDF and an unknown extension, and
+both uploaders proven to have lost the old regex, message, `accept` attribute
+and "JPG only" help text.
+
 ### Open threads
 - **Sales and Purchase can no longer see a rate — including on their own
   documents.** 119 follows Mehboob's list literally (accounts / admin / gm /

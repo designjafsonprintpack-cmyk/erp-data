@@ -1,5 +1,6 @@
 /**
- * Runs an AI-assisted print-readiness check on an artwork JPG using
+ * Runs an AI-assisted print-readiness check on an artwork image (JPG, PNG or
+ * WEBP — the caller derives the real mime type, see artworkFileTypes) using
  * OpenAI's vision-capable chat completions API (gpt-4o). Needs
  * OPENAI_API_KEY set (Vercel → Project → Settings → Environment Variables).
  *
@@ -37,7 +38,7 @@ type PreflightOutcome =
   | { ok: true; status: 'pass' | 'warning' | 'fail'; summary: string; issues: PreflightIssue[] }
   | { ok: false; reason: string }
 
-const SYSTEM_PROMPT = `You are a print-production pre-flight checker for a commercial packaging/carton printing company. You will be shown an artwork JPG that a customer or designer has submitted for printing, along with the job's print specs.
+const SYSTEM_PROMPT = `You are a print-production pre-flight checker for a commercial packaging/carton printing company. You will be shown an artwork image that a customer or designer has submitted for printing, along with the job's print specs.
 
 Look for common print-readiness problems visible in the image itself, such as:
 - Visible pixelation, blurriness, or low apparent resolution relative to the physical print size given

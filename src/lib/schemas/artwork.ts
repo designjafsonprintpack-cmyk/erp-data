@@ -1,7 +1,15 @@
 import { z } from 'zod'
+import { isAcceptedArtworkFile, ARTWORK_REJECT_MESSAGE } from '@/lib/utils/artworkFileTypes'
 
 // Mirrors job_artworks columns (migration 015) — job_id, file_name, and
 // file_url are all NOT NULL.
+//
+// The accepted-type check used to live ONLY in the two upload forms, so the
+// route would happily record a row for any file that reached Storage. It is
+// asserted here as well now — the widened JPG/PNG/WEBP list is the reason to
+// have looked, and one uploader forgetting the check is exactly how the second
+// one nearly got missed. Applied to CREATE only: legacy rows carry older types
+// (PDF/AI/EPS from before Storage existed) and must stay editable.
 export const artworkSchema = z.object({
   job_id: z.string().uuid('job_id must be a valid id'),
   file_name: z.string().trim().min(1, 'file_name is required'),
@@ -9,7 +17,10 @@ export const artworkSchema = z.object({
   file_size: z.union([z.string(), z.number()]).optional().nullable(),
   file_type: z.string().optional().nullable(),
   designer_notes: z.string().optional().nullable(),
-})
+}).refine(
+  v => isAcceptedArtworkFile(v.file_name, null) || isAcceptedArtworkFile(`x.${v.file_type ?? ''}`, null),
+  { path: ['file_name'], message: ARTWORK_REJECT_MESSAGE }
+)
 
 // PATCH does `.update(body)` directly with no prior allowlist, and the
 // route itself sets approved_at/approved_by/is_production_ready as
