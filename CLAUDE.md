@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **122**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **123**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -1065,16 +1065,98 @@ nothing**, idempotent, a permission switched off by hand stays off, a module
 later added to `store` flows through on re-run, and undo leaves `store` exactly
 as found.
 
+### 123 — the role permission audit
+Mehboob: *"kuch role ki Permissions abhi b empty hay, sub roles ki permission
+apny hisab say set ker do."*
+
+Audited all **17 roles x 31 modules x 9 actions** against live before writing
+anything. **No role was actually empty** — the thinnest, `plates`, has 13 grants
+and works. What the audit found was nine roles missing something they
+demonstrably need, and one lockout:
+
+| Role | Was missing | Why it mattered |
+|---|---|---|
+| `admin` | customers + dashboard **switched OFF** (18 rows), no `admin` module | An Admin could not open the dashboard or the customer list at all |
+| `dispatch` | `customers` | The person delivering could not look up the address or phone |
+| `store` | `jobs`, `vendors` | Board is issued AGAINST a job; the storeman could not open it |
+| `accounts` | `jobs` | An invoice is raised against a job |
+| `purchase` | `jobs` | 113's whole point was "kon sa board kis job ke liye aaya" |
+| `printing` | `qc`, `production`, `reports` | An operator could not see that his job was failed by QC |
+| `qc` | `artwork` | An inspector compares the sheet to the APPROVED artwork |
+| `plates` | `production` | A plate maker could not see what was running |
+| `sales` | `dispatch` | "Mera order gaya ya nahi" is the daily customer question |
+| `owner`, `gm` | modules absent from the matrix | Owner bypasses `has_permission()`, so the Settings screen was lying |
+
+**123 only ADDS. Nothing is revoked**, and every grant is `view`/`print`/`export`
+unless the role already owned the module — nobody can change anything they could
+not change before. The single exception is `admin`'s 18 disabled rows, switched
+back on and called out separately because it is the only place the migration
+reverses an explicit existing state (and it re-enables on every re-run, unlike
+every other guard here, which respects a permission turned off by hand).
+
+**No money scope is granted.** 119/120/122 decided who sees rates and 123 does
+not revisit it — `jobs` view exposes no amount (the quoted-amount card is
+`MoneyGate hide` on `cost`), nor does `dispatch` or `customers`.
+
+Five things the audit found that are REMOVALS are written into 123's own footer
+rather than acted on, so the next person does not re-derive them: planning's
+over-broad edit rights, meaningless `create`/`edit` on dashboard and reports,
+`store` holding `purchase create/edit`, `artwork` holding `plates
+approve/reject`, and `admin` holding `delete` on 26 modules against CLAUDE.md's
+own stated rule.
+
+Verified: 41 assertions against real Postgres, and **through a real
+`has_permission()`** rather than by counting rows — the Admin lockout asserted
+to exist BEFORE and be gone after, every gap closed, every pre-existing grant
+proven still active, no `edit` handed out with a `view`, no money row created,
+idempotent, and a hand-disabled grant proven to stay disabled.
+
+### The permissions screen was lying — the 1000-row cap, third time (no migration)
+Mehboob, after 123 was already live: *"permission to abhi b set nhi hoi."*
+He was right about what he saw and it was never a migration problem.
+
+`role_permissions` passed **1613 active rows** once every role had a real
+permission set. `buildPermissionMatrix()` read it with one plain `select()` —
+no `.range()`, no `.order()` — so **PostgREST returned exactly 1000 with no
+error** and the remaining 613 grants simply did not reach the page. Measured
+against live before fixing: **all 17 roles rendered wrong, and 7 rendered
+COMPLETELY EMPTY** — accounts, admin, artwork, manager, planning,
+production_manager and purchase, whose real grants are 28, 257, 27, 50, 42, 64
+and 23. Nothing was wrong in the database at any point.
+
+With no `.order()` either, *which* rows vanished was whatever order Postgres
+returned, so the same page could disagree with itself between renders.
+
+Fixed with `fetchAllRows()` (`src/lib/utils/fetchAllRows.ts`), used by
+`buildPermissionMatrix()` and `GET /api/v1/permissions` — the only two
+unbounded reads of that table. It pages with `.range()` and **requires the
+caller to order first**: `(role_id, permission_id)` is unique per the table's
+own constraint, so pages cannot repeat or skip, which is the same defect §6
+records for the 478 jobs sharing one `created_at`.
+
+**Reach for narrowing before paging.** `dashboard/help/page.tsx` filters to the
+`view` action and is provably under the cap — that is the cheaper fix and it was
+already right. Paging is for reads that genuinely need every row, and the
+permission matrix does: all 9 actions x 31 modules x 17 roles.
+
+Verified against live: the old read proven to truncate at exactly 1000, the new
+one to return all 1613 with no duplicate across pages, and every one of the 17
+roles proven non-empty — 21 assertions.
+
+**This is the third time this cap has bitten** (a migration audit reporting
+`qc = 5` against a real 14; the 200-row stat cards 103 fixed; now this). Any
+`select()` on a table that can exceed 1000 rows is a bug until proven otherwise.
+
 ### Open threads
 - **`planning` still has 22 view modules** (purchase, dispatch, workflow,
   machines, quotations, sales_orders, all six production stages…), which is why
   its sidebar is 23 links and auto-collapses. Tightening it was offered and not
   picked — do not do it unasked.
-- **The `admin` role has `customers` and `dashboard` switched OFF** — 18
-  `role_permissions` rows with `is_active = false`, and `has_permission()`
-  requires `rp.is_active`, so an Admin genuinely cannot open the dashboard or
-  the customer list. Flip them in Settings → Roles & Permissions if that wasn't
-  intended. (Admin also has no `admin` module at all — 243 of 252.)
+- **`planning` still has 22 view modules**, including `machines edit`,
+  `workflow edit` and `edit` on all six production stage modules — a planner
+  scheduling work does not need to edit stage progress. This is the single
+  biggest reduction available and 123 deliberately did not take it, because
+  removals break people mid-shift. See 123's footer for the other four.
 - **Aqib Ali is the last one uncreated**, waiting only on **migration 122**
   (`store_manager`). Re-run the loader in the scratchpad after it; the loader is
   idempotent and skips everyone already made.

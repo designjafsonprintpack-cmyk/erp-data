@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { AppError } from '@/types/shared'
+import { fetchAllRows } from '@/lib/utils/fetchAllRows'
 import type { Role, Permission, PermissionMatrix } from '../types/permission.types'
 
 export async function getRoles(): Promise<Role[]> {
@@ -43,17 +44,36 @@ export async function buildPermissionMatrix(
   permissions: Permission[]
 ): Promise<PermissionMatrix> {
   const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('role_permissions' as any)
-    .select('role_id, permission_id')
-    .is('deleted_at', null)
-    .eq('is_active', true)
-  if (error) throw new AppError('FETCH_MATRIX_FAILED', error.message)
 
-  const granted = new Set(
-    ((data ?? []) as unknown as Array<{ role_id: string; permission_id: string }>)
-      .map(r => `${r.role_id}::${r.permission_id}`)
-  )
+  // PAGED, and ordered. This select used to be a plain one-shot read, and once
+  // every role had a real permission set `role_permissions` went past 1613
+  // rows — so PostgREST returned the first 1000 with no error and the matrix
+  // rendered **every role after that as completely unticked**, while the
+  // grants sat in the database untouched. With no `.order()` either, which
+  // rows vanished changed between renders.
+  //
+  // The matrix genuinely needs all 9 actions across all 31 modules for all 17
+  // roles, so it cannot be narrowed the way the Help page narrows to `view`.
+  // (role_id, permission_id) is unique per the table's own constraint, so
+  // ordering on both gives a total order and pages cannot repeat or skip.
+  let rows: Array<{ role_id: string; permission_id: string }>
+  try {
+    rows = await fetchAllRows<{ role_id: string; permission_id: string }>(
+      (from, to) => supabase
+        .from('role_permissions' as any)
+        .select('role_id, permission_id')
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('role_id')
+        .order('permission_id')
+        .range(from, to) as any,
+      'permission matrix',
+    )
+  } catch (e: any) {
+    throw new AppError('FETCH_MATRIX_FAILED', e?.message ?? 'Failed to read role permissions')
+  }
+
+  const granted = new Set(rows.map(r => `${r.role_id}::${r.permission_id}`))
 
   const matrix: PermissionMatrix = {}
   for (const role of roles) {
