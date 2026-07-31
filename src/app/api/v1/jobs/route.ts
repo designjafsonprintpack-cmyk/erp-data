@@ -42,7 +42,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   let q = supabase
     .from('jobs' as any)
-    .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,current_stage_id,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
+    .select('id,job_number,job_title,status,priority,quantity,required_date,order_date,is_on_hold,is_repeat,created_at,current_stage_id,size_l,size_w,size_h,sheet_width_in,sheet_height_in,customers(name,customer_code),workflow_templates(name)', { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)

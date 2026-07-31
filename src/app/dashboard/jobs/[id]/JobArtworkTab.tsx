@@ -399,7 +399,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       )}
 
       {/* Upload Modal */}
-      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title={designs.length ? 'Add Artwork' : 'Add Artwork Version'} size="md"
+      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title={targetDesign ? 'Add a New Version' : 'Add a New Design'} size="md"
         footer={<>
           <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={upload} disabled={loading || !selectedFile}

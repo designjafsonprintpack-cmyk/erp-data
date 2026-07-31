@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **124**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **125**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -163,6 +163,14 @@ deliberately left empty. Never read from it.
 
 ## 5. Traps that have actually bitten
 
+- **A pglite migration test proves the MIGRATION, not the real table.** 124's
+  test rebuilt `job_artworks` from scratch with only the columns 124 touches,
+  so it never saw 015's `UNIQUE (company_id, job_id, version)` — which
+  contradicted the new per-design index and made the very first two-design
+  upload on live fail with a duplicate-key error. 26 assertions had passed.
+  **Before adding a rule that overlaps an existing one, read the original
+  `CREATE TABLE`** for constraints, triggers and indexes, and rebuild the test
+  table with them. `information_schema.columns` is not the schema. Fixed by 125.
 - **`.pl-safe` / `.pr-safe` / `.pb-safe` SET padding, they don't add to it.**
   They're declared after Tailwind's utilities so they win the cascade, and the
   insets are `0px` on desktop and on any phone in portrait. Never pair one with
@@ -1470,10 +1478,100 @@ tiling, no hardcoded hex, no opacity-on-`var()`), and **26 wiring assertions**
 route returning an array, the old single-approval query gone, the card printing
 per design).
 
-**NOT yet walked through the real HTTP routes** — that needs 124 on live first.
-The walk script is written and waiting in the scratchpad (`design_test.mjs`);
-it refuses to run until it can read `design_no`, creates a two-design job,
-and asserts the gate refuses at one approval and passes at two.
+### 125 — 124 was half a fix, and only live told us
+124 went onto live and the very first two-design upload failed:
+
+> `duplicate key value violates unique constraint
+> "job_artworks_company_id_job_id_version_key"`
+
+**015's original `UNIQUE (company_id, job_id, version)` was still on the
+table.** It does not know what a design is — it allows one row per version per
+JOB — so design 2 version 1 collided with design 1 version 1. 124's new index
+said the insert was legal; 015's constraint said it wasn't, and **the stricter
+rule wins**. A job could hold two designs everywhere except the one place that
+counts.
+
+125 drops it. Nothing replaces it: 124's
+`job_artworks_job_design_version_uniq` covers the same ground more precisely
+(per design, and ignoring soft-deleted rows). `job_id` already implies the
+company, so `company_id` in the old key added nothing. **The migration finds
+the constraint by its COLUMN LIST, not its auto-generated name** — a database
+rebuilt by other means can carry the same rule under a different name, and a
+name-only `DROP` would silently no-op while reporting success.
+
+**Why 124's own test missed it — the lesson.** The pglite test rebuilt
+`job_artworks` from scratch to exercise the migration, and the rebuilt copy
+carried only the columns 124 touches, not 015's table constraint. It asserted
+the new index exhaustively and never knew the old one existed.
+**Rebuilding a table for a migration test proves the migration and nothing
+about the real table.** Read the original `CREATE TABLE` for constraints,
+triggers and indexes before adding a rule that overlaps one — checking
+`information_schema.columns` is not checking the schema.
+
+Verified: **19 assertions against real Postgres**, this time on a table built
+from 015's actual definition — the failure **reproduced with its exact error
+message** before 125, gone after; design 2 v1 inserting; a true duplicate still
+refused; versions still stacking within a design; a soft-deleted row still not
+blocking; another job unaffected; the existing row untouched; idempotent over
+three runs; and 125 proven to run cleanly on a database where 124 was only
+half-applied.
+
+Also fixed from the same screenshot: the upload modal read **"Add Artwork
+Version" while "A separate new design" was selected** — the title keyed off how
+many designs existed instead of what the user had chosen. It now follows the
+choice.
+
+**Still NOT walked through the real HTTP routes.** The walk script is written
+and waiting in the scratchpad (`design_test.mjs`); it creates a two-design job
+and asserts the gate refuses at one approval and passes at two. Run it once 125
+is on live.
+
+### Size on the Jobs list and in search (no migration)
+Mehboob: *"job list main LxWxH aur sheet size WxH b show ho, main search main b
+show ho."* His screenshot made the case — six results all reading
+"… 50g Inner & Outer" for **Ags Molasses**, told apart by nothing on screen.
+Size is the only field that separates them.
+
+`formatJobSize.ts` is the single formatter — `formatBoxSize()`,
+`formatSheetSize()`, `formatJobSizeLine()` — used by the Jobs list column, the
+Kanban card, the search palette and the Excel export.
+- **A missing dimension is dropped, never zeroed.** 70 of 479 live jobs carry
+  no size; "190 × 100 × 0" would read as a real flat box.
+- **Sheet is both sides or nothing** — half a sheet size reads as a box
+  dimension on the floor.
+- Output uses **U+00D7 ×**, the same sign `describeSizeQuery()` emits, so what
+  the screen shows and what the search box understands read identically —
+  asserted by round-tripping the displayed string back through
+  `parseSizeQuery()`. Input still accepts a plain `x`; nobody should have to
+  find × on a keyboard.
+
+- **One stacked column, not two.** The row already carries 8 columns plus the
+  selection checkbox; two more would push every text column to a truncating
+  width. Box size over "Sheet W × H", mirroring "Title / Customer" above it.
+- Both the server page and `GET /api/v1/jobs` gained the five columns — **the
+  page alone would have blanked the column the moment anyone searched**, which
+  is the same trap §6 records for the Stage column.
+- **Search is enriched in the route, not in `global_search_index`.** That view
+  is shared by every entity type; widening it for a field only jobs have means
+  a migration plus a full index refresh. At most 20 rows come back, so it is
+  one keyed lookup. The **ilike fallback path got the columns too** — otherwise
+  the size line would vanish exactly when the search index is broken and nobody
+  would connect the two.
+- Kanban shows it as well: it is the same Jobs page under a different view, and
+  switching should not lose the field.
+
+Verified: **20 unit assertions** on the formatter (decimals, trailing zeros,
+dropped dimensions, half a sheet, a real 0 kept as a value, and the round-trip
+through the search parser), **11 through the real routes against live** — 80
+`L × W × H` values and 98 `Sheet W × H` lines actually rendered on
+`/dashboard/jobs`, `JOB-2026-00001`'s exact figures present, the list API
+carrying all five columns, search returning them, and non-job results proven
+NOT to gain phantom size fields.
+
+**A wrong assertion worth remembering:** the first render check failed on
+`/Sheet\s*\d/` while the page was perfect. **React SSR inserts `<!-- -->`
+between adjacent text nodes**, so `Sheet {value}` serialises as
+`Sheet<!-- -->20 × 27`. Strip those before asserting on visible text.
 
 ### Open threads
 - **Only Customers has a Restore tab.** Vendors, machines, departments and the

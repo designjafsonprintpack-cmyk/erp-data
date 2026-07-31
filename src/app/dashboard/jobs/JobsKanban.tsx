@@ -6,10 +6,13 @@ import { cn } from '@/lib/utils/cn'
 import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
 import { JobThumbStrip, type JobThumbData } from '@/components/artwork/ArtworkThumb'
+import { formatJobSizeLine } from '@/lib/utils/formatJobSize'
 
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
   priority: JobPriority; quantity: number; required_date: string | null
+  size_l?: number | null; size_w?: number | null; size_h?: number | null
+  sheet_width_in?: number | null; sheet_height_in?: number | null
   order_date: string; is_on_hold: boolean; is_repeat: boolean; created_at: string
   customers?: { name: string; customer_code: string } | null
   workflow_templates?: { name: string } | null
@@ -106,6 +109,11 @@ export function JobsKanban({ jobs, onStatusChange, thumbnails }: { jobs: Job[]; 
                       <span className="min-w-0">
                         <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{job.job_title}</p>
                         <p className="text-xs text-[var(--color-text-muted)] truncate">{job.customers?.name || '—'}</p>
+                        {/* Kanban is the same Jobs page under a different view;
+                            switching to it should not lose the size. */}
+                        {formatJobSizeLine(job) && (
+                          <p className="text-xs text-[var(--color-text-secondary)] truncate">{formatJobSizeLine(job)}</p>
+                        )}
                       </span>
                     </Link>
 

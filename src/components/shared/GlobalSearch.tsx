@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Briefcase, Users, ShoppingCart, X, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { formatJobSizeLine } from '@/lib/utils/formatJobSize'
 
 interface SearchResult {
   id: string
@@ -11,6 +12,12 @@ interface SearchResult {
   title: string
   status: string
   customer_name: string
+  /** Jobs only — the route enriches job rows with their dimensions. */
+  size_l?: number | null
+  size_w?: number | null
+  size_h?: number | null
+  sheet_width_in?: number | null
+  sheet_height_in?: number | null
 }
 
 const ENTITY_ICONS = {
@@ -174,6 +181,14 @@ export function GlobalSearch() {
                             <span className="text-xs text-[var(--color-text-muted)] capitalize">{result.status.replace('_', ' ')}</span>
                           )}
                         </div>
+                        {/* Size on its own line. Two jobs called "50g Inner &
+                            Outer" for one customer are told apart by this and
+                            nothing else on the row. */}
+                        {formatJobSizeLine(result) && (
+                          <div className="text-xs text-[var(--color-text-secondary)] mt-0.5 truncate">
+                            {formatJobSizeLine(result)}
+                          </div>
+                        )}
                       </div>
                       <kbd className="text-xs text-[var(--color-text-muted)] hidden group-hover:block">↵</kbd>
                     </button>

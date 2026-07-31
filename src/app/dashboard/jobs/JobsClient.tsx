@@ -13,6 +13,7 @@ import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { JobThumbStrip, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
 import { Pagination } from '@/components/ui/Pagination'
+import { formatBoxSize, formatSheetSize } from '@/lib/utils/formatJobSize'
 
 /** Rows per page. The server-rendered first page in page.tsx uses the same
  *  number — keep the two in sync or page 1 and page 2 overlap.
@@ -37,6 +38,11 @@ const JOBS_DENSITY_KEY = 'jafson.jobs.density'
 interface Job {
   id: string; job_number: string; job_title: string; status: JobStatus
   priority: JobPriority; quantity: number; required_date: string | null
+  /** Box and sheet dimensions — shown as their own column since Mehboob asked
+   *  for "LxWxH aur sheet size WxH" on the list. Nullable: 70 of 479 live jobs
+   *  carry no size at all. */
+  size_l?: number | null; size_w?: number | null; size_h?: number | null
+  sheet_width_in?: number | null; sheet_height_in?: number | null
   order_date: string; is_on_hold: boolean; is_repeat: boolean; created_at: string
   current_stage_id?: string | null
   /** Live workflow stage name, resolved server-side from current_stage_id. */
@@ -143,6 +149,26 @@ const jobColumns = (thumbs: Record<string, JobThumbData[]>, density: Density): D
     render: j => <span className="text-sm text-[var(--color-text-secondary)]">{j.quantity.toLocaleString()}</span>,
   },
   {
+    // Box size over sheet size, stacked in one column rather than two.
+    // The row already carries 8 columns plus selection; two more would push
+    // every text column to a truncating width. Stacking mirrors
+    // "Title / Customer" right above it.
+    key: 'size', header: 'Size / Sheet', span: 2, role: 'meta', label: 'Size',
+    render: j => {
+      const box = formatBoxSize(j)
+      const sheet = formatSheetSize(j)
+      if (!box && !sheet) return <span className="text-xs text-[var(--color-text-muted)]">—</span>
+      return (
+        <span className="block leading-tight">
+          <span className="block text-xs text-[var(--color-text-secondary)] whitespace-nowrap">{box ?? '—'}</span>
+          {sheet && (
+            <span className="block text-[10px] text-[var(--color-text-muted)] whitespace-nowrap">Sheet {sheet}</span>
+          )}
+        </span>
+      )
+    },
+  },
+  {
     // Was the workflow TEMPLATE name — the same value on nearly every row and
     // no help in knowing what a job is waiting on. The live stage is the thing
     // people actually walk over to ask about; the template name is still on
@@ -212,6 +238,8 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       'Job #': j.job_number,
       'Title': j.job_title,
       'Customer': j.customers?.name ?? '',
+      'Size (L x W x H)': formatBoxSize(j) ?? '',
+      'Sheet (W x H)': formatSheetSize(j) ?? '',
       'Status': j.status,
       'Priority': j.priority,
       'Quantity': j.quantity,
