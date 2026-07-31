@@ -17,7 +17,10 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       // are read by JobDetailClient's spec grid but were never joined here, so
       // every one of those five fields rendered "—" no matter what the job
       // actually had saved.
-      .select('*, customers(name,customer_code,email,phone,mobile), workflow_templates(name), sales_orders(so_number), box_types(name), board_types(name), paper_types(name), lamination_types(name), foil_types(name)')
+      // job_gang_members (126) rides along so the page can say "this job is
+      // running with another one" — without it a ganged job looks like any
+      // other and the shared board and plates make no sense to whoever opens it.
+      .select('*, customers(name,customer_code,email,phone,mobile), workflow_templates(name), sales_orders(so_number), box_types(name), board_types(name), paper_types(name), lamination_types(name), foil_types(name), job_gang_members(ups_on_layout,original_quantity,original_ups,job_gangs(id,gang_number,layout_ups,sheet_count,status,job_gang_members(job_id,ups_on_layout,jobs(job_number,job_title))))')
       .eq('id', params.id).maybeSingle(),
     supabase.from('job_stage_progress' as any)
       .select('*, workflow_stages(name,is_optional,estimated_hours)')

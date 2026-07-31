@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **125**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **126**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -1521,10 +1521,114 @@ Version" while "A separate new design" was selected** — the title keyed off ho
 many designs existed instead of what the user had chosen. It now follows the
 choice.
 
-**Still NOT walked through the real HTTP routes.** The walk script is written
-and waiting in the scratchpad (`design_test.mjs`); it creates a two-design job
-and asserts the gate refuses at one approval and passes at two. Run it once 125
-is on live.
+**Walked through the real HTTP routes on 2026-07-31, once 124 + 125 were both
+live: 36 assertions, all passing.** A two-design job driven end to end —
+first upload landing on design 1 v1; a second upload with no `design_no`
+becoming **design 2 v1, not v2**; `design_no: 1` giving design 1 v2; a
+`design_no` beyond what exists refused with a message that says how many there
+are; the thumbnails route returning both designs sorted, each at its latest
+version, labels intact; the **gate refusing with nothing approved, refusing
+again with only ONE design approved (naming "Design 2 (Lid)"), and passing at
+two** — with the old "any approved row" rule proven to have passed at that same
+point; a one-design job proven unchanged, keeping the original wording with no
+"2 designs" talk; and the printed Job Card rendering **two `<img>` tiles, both
+captioned**. Live returned to its exact prior state.
+
+**The walk found a real bug the offline tests could not: the design's NAME was
+lost on a new version.** `design_label` is stored per ROW, so uploading v2
+without re-typing the name wrote NULL — and every reader that shows "the latest
+version of each design" (the thumbnails route, the Job Card) then showed a
+design with no name. **The label belongs to the DESIGN, not to one version of
+it**, so the POST route now inherits the existing name unless the caller
+deliberately supplies a new one. Only a walk over the real routes surfaces
+this: each request in isolation is correct.
+
+**Two of my test's own faults, both worth remembering.** `/jobs/[id]/workflow`
+is **PATCH, not POST** — calling it with POST returns 405, which reads exactly
+like a broken gate. And the Job Card can only draw a thumbnail whose file
+really exists in Storage: `createSignedUrls` fails on a path with no bytes
+behind it, so a fixture that inserts artwork ROWS without uploading anything
+renders no tiles and fails a caption assertion for a reason unrelated to the
+feature. The fixture now uploads a real 1×1 PNG per row and removes it
+afterwards. Also: counting `artwork-thumb` in the HTML counted the page's own
+CSS rule — match `<img[^>]*class="artwork-thumb"` instead.
+
+### The Artwork tab emptied itself on a tab switch (no migration)
+Mehboob: *"artwork upload ho gay per kisi dosery tab per click keru phir dobara
+artwork per click kero to artwork show nahi hoty, hard refresh kero to ho jaty
+hain."*
+
+Job Detail renders its tabs as `{activeTab === 'artwork' && <JobArtworkTab …/>}`,
+so **leaving the tab unmounts the component and returning mounts a fresh one**,
+whose `useState(initialArtworks)` re-reads the props the server rendered when
+the PAGE loaded. Everything uploaded since lived only in local state. On a job
+whose artwork was all uploaded during that visit, `initialArtworks` was `[]` and
+the tab came back **completely empty** — exactly what he saw. Only a hard reload
+re-ran the server component.
+
+Two halves, both needed:
+- **Every mutation now calls `router.refresh()`** (upload, status change,
+  delete, approval-link) so the server component re-runs and `initialArtworks`
+  becomes current. The status one matters most: approving an artwork is what
+  opens the workflow's artwork gate, and the Workflow tab reads the server's
+  copy.
+- **A `useEffect` copies the prop into state**, so a refresh lands even while
+  the tab is still open. **Keyed on a content SIGNATURE, not the array
+  identity** — the parent hands down a brand-new array on every one of its own
+  renders (opening a modal, switching tabs), and depending on the array
+  directly would reset state on all of them and could wipe an optimistic update
+  before the refresh returned.
+
+**Only this component had the bug.** The page-level clients stay mounted for the
+page's life; `JobProofingTab` fetches its own data on mount; Wastage and Ink
+keep their state in `JobDetailClient`, which never unmounts. The only other
+tab-mounted children in the app (`QcDefectTrends`, `CustomReportBuilder`) take
+no data props. Checked, not assumed.
+
+Verified: 7 source assertions + **14 through the real routes against live** — a
+fresh server render proven to carry a just-uploaded artwork row, an approval
+visible in it with the database agreeing, and the row gone after a delete.
+
+**Two of my own assertions were wrong before they were right, both worth
+remembering:** counting `router.refresh()` in the raw source counted the two
+mentions inside the doc comment (strip comments first); and asserting a deleted
+artwork's FILE NAME had left the page failed because **`recordJobEvent` writes
+the file name into the job's timeline, where it stays forever** — assert on the
+artwork row's id, not on text that other features legitimately repeat.
+
+### The upload modal, rewritten (no migration)
+Mehboob, still hitting the constraint error: *"aik design k 2 version upload
+hoty hain, delete b hoty hay, per a separate new design nahi hota… Add a New
+Design waly popup ko dobara dykho, sub sahi kero, asan b kero."*
+
+**The error was 125 not being on live**, proved rather than inferred: a
+throwaway job was created via the service role and given design 1 v1 (ok),
+design 1 v2 (ok — which is exactly why versions worked for him), then design 2
+v1, which failed with the same constraint. Probe cleaned up after itself. No
+code change could have fixed it.
+
+The modal was rewritten in the same pass:
+- **The choice is only shown when there IS one.** The first upload on a job
+  used to render a dropdown whose single option was "A separate new design" — a
+  question with one answer, asked before the user had done anything. A first
+  upload now asks for a file and, optionally, a name.
+- **Two labelled buttons, not a `<select>`.** The choice changes what the rest
+  of the form means, and a dropdown hides that behind a tap. Each says what it
+  is and what it is for: *"A newer version — Same design, corrected file"* and
+  *"A different design — Like Inner and Outer"*, using his own example.
+- **The "which design" dropdown only appears with 2+ designs to choose
+  between.** With one design the button already said it.
+- Plain-English labels throughout ("Name this design (optional)",
+  placeholder "Inner, Outer, Lid, Base…"), the notes placeholder changes with
+  the choice, and the title reads "Add Artwork" / "Add a New Version" /
+  "Add a Different Design" to match what will actually happen.
+
+Verified: **19 assertions** — the design chip proven absent for 0 designs, 1
+design and two VERSIONS of one design, and present (by name, falling back to
+"Design N") only once a job really has two; no hardcoded hex; no
+opacity-on-`var()`; plus source assertions that the choice is conditional and
+the old wording is gone. Closed modals render nothing, so the modal body is
+asserted by source grep — the rule §8 already records.
 
 ### Size on the Jobs list and in search (no migration)
 Mehboob: *"job list main LxWxH aur sheet size WxH b show ho, main search main b
@@ -1573,7 +1677,181 @@ NOT to gain phantom size fields.
 between adjacent text nodes**, so `Sheet {value}` serialises as
 `Sheet<!-- -->20 × 27`. Strip those before asserting on visible text.
 
+### Artwork files: 30-day retention (no migration)
+Deleting an artwork soft-deleted the `job_artworks` row and **never touched the
+object behind it**, so nothing ever collected the files. Measured on live
+2026-07-31: `JOB-2026-00002` held **7 objects behind 2 live rows** and
+`JOB-2026-00003` held 6 behind 2 — the residue of uploading, hitting the
+duplicate-key error, deleting and re-uploading. Asked how long a deleted
+artwork should keep its file, Mehboob said **30 days**.
+
+`sweepArtworkFiles()` (`src/lib/utils/artworkRetention.ts`), run daily by
+`/api/cron/artwork-cleanup` at 03:00. `?dry=1` reports without deleting.
+
+**Two kinds of dead file, and they age differently:**
+- **A soft-deleted row's file** ages from `deleted_at` — the moment someone
+  chose to remove it. Inside 30 days the file survives, so a mistaken delete is
+  still recoverable by clearing `deleted_at`.
+- **An orphan with no row at all** ages from the OBJECT's own `created_at`.
+  The upload reaches Storage BEFORE the row is inserted, so a failed insert
+  leaves a file nothing points at — exactly what the duplicate-key errors
+  produced. There is no `deleted_at` to age from.
+
+**The rules that make it safe to run unattended:**
+- A file is deleted only when **provably unreferenced**. The keep-set is built
+  from every live row AND every recently-deleted row first.
+- **Keep always beats expire** when two rows point at one object (a re-upload
+  of the same file) — deleting it would break the live row.
+- **No date, no deletion.** An object with a missing `created_at` is treated as
+  recent.
+- A **listing failure is a warning, never "no files"** — a partial picture must
+  not be allowed to make files look unreferenced.
+- The window is **inclusive**: exactly 30 days old is kept.
+
+**The unit test caught a real defect in the first version.** `listAll()`
+stopped when a page came back shorter than the limit and advanced the offset by
+the limit — so a Storage server that silently returns fewer rows than asked for
+would have ended the scan early, and unseen files look unreferenced. Against a
+stub capped at 100 it scanned **100 of 250 objects**. It now pages until a page
+is EMPTY and advances by however many rows actually arrived. Same silent-cap
+family as PostgREST's 1000-row ceiling — **fourth time in this project**.
+
+Verified: **16 unit assertions** on a stubbed client (an old orphan collected,
+the 30-day boundary both ways, keep-beats-expire, missing `created_at`, the
+folder placeholder, a row's date beating the file's, 250 objects across capped
+pages, **1200 live rows read with not one live file deleted**, a listing error
+deleting nothing, and a dry run calling `remove()` zero times) and **20 against
+real Storage and the real database** — a job built with all four categories,
+dry run proven to delete nothing, then the expired file gone while the live,
+recently-deleted and fresh-orphan files survived, and **every live artwork row
+on live proven to still have its file**. All test rows and objects removed.
+
+### 126 — GANG RUNS: two jobs, one sheet
+Mehboob: *"akser asa hota hay k hum 2 job jin k size aik jasy hoty hain aik sath
+chalaty hain — layout 8 ups ka hay per 4 ups aik job k aur 4 ups aik job k,
+kabi 3 aur 5, kabi 2 aur 6."*
+
+    Job A  order 10,000  ->  3 ups  ->  12,000   (+2,000, agreed with the client)
+    Job B  order 20,000  ->  5 ups  ->  20,000
+                                        4,000 sheets
+
+Separately that is 1,250 + 2,500 = 3,750 sheets, TWO press setups, TWO plate
+sets, TWO die setups. **The saving is the setup, not the board** — the extra 250
+sheets ARE the 2,000 extra boxes the client agreed to buy. Before this, ganging
+lived in `jobs.internal_remarks` as free text, so the ERP asked for board twice
+and hard-blocked Printing on each job for one physical set of plates.
+
+**Four facts from Mehboob that the design rests on. Get these wrong and the
+model is wrong:**
+1. **Always the same customer.** No cross-customer cost or confidentiality problem.
+2. **The DIE bounds the layout, not arithmetic.** 10 + 10 is not a 20-up layout —
+   that needs a 27x44 sheet and a new die. `jobs.die_number` is free text and
+   there is no die master, so **the ERP must never decide the split**.
+   `suggestSplit()` is a starting point the planner overwrites.
+3. **They run together until PACKING.** Only packing separates them.
+4. **The Sales Order becomes 12,000** — *"werna to hum bad main bhool jaey gy k
+   humary pas 10000 ki jagha 12000 hy."* The SO is what dispatch and invoicing
+   read. The quotation keeps the original and
+   `sales_order_items.quotation_item_id` still points at it, so the quoted
+   figure survives on its own.
+
+**The identity that makes a gang valid:** once the agreed quantity is written
+back, `ceil(quantity / ups)` equals the run's sheet count for EVERY member
+(12,000/3 = 4,000; 20,000/5 = 4,000). So §4's locked rule needs no exception for
+gangs, and a split that does not satisfy it is simply wrong.
+
+**`is_gang_shared` is a COLUMN, not an inference.** The obvious rule — "shared =
+every stage before Packing, found via `stage_type`" — does not work on this
+database: probed first, `Standard Carton Workflow` carries a `stage_type` on
+only **4 of its 10 stages**; Planning, UV Coating, Die Cutting, Folder Gluing,
+Packing and Dispatch are all NULL. Backfilled per template from its own Board
+Issue → Packing sequence, so 111's 12-stage template is covered without naming
+Lamination or Hot Foil, and a template with no Packing stage is **skipped, not
+guessed**. Editable in Settings afterwards.
+
+**`original_ups` exists because of a trap Mehboob's own scenario exposed.** He
+said: *"next time Job A 50000 aa jata hay aur job B aata hi nahi… to dono ko
+saprate chalana ho ga."* A gang is a decision about THIS run — but
+`/jobs/[id]/repeat` copies `orig.ups` and recomputes
+`sheet_qty = ceil(newQty / ups)`. Repeating a job ganged at 3 ups would plan
+50,000 boxes at 3 ups: **16,667 sheets instead of 6,250**, nearly three times
+the board, silently. The membership keeps the job's own die layout and its own
+order quantity, and Repeat/QC Reprint read those.
+
+Planning is **one entry per gang** (`job_plans.gang_id`, unique among live
+rows) — one press slot, one line on the board. `job_id` stays NOT NULL as it has
+been since 015; the row hangs off the first member.
+
+**Two real bugs caught before shipping, both classics from §5:**
+- **`job_updated` is not a valid `event_type`.** The first draft logged it.
+  `recordJobEvent()` only `console.error`s a rejected insert, so every gang
+  would have vanished from the audit trail while the route returned 200 —
+  **exactly what 104 did to press proofs until 108**. 126 widens the CHECK and
+  the `EventType` union together; the test asserts `job_updated` is still
+  refused.
+- **The SO header total would have wiped the discount.** The first draft set
+  `total_amount = subtotal`. There is no server-side formula to borrow — the SO
+  POST route takes the totals from the request body — so the only definition
+  lives in `SOFormClient`: `total = subtotal - subtotal x discount_percent/100`,
+  `tax_amount` always 0. That is mirrored exactly. **If the form ever grows tax,
+  `recalcSalesOrderTotal()` in `api/v1/gangs/route.ts` must follow.**
+
+Verified: **48 assertions on the migration against real Postgres** (rebuilt to
+live's actual shape, stage_type NULLs and all), **35 on the calculator** (his
+exact numbers; every split 1+7 through 7+1 proven to leave nobody short; bad
+splits refused by name), and **34 wiring assertions**. `tsc` 0 errors, build
+clean.
+
+**Part 2 — the production side.** `src/lib/utils/jobGang.ts` is the single
+answer to "is this job sharing a sheet, and what follows"; the workflow route
+loads it ONCE per request and three checks read it.
+
+- **One MRN for the run.** The requisition hangs off the run's **lead job** and
+  asks for the run's `sheet_count`, not any member's `sheet_qty`. Two members
+  each raising their own would ask Store for the board twice — 4,000 sheets
+  requisitioned as 8,000. Board Issue's completion check reads the lead's MRN
+  too, or every member except the lead would be blocked for board already
+  issued.
+- **`gangLeadJobId()` is derived, not stored** — lowest job number, id breaking
+  the tie. Deterministic, so every caller picks the same job with no column to
+  keep in sync and a re-read never moves it.
+- **The plate gate accepts the RUN's plates.** One physical CMYK set covers the
+  sheet; requiring a set per job would mean recording the same plates twice and
+  refusing to print until someone did. **All three `job_plates` reads in the
+  route now look across the run** — including 097's changed-repeat reuse
+  warning, which on a non-lead member had been finding nothing and never firing,
+  on exactly the job whose artwork changed.
+- **A shared stage moves the whole run.** Matched by stage NAME, not
+  `workflow_stage_id`: a Standard Carton job can be ganged with a `Carton with
+  Lamination / Foil` job (111) and their "Printing" rows are different
+  `workflow_stages`. Applied only AFTER this job's own update has succeeded, and
+  only to a sibling stage that is BEHIND this one — re-completing would
+  overwrite who finished it and when. Each sibling also gets its own event,
+  `syncJobCurrentStage()` and `closeJobIfWorkflowDone()`.
+- **Board cost splits by ups.** `apply_job_actual_cost` used to put the whole
+  run's board on the MRN's job, so the lead carried 100% and its partner zero —
+  both margins wrong, and wrong in a way nothing else would reveal.
+  **`splitByUps()` preserves the total exactly** (largest-remainder): 4,001
+  sheets at 3:5 is 1,500 + 2,501, never 4,000 or 4,002. Real board and real
+  money — a rounding leak here is a permanently wrong cost.
+- **Every fallback is the original behaviour.** A job with no gang gets its own
+  MRN, its own plate check and its whole cost, exactly as before.
+
+Verified: **23 assertions on the split** (the total preserved across 1, 7,
+3,999, 4,001, 999,999; paisa-level money; 2:3:5 across three jobs; a
+deterministic lead) and **12 wiring assertions**. `tsc` 0 errors, build clean.
+
+**126 has NOT been run on live, and the gang has not been walked through the
+real HTTP routes** — that needs the migration applied first.
+
 ### Open threads
+- **The other three cron routes stand open when `CRON_SECRET` is unset.** They
+  compare the header against `` `Bearer ${process.env.CRON_SECRET}` `` directly,
+  so on a deployment missing the variable the literal string
+  `Bearer undefined` is a valid credential. `artwork-cleanup` refuses to run
+  instead (503), because a route that DELETES FILES is the wrong place to
+  inherit that. The other three were left alone — changing auth on live crons
+  unasked is its own risk.
 - **Only Customers has a Restore tab.** Vendors, machines, departments and the
   master-data lists all soft-delete with no way back from the UI — same gap,
   same fix, not done unasked. `deleteGuard` is already wired to vendors.

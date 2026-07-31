@@ -11,6 +11,11 @@ export type EventType =
   // Press proofing (104): 'proof_created' when a round is pulled,
   // 'proof_decided' when the customer approves it or asks for changes.
   | 'proof_created' | 'proof_decided'
+  // Gang runs (126): ganging rewrites a job's ups, its quantity AND its Sales
+  // Order line, so both directions leave a trail. This union and the
+  // job_stage_events CHECK must be widened TOGETHER — 104 widened neither and
+  // the audit trail silently lost every press proof until 108.
+  | 'gang_created' | 'gang_removed'
 
 export const GRAIN_DIRECTION_CONFIG: Record<GrainDirection, { label: string }> = {
   long_grain:  { label: 'Long Grain' },

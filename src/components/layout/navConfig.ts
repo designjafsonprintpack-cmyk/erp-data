@@ -4,7 +4,7 @@ import {
   UserCog, Settings, Building2, Layers, CreditCard, ClipboardList,
   ShieldCheck, ScanLine, Printer, Film, Scissors, Flame, FoldVertical, Warehouse, BookOpen,
   type LucideIcon,
-  Activity, ListChecks,
+  Activity, ListChecks, Combine,
 } from 'lucide-react'
 
 export type NavIcon = LucideIcon
@@ -75,6 +75,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Artwork',                                href: '/dashboard/artwork',                  icon: Image,           color: '#a855f7', module: 'artwork' },
   { label: 'Plates',                                 href: '/dashboard/plates',                   icon: Layers,          color: '#14b8a6', module: 'plates' },
   { label: 'Planning',                               href: '/dashboard/planning',                 icon: Calendar,        color: '#06b6d4', module: 'planning' },
+  // Gang runs (126) — two jobs on one sheet. Gated on `planning` because it is
+  // a planning decision, and it sits beside Planning for the same reason.
+  { label: 'Gang Runs',       shortLabel: 'Gangs',   href: '/dashboard/gangs',                    icon: Combine,         color: '#06b6d4', module: 'planning' },
   { label: 'Store (MRN)',     shortLabel: 'Store',   href: '/dashboard/store',                    icon: Warehouse,       color: '#84cc16', module: 'store' },
   { label: 'Board Inventory', shortLabel: 'Board',   href: '/dashboard/board-inventory',          icon: Building2,       color: '#f97316', module: 'board_inventory' },
   { label: 'MRP',                                    href: '/dashboard/mrp',                      icon: ClipboardList,   color: '#8b5cf6', module: 'board_inventory' },
@@ -158,6 +161,7 @@ export const NAV_SECTIONS: NavSection[] = [
     '/dashboard/artwork',
     '/dashboard/plates',
     '/dashboard/planning',
+    '/dashboard/gangs',
   ] },
   { key: 'production', label: 'Production', hrefs: [
     '/dashboard/production/printing',

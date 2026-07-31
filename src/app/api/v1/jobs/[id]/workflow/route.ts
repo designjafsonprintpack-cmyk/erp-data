@@ -10,6 +10,7 @@ import { jobWorkflowActionSchema } from '@/lib/schemas/jobActions'
 import { checkStageGate } from '@/lib/utils/jobStageGate'
 import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 import { closeJobIfWorkflowDone } from '@/lib/utils/closeJobIfWorkflowDone'
+import { loadGangContext, applyToGangSiblings, markGangInProgress } from '@/lib/utils/jobGang'
 import { notifyDepartment } from '@/lib/utils/notifyDepartment'
 
 // After a stage completes, some previously-blocked stages may now be
@@ -89,6 +90,19 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   if (gate.blocked) {
     return NextResponse.json({ error: gate.reason }, { status: 400 })
   }
+
+  // ─── Is this job sharing a sheet? (migration 126) ──────────────────────────
+  // Loaded ONCE, here, because three different checks below need it: the plate
+  // gate, the auto-MRN and the Board Issue check. Null for almost every job,
+  // and every one of those checks keeps its original behaviour when it is.
+  const gang = await loadGangContext(supabase, companyId, jobId)
+
+  // Whether THIS stage is one the run shares. Read from the stage row rather
+  // than guessed from its type — most live stages have no stage_type at all,
+  // which is why 126 made it a column.
+  const { data: stageFlags } = await supabase.from('workflow_stages' as any)
+    .select('is_gang_shared').eq('id', workflowStageId).maybeSingle()
+  const isSharedStage = !!gang && !!(stageFlags as any)?.is_gang_shared
 
   // ─── Artwork approval gate ──────────────────────────────────────────────────
   // The artwork stage cannot be marked complete until a version of this job's
@@ -234,13 +248,23 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // surfaces a heads-up in the response for whoever's approving the start.
   const warnings: string[] = []
   if (action === 'start' && targetStageType === 'printing') {
+    // A GANGED job prints from the RUN's plates (126). One physical CMYK set
+    // covers the whole sheet, so requiring a set per job would mean recording
+    // the same plates two or three times — and refusing to print until someone
+    // did. Plates on ANY member of the run open the gate for all of them.
+    const plateJobIds = gang ? gang.members.map(m => m.job_id) : [jobId]
+
     const { data: activePlates } = await supabase.from('job_plates' as any)
-      .select('id').eq('job_id', jobId).eq('company_id', companyId)
+      .select('id, job_id').in('job_id', plateJobIds).eq('company_id', companyId)
       .is('deleted_at', null).is('returned_at', null).limit(1)
 
     if (!activePlates || activePlates.length === 0) {
       return NextResponse.json(
-        { error: `Cannot start "${targetStageName}" — no plates have been issued to this job yet. Add plates first.` },
+        {
+          error: gang
+            ? `Cannot start "${targetStageName}" — no plates have been issued to ${gang.gangNumber} yet. Add plates to any job in the run.`
+            : `Cannot start "${targetStageName}" — no plates have been issued to this job yet. Add plates first.`,
+        },
         { status: 400 }
       )
     }
@@ -282,9 +306,14 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     //     the expiry), so the rest are legitimately reused and a hard block
     //     would be wrong. The operator just has to be told.
     if (changedJob) {
+      // Across the RUN, not just this job (126). A gang shares one plate set,
+      // recorded against whichever member it was added to — so on a non-lead
+      // member this read found nothing and the warning never fired, on exactly
+      // the job whose artwork changed.
       const { data: assigned } = await supabase.from('job_plates' as any)
         .select('is_reused, plates(plate_code, color, origin_job_id)')
-        .eq('job_id', jobId).eq('company_id', companyId)
+        .in('job_id', gang ? gang.members.map(m => m.job_id) : [jobId])
+        .eq('company_id', companyId)
         .is('deleted_at', null).is('returned_at', null)
 
       const reused = ((assigned ?? []) as any[]).filter(p =>
@@ -329,23 +358,32 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   // Printing (which is about the shop's overall stock position, not this
   // specific job's requisition).
   if (action === 'start' && targetStageType === 'board_issue') {
+    // A GANGED job draws board ONCE for the whole run (126). The MRN belongs to
+    // the run's lead job and asks for the run's sheet count — not this job's
+    // own sheet_qty, and not one MRN per member. Two members each raising their
+    // own would ask Store for the board twice: 4,000 sheets requisitioned as
+    // 8,000, and every stock figure wrong from then on.
+    const mrnJobId = gang ? gang.leadJobId : jobId
+
     const { data: existingMrn } = await supabase.from('material_requisitions' as any)
-      .select('id').eq('job_id', jobId).eq('company_id', companyId).is('deleted_at', null).limit(1).maybeSingle()
+      .select('id').eq('job_id', mrnJobId).eq('company_id', companyId).is('deleted_at', null).limit(1).maybeSingle()
 
     if (!existingMrn) {
       const { data: jobRow } = await supabase.from('jobs' as any)
-        .select('board_type_id, sheet_qty, board_types(name)').eq('id', jobId).eq('company_id', companyId).maybeSingle()
+        .select('board_type_id, sheet_qty, board_types(name)').eq('id', mrnJobId).eq('company_id', companyId).maybeSingle()
       const boardTypeName = (jobRow as any)?.board_types?.name
-      const sheetQty = (jobRow as any)?.sheet_qty
+      const sheetQty = gang ? gang.sheetCount : (jobRow as any)?.sheet_qty
 
       if (boardTypeName && sheetQty) {
         const { data: mrnNumber } = await (supabase as any).rpc('get_next_sequence_number', {
           p_company_id: companyId, p_document_type: 'MRN',
         })
         const { data: newMrn } = await supabase.from('material_requisitions' as any).insert({
-          company_id: companyId, mrn_number: mrnNumber, job_id: jobId,
+          company_id: companyId, mrn_number: mrnNumber, job_id: mrnJobId,
           requested_by: userTableId, status: 'pending',
-          notes: 'Auto-created when Board Issue stage started',
+          notes: gang
+            ? `Auto-created for gang run ${gang.gangNumber} — ${gang.sheetCount.toLocaleString()} sheets for ${gang.members.length} jobs`
+            : 'Auto-created when Board Issue stage started',
         }).select('id').single()
 
         if (newMrn) {
@@ -363,13 +401,21 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   }
 
   if (action === 'complete' && targetStageType === 'board_issue') {
+    // For a gang, the requisition that matters is the RUN's — held by the lead
+    // job. Checking this job's own would block every member except the lead,
+    // for board that has already been issued.
+    const mrnJobId = gang ? gang.leadJobId : jobId
     const { data: mrnRows } = await supabase.from('material_requisitions' as any)
-      .select('status').eq('job_id', jobId).eq('company_id', companyId).is('deleted_at', null)
+      .select('status').eq('job_id', mrnJobId).eq('company_id', companyId).is('deleted_at', null)
 
     const hasIssuedMrn = ((mrnRows ?? []) as any[]).some(m => m.status === 'issued')
     if (!hasIssuedMrn) {
       return NextResponse.json(
-        { error: `Cannot complete "${targetStageName}" — this job's material requisition hasn't been fully issued by Store yet.` },
+        {
+          error: gang
+            ? `Cannot complete "${targetStageName}" — the board for ${gang.gangNumber} hasn't been fully issued by Store yet.`
+            : `Cannot complete "${targetStageName}" — this job's material requisition hasn't been fully issued by Store yet.`,
+        },
         { status: 400 }
       )
     }
@@ -422,6 +468,52 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       .eq('status', 'new')
   }
 
+  // ─── The rest of the run follows (migration 126) ──────────────────────────
+  // Board Issue through Folder Gluing happen ONCE for a gang — one board issue,
+  // one press run, one pass through the die. So marking the stage on one member
+  // marks it on all of them. Without this, the operator finishes Printing on
+  // JOB-A and JOB-B still sits in the Printing queue for work that is already
+  // done, and its later stages stay gated behind a stage nobody will ever start.
+  //
+  // Applied AFTER this job's own update has succeeded, so a failure here can
+  // never leave the job that was actually worked on unrecorded.
+  const gangWarnings: string[] = []
+  let gangAlsoUpdated: string[] = []
+
+  if (isSharedStage && gang) {
+    const { updatedJobIds, warnings } = await applyToGangSiblings(
+      supabase, companyId, gang, stageName, updateData,
+      action === 'start' ? 'in_progress' : action === 'complete' ? 'completed' : 'skipped',
+    )
+    gangAlsoUpdated = updatedJobIds
+    gangWarnings.push(...warnings)
+
+    for (const siblingId of updatedJobIds) {
+      await recordJobEvent({
+        company_id: companyId,
+        job_id: siblingId,
+        event_type: action === 'start' ? 'stage_started' : action === 'complete' ? 'stage_completed' : 'stage_skipped',
+        new_value: stageName,
+        notes: `Part of gang run ${gang.gangNumber}`,
+        actor_id: userTableId,
+      }, supabase)
+
+      // Each sibling is a real job with its own status, current stage and
+      // closing rule — all three have to move for it too.
+      if (action === 'start') {
+        await supabase.from('jobs' as any)
+          .update({ status: 'in_progress' })
+          .eq('id', siblingId).eq('company_id', companyId).eq('status', 'new')
+      }
+      await syncJobCurrentStage(supabase, companyId, siblingId).catch(() => null)
+      if (action === 'complete' || action === 'skip') {
+        await closeJobIfWorkflowDone(supabase, companyId, siblingId).catch(() => null)
+      }
+    }
+
+    if (action === 'start') await markGangInProgress(supabase, companyId, gang.gangId)
+  }
+
   // Keep "which stage is this job on" true after every transition, not just
   // the first start — start, complete and skip all move it. Bookkeeping only:
   // the stage change itself is already committed above, so this never fails
@@ -454,6 +546,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   return NextResponse.json({
     data,
     ...(jobClosed ? { job_completed: true } : {}),
-    ...(warnings.length > 0 ? { warnings } : {}),
+    // Merged, not a separate key: the screen already surfaces `warnings`, and a
+    // gang problem is exactly as worth seeing as a board shortfall.
+    ...(warnings.length + gangWarnings.length > 0 ? { warnings: [...warnings, ...gangWarnings] } : {}),
+    // So the toast can say "and JOB-B too" rather than leaving the operator to
+    // wonder whether the other job moved.
+    ...(gangAlsoUpdated.length > 0
+      ? { gang: { gang_number: gang?.gangNumber, also_updated: gangAlsoUpdated.length } }
+      : {}),
   })
 })

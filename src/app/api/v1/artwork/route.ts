@@ -88,7 +88,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   // only ever shows the latest version.
   const { data: onJob, error: readErr } = await supabase
     .from('job_artworks' as any)
-    .select('design_no, version')
+    .select('design_no, design_label, version')
     .eq('job_id', body.job_id)
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -120,11 +120,22 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const inDesign = rows.filter(r => (Number(r.design_no) || 1) === designNo)
   const nextVersion = inDesign.length ? Math.max(...inDesign.map(r => Number(r.version) || 0)) + 1 : 1
 
+  // The LABEL BELONGS TO THE DESIGN, not to one version of it.
+  // It is stored per row because that is where the columns are, so a new
+  // version uploaded without re-typing the name used to land with a NULL
+  // label — and every reader that shows "the latest version of each design"
+  // (the thumbnails route, the printed Job Card) then showed a design with no
+  // name at all. Caught by the live route walk: design 1 came back as "" once
+  // it had a v2. So a version inherits its design's existing name unless the
+  // caller deliberately supplies a new one.
+  const inheritedLabel = inDesign.map(r => r.design_label).find(Boolean) ?? null
+  const designLabel = body.design_label?.trim() || inheritedLabel
+
   const { data, error } = await supabase.from('job_artworks' as any).insert({
     company_id:   companyId,
     job_id:       body.job_id,
     design_no:    designNo,
-    design_label: body.design_label?.trim() || null,
+    design_label: designLabel,
     version:      nextVersion,
     file_name:    body.file_name,
     file_url:     body.file_url,
@@ -140,7 +151,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   await recordJobEvent({
     company_id: companyId, job_id: body.job_id,
     event_type: 'artwork_uploaded',
-    new_value: `Design ${designNo}${body.design_label?.trim() ? ` (${body.design_label.trim()})` : ''} v${nextVersion} — ${body.file_name}`,
+    new_value: `Design ${designNo}${designLabel ? ` (${designLabel})` : ''} v${nextVersion} — ${body.file_name}`,
     actor_id: userTableId,
   }, supabase)
 

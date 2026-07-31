@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Upload, Plus, Trash2, ExternalLink, Link2, Copy, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
@@ -48,7 +49,39 @@ function formatBytes(bytes: number | null): string {
 }
 
 export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { jobId: string; companyId: string; initialArtworks: Artwork[] }) {
+  const router = useRouter()
   const [artworks, setArtworks] = useState(initialArtworks)
+
+  /**
+   * Keep local state in step with the server's.
+   *
+   * WHY THIS IS NEEDED
+   *   Job Detail renders its tabs as `{activeTab === 'artwork' && <JobArtworkTab …/>}`,
+   *   so leaving the tab UNMOUNTS this component and coming back MOUNTS a fresh
+   *   one — whose `useState(initialArtworks)` re-reads the props the server
+   *   rendered when the PAGE loaded. Anything uploaded since was only ever in
+   *   local state, so it vanished. On a job whose artwork was all uploaded in
+   *   this visit, the tab came back completely empty and only a hard refresh
+   *   brought it back. Mehboob hit exactly that.
+   *
+   *   Every mutation below now calls router.refresh(), which re-runs the server
+   *   component so `initialArtworks` is current — and this effect copies that
+   *   into state, so it also lands while the tab is still open.
+   *
+   * KEYED ON CONTENT, NOT ARRAY IDENTITY
+   *   The parent hands down a brand-new array on every one of its own renders
+   *   (opening a modal, switching a tab). Depending on `initialArtworks`
+   *   directly would reset state on all of those and could wipe an optimistic
+   *   update before router.refresh() had returned. The signature only changes
+   *   when the server data genuinely does.
+   */
+  const serverSignature = initialArtworks
+    .map(a => `${a.id}:${a.status}:${a.version}:${a.design_no ?? 1}`)
+    .join('|')
+  useEffect(() => {
+    setArtworks(initialArtworks)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- content signature, not identity; see above
+  }, [serverSignature])
   // One batched signing request for every previewable file in this job.
   const thumbs = useArtworkThumbnails(artworks)
   const [uploadModal, setUploadModal] = useState(false)
@@ -141,6 +174,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setArtworks(prev => [data, ...prev])
+      // Makes initialArtworks current, so leaving and re-entering the tab keeps it.
+      router.refresh()
       setUploadModal(false)
       setSelectedFile(null)
       setDesignerNotes('')
@@ -167,6 +202,10 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         if (status === 'approved' && a.status === 'approved') return { ...a, status: 'archived' as ArtworkStatus, is_production_ready: false }
         return a
       }))
+      // The most important of the five: approving an artwork is what opens the
+      // workflow's artwork gate, and the Workflow tab reads the SERVER's copy.
+      // Without this the gate could still be reading "draft" after an approval.
+      router.refresh()
       toast.success(`Status changed to "${ARTWORK_STATUS_CONFIG[status].label}"`)
     } catch (e: any) { toast.error(e.message || 'Failed') }
   }
@@ -175,6 +214,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
     try {
       await fetch(`/api/v1/artwork/${id}`, { method: 'DELETE' })
       setArtworks(prev => prev.filter(a => a.id !== id))
+      router.refresh()
       toast.success('Artwork deleted')
     } catch { toast.error('Failed') }
   }
@@ -187,6 +227,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       if (!res.ok) { toast.error(json.error || 'Pre-flight check failed'); return }
       const updated = { ...art, ...json.data }
       setArtworks(prev => prev.map(a => a.id === art.id ? updated : a))
+      router.refresh()
       setPreflightModal(updated)
     } catch { toast.error('Pre-flight check failed') }
     finally { setPreflightLoading(null) }
@@ -216,6 +257,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       const { data, approval_url } = await res.json()
       setGeneratedLink(approval_url)
       setArtworks(prev => prev.map(a => a.id === linkModal.id ? { ...a, status: data.status } : a))
+      router.refresh()
     } catch (e: any) { toast.error(e.message || 'Failed to generate link') }
     finally { setLinkLoading(false) }
   }
@@ -399,7 +441,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
       )}
 
       {/* Upload Modal */}
-      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title={targetDesign ? 'Add a New Version' : 'Add a New Design'} size="md"
+      <Modal open={uploadModal} onClose={() => setUploadModal(false)} title={designs.length === 0 ? 'Add Artwork' : targetDesign ? 'Add a New Version' : 'Add a Different Design'} size="md"
         footer={<>
           <button onClick={() => setUploadModal(false)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
           <button onClick={upload} disabled={loading || !selectedFile}
@@ -408,40 +450,79 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           </button>
         </>}>
         <div className="space-y-4">
-          {/* Which design? A job can carry more than one (migration 124) — an HL
-              lid and base, a carton and its insert. Before this, a second design
-              silently became "v2" of the first and disappeared from every list. */}
-          <div className="space-y-1.5">
-            <label htmlFor="jobartworktab-design" className="text-sm font-medium text-[var(--color-text-primary)]">This artwork is</label>
-            <select
-              id="jobartworktab-design"
-              className={inputCls}
-              value={targetDesign}
-              onChange={e => setTargetDesign(e.target.value)}
-            >
-              {designs.map(d => (
-                <option key={d.designNo} value={String(d.designNo)}>
-                  A new version of {d.label ? `${d.label} (Design ${d.designNo})` : `Design ${d.designNo}`}
-                </option>
-              ))}
-              <option value="">A separate new design</option>
-            </select>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              {targetDesign
-                ? 'Replaces the current version for approval. The old version stays in the history.'
-                : designs.length
-                  ? 'Both designs stay on the job, and Artwork cannot be completed until BOTH are approved.'
-                  : 'The first design on this job.'}
-            </p>
-          </div>
+          {/*
+            The choice is only shown when there IS one.
+            The first upload on a job used to render a dropdown whose only entry
+            was "A separate new design" — a question with a single answer, asked
+            before the user had done anything. Now the first upload just asks for
+            a file and, optionally, a name.
+          */}
+          {designs.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">What are you adding?</span>
+              {/* Two buttons, not a <select>: the choice changes what the rest of
+                  the form means, and a dropdown hides that behind a tap. Same
+                  chip pattern as "What changed?" on New Job. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTargetDesign(String(designs[0].designNo))}
+                  aria-pressed={!!targetDesign}
+                  className={cn(
+                    'text-left px-3 py-2.5 rounded-lg border transition-colors',
+                    targetDesign
+                      ? 'border-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-text-muted)]'
+                  )}>
+                  <span className="block text-sm font-medium text-[var(--color-text-primary)]">A newer version</span>
+                  <span className="block text-xs text-[var(--color-text-muted)] mt-0.5">Same design, corrected file</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetDesign('')}
+                  aria-pressed={!targetDesign}
+                  className={cn(
+                    'text-left px-3 py-2.5 rounded-lg border transition-colors',
+                    !targetDesign
+                      ? 'border-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-text-muted)]'
+                  )}>
+                  <span className="block text-sm font-medium text-[var(--color-text-primary)]">A different design</span>
+                  <span className="block text-xs text-[var(--color-text-muted)] mt-0.5">Like Inner and Outer</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Which existing design — only when there is more than one to choose
+              between. With a single design the button above already said it. */}
+          {targetDesign && designs.length > 1 && (
+            <div className="space-y-1.5">
+              <label htmlFor="jobartworktab-design" className="text-sm font-medium text-[var(--color-text-primary)]">A newer version of</label>
+              <select id="jobartworktab-design" className={inputCls} value={targetDesign}
+                onChange={e => setTargetDesign(e.target.value)}>
+                {designs.map(d => (
+                  <option key={d.designNo} value={String(d.designNo)}>
+                    {d.label || `Design ${d.designNo}`} — currently v{d.versions[0]?.version ?? 1}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {!targetDesign && (
             <div className="space-y-1.5">
-              <label htmlFor="jobartworktab-designlabel" className="text-sm font-medium text-[var(--color-text-primary)]">Design name</label>
+              <label htmlFor="jobartworktab-designlabel" className="text-sm font-medium text-[var(--color-text-primary)]">
+                Name this design <span className="text-[var(--color-text-muted)] font-normal">(optional)</span>
+              </label>
               <input id="jobartworktab-designlabel" className={inputCls} value={designLabel}
                 onChange={e => setDesignLabel(e.target.value)} maxLength={60}
-                placeholder="e.g. Lid, Base, Insert — optional" />
-              <p className="text-xs text-[var(--color-text-muted)]">Shown on the Job Card and under the thumbnail, so the floor can tell them apart.</p>
+                placeholder="Inner, Outer, Lid, Base…" />
+              {designs.length > 0 && (
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  Both designs stay on the job. Artwork can&apos;t be completed until every design is approved.
+                </p>
+              )}
             </div>
           )}
 
@@ -454,7 +535,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
           </div>
           <div className="space-y-1.5">
             <label htmlFor="jobartworktab-2" className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
-            <input id="jobartworktab-2" className={inputCls} value={designerNotes} onChange={e => setDesignerNotes(e.target.value)} placeholder="Changes made in this version…" />
+            <input id="jobartworktab-2" className={inputCls} value={designerNotes} onChange={e => setDesignerNotes(e.target.value)} placeholder={targetDesign ? 'What changed in this version…' : 'Anything the floor should know…'} />
           </div>
         </div>
       </Modal>

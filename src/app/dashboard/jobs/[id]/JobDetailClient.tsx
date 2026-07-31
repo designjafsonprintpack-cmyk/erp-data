@@ -92,6 +92,18 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   const [events, setEvents] = useState(initialEvents)
   const [wastage, setWastage] = useState(initialWastage)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+
+  /**
+   * This job's gang membership, if it has one (126).
+   *
+   * PostgREST returns an embedded one-to-many as an ARRAY even when the unique
+   * index guarantees at most one live row, so this takes the first rather than
+   * treating the embed as an object — the shape, not the constraint, is what
+   * the client receives.
+   */
+  const gangMembership: any = Array.isArray((job as any).job_gang_members)
+    ? (job as any).job_gang_members[0]
+    : (job as any).job_gang_members ?? null
   const [loading, setLoading] = useState(false)
 
   // Hold modal
@@ -514,6 +526,46 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       {/* ─── Tab: Overview ───────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-5">
+          {/* Gang run (126) — shown ABOVE the specs, because a ganged job's ups
+              and quantity only make sense once you know it is sharing a sheet.
+              Whoever opens this job otherwise sees 3 ups on an 8-up die and no
+              explanation. */}
+          {gangMembership?.job_gangs && (
+            <div className="col-span-full rounded-xl border p-4
+              bg-[color:color-mix(in_srgb,var(--color-accent)_8%,transparent)]
+              border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)]">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Running with another job — {gangMembership.job_gangs.gang_number}
+                  </p>
+                  <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                    This job takes <strong>{gangMembership.ups_on_layout}</strong> of{' '}
+                    {gangMembership.job_gangs.layout_ups} ups on the sheet ·{' '}
+                    {Number(gangMembership.job_gangs.sheet_count || 0).toLocaleString('en-PK')} sheets for the run
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    On the sheet with:{' '}
+                    {(gangMembership.job_gangs.job_gang_members ?? [])
+                      .filter((m: any) => m.job_id !== job.id)
+                      .map((m: any) => `${m.jobs?.job_number} (${m.ups_on_layout} ups)`)
+                      .join(', ') || '—'}
+                  </p>
+                  {gangMembership.original_quantity != null
+                    && Number(gangMembership.original_quantity) !== Number((job as any).quantity) && (
+                    <p className="text-xs text-[var(--color-warning)] mt-1">
+                      Ordered {Number(gangMembership.original_quantity).toLocaleString('en-PK')} ·
+                      now {Number((job as any).quantity).toLocaleString('en-PK')} — agreed with the customer
+                    </p>
+                  )}
+                </div>
+                <Link href="/dashboard/gangs"
+                  className="px-3 h-9 flex items-center rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap">
+                  Gang runs
+                </Link>
+              </div>
+            </div>
+          )}
           {/* Job specs */}
           <div className="col-span-2 space-y-4">
           {/* Description, linked Sales Order and Workflow were all saved by the

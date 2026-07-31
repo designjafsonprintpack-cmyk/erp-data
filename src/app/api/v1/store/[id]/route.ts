@@ -5,6 +5,7 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { loadGangContext, splitByUps } from '@/lib/utils/jobGang'
 import { parseBody } from '@/lib/utils/validate'
 import { materialRequisitionUpdateSchema } from '@/lib/schemas/inventory'
 
@@ -97,16 +98,39 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           // always been empty, so `boardItemId` was null and this block never
           // ran — the end-to-end walk passed straight over it. Same fault in
           // five places; see api/v1/purchase-orders/route.ts.
-          const { error: costErr } = await (supabase as any).rpc('apply_job_actual_cost', {
-            p_company_id:   companyId,
-            p_job_id:       jobId,
-            p_bucket:       bucket,
-            p_amount:       unitCost * delta,
-            p_sheets_delta: bucket === 'board' ? delta : null,
-            p_plates_delta: null,
-          })
-          // Never block material issuance over a costing hiccup — but log it.
-          if (costErr) console.error('[Store issue] apply_job_actual_cost failed', costErr)
+          // A GANG RUN's board belongs to every job on the sheet (126). The MRN
+          // hangs off the run's lead job, so without this the lead would carry
+          // 100% of the board cost and its partner zero — both margins wrong,
+          // and wrong in a way nothing else would ever reveal. Split by ups:
+          // 3 of 8 and 5 of 8 of the sheets and of the money.
+          const costGang = jobId ? await loadGangContext(supabase, companyId, jobId) : null
+          const amount = unitCost * delta
+
+          const targets = costGang
+            ? (() => {
+                const sheets = splitByUps(delta, costGang.members, 0)
+                const money  = splitByUps(amount, costGang.members, 2)
+                return costGang.members.map(m => ({
+                  jobId: m.job_id,
+                  amount: money[m.job_id] ?? 0,
+                  sheets: sheets[m.job_id] ?? 0,
+                }))
+              })()
+            : [{ jobId, amount, sheets: delta }]
+
+          for (const t of targets) {
+            if (!t.jobId) continue
+            const { error: costErr } = await (supabase as any).rpc('apply_job_actual_cost', {
+              p_company_id:   companyId,
+              p_job_id:       t.jobId,
+              p_bucket:       bucket,
+              p_amount:       t.amount,
+              p_sheets_delta: bucket === 'board' ? t.sheets : null,
+              p_plates_delta: null,
+            })
+            // Never block material issuance over a costing hiccup — but log it.
+            if (costErr) console.error('[Store issue] apply_job_actual_cost failed', costErr)
+          }
         }
       }
 
