@@ -113,7 +113,12 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           .stage-badge { padding: 2px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 10px; }
           .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 10px; color: #57606a; }
           .signature-line { border-bottom: 1px solid #1f2328; width: 150px; height: 36px; }
-          .artwork-thumb { width: 30mm; height: 38mm; object-fit: cover; border: 1px solid #d0d7de; border-radius: 4px; flex-shrink: 0; }
+          /* object-fit: contain, not cover — same reason as ArtworkThumb.
+             30mm x 38mm is portrait and a dieline is landscape, so cover was
+             cropping the sides off. This is the sheet the operator holds at the
+             press to check he has mounted the right job; a cropped preview is
+             worse than a small one. White letterboxing is invisible on paper. */
+          .artwork-thumb { width: 30mm; height: 38mm; object-fit: contain; border: 1px solid #d0d7de; border-radius: 4px; flex-shrink: 0; }
           /* Changed-repeat banner. Deliberately the loudest thing on the sheet:
              the operator has run this job before and will reach for the old
              plate out of habit unless something stops them. Heavy border rather

@@ -274,7 +274,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
     <div className="space-y-4">
       {/* Toolbar */}
       <Toolbar
-        search={{ value: search, onChange: handleSearch, placeholder: 'Search by job number, title…' }}
+        search={{ value: search, onChange: handleSearch, placeholder: 'Search by job number, title, or size (190x100x45)…' }}
         actions={
           <>
             <button onClick={() => exportJobs(selected.size ? jobs.filter(j => selected.has(j.id)) : jobs)}

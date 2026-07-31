@@ -239,7 +239,25 @@ export function ArtworkThumb({
           alt={fileName}
           loading="lazy"
           onError={() => setFailed(true)}
-          className="w-full h-full object-cover"
+          /**
+           * `object-contain`, not `cover` and not `fill`.
+           *
+           * Mehboob: "thumbnail ka size vertical hay jis main image cut jata —
+           * ya to strech kero ya fill kero ta k design pora nazer aaey."
+           *
+           * The tile is 125x160 (portrait) while artwork is usually a landscape
+           * dieline, so `cover` was filling the box and cropping the sides
+           * away — on a carton that is exactly where the brand panel sits.
+           *
+           * He offered stretch as an option; `fill` would show the whole design
+           * but squashed, and this is the image a CUSTOMER approves. A
+           * misproportioned preview misrepresents the artwork, and a landscape
+           * dieline crushed into portrait is unreadable. `contain` gives what
+           * he actually asked for — the design whole — with the proportions
+           * intact. The parent already centres and carries a background, so the
+           * leftover space reads as a deliberate margin rather than a gap.
+           */
+          className="w-full h-full object-contain"
         />
       ) : (
         <div className={cn('flex flex-col items-center text-center', small ? 'gap-1 px-1' : 'gap-1.5 px-2')}>

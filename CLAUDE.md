@@ -1324,6 +1324,78 @@ present in the payload; **279 jobs measured as sitting outside the pre-loaded
 proven to contain no `quoted_amount` at all. Live unchanged afterwards (479
 jobs, 48 customers, counters, 14 users) — 5 more.
 
+### Size search — "190x100x45" (no migration)
+Mehboob: *"search main mujhay L x W x H ki search b chahiyay."* An inquiry
+arrives as a size, not a job number — *"wohi 190 x 100 x 45 wala dabba"* — and
+finding the old job that already has that size is the whole point of the spec
+picker.
+
+`parseSizeQuery()` (`src/lib/utils/parseSizeQuery.ts`) is the single parser,
+used by **both** `GET /api/v1/jobs/spec-search` (all three New Job pickers) and
+`GET /api/v1/jobs` (the Jobs list), so the two searches cannot drift.
+
+- **The separator is required, and that is the point.** A bare `190` stays a
+  TEXT search, because die numbers are bare integers on live (186, 254) and job
+  numbers are full of digits — treating a lone number as a dimension would
+  break the search that already works. Accepts `x`, `X`, `×` (U+00D7, which
+  phone keyboards produce) and `*`.
+- **Anchored**, so "carton 190x100" stays text. Mixing a size and a text term
+  would need an AND across unrelated columns with no obvious right answer.
+- **Partial is allowed**: `190x100` matches L and W at any height — the height
+  is the dimension people misremember.
+- **Order is L, W, H as typed, not order-insensitive.** The form is labelled
+  L / W / H and the Job Card prints that order; matching any permutation would
+  quietly return a different box.
+- **Exact values, no tolerance.** `.eq()` was tested against real Postgres
+  first, including the 13 live rows with `.5` halves (190.5, 82.5) — halves are
+  exactly representable so there is no float drift to guard against. A
+  tolerance would make 190 match 190.5, which for a die is a different box.
+
+Verified: **27 unit assertions** on the parser (every separator, decimals,
+partials, and fourteen things that must NOT parse as a size — bare numbers, a
+real live die number, job numbers, customer names, four dimensions, dangling
+separators, null/undefined) and **19 through the real routes against live** —
+all five separator forms returning exactly the count the database returns, the
+partial form, a decimal size resolving to `JOB-2025-00003`, a bare "190" proven
+to still run a text search, an unknown size returning an empty list rather than
+an error, the Jobs list agreeing with the database, job-number search proven
+untouched, and **both searches proven to return the same set**.
+
+### Artwork thumbnails show the whole design (no migration)
+Mehboob: *"thumbnail ka size vertical hay jis main image cut jata — ya to
+strech kero ya fill kero ta k design pora nazer aaey."*
+
+The tile is **125x160, portrait** (his own earlier spec, with 60x77 and 40x52
+scaled from the same ratio) while artwork is nearly always a **landscape
+dieline**, so `object-cover` was filling the box and cropping the sides off —
+which on a carton is exactly where the brand panel sits. One class:
+`object-cover` → **`object-contain`** in `ArtworkThumb`.
+
+- **Not `fill` (stretch), which he also offered.** Stretch shows the whole
+  design but squashed, and this is the image a CUSTOMER approves — a
+  misproportioned preview misrepresents the artwork, and a landscape dieline
+  crushed into portrait is unreadable. `contain` delivers what he actually
+  asked for (the design whole) with the proportions kept.
+- **The box sizes are untouched.** They were a deliberate spec and the ratio is
+  shared by all three sizes; only the fit changed. The tile already had
+  `items-center justify-center` and a background, so the letterbox reads as a
+  margin rather than a hole.
+- **The printed Job Card had the identical bug** — `.artwork-thumb` at
+  `30mm x 38mm; object-fit: cover`. Fixed in the same pass, and it matters more
+  there: that sheet is what the operator holds at the press to confirm he has
+  mounted the right job.
+- `ArtworkThumb` has **no `MarkupOverlay`**, so changing the fit cannot move the
+  0–100% markup coordinates. Checked before touching it, not assumed.
+- The only `object-cover` left in the codebase is the Scan page's camera
+  viewfinder, where filling the frame is correct.
+
+Verified: **17 render assertions** (all three sizes carrying `object-contain`
+and provably no longer `object-cover`, the tile still centring with a
+background, the three box constants unchanged, and a PDF row still falling back
+to the file-type tile rather than a broken `<img>`), plus the built CSS grepped
+for `.object-contain{object-fit:contain}` — per §5, a class existing in source
+proves nothing until the rule is in `.next/static/css/`.
+
 ### Open threads
 - **Only Customers has a Restore tab.** Vendors, machines, departments and the
   master-data lists all soft-delete with no way back from the UI — same gap,

@@ -34,6 +34,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { canSeeMoneyServer } from '@/lib/utils/canSeeMoneyServer'
+import { parseSizeQuery, applySizeFilter } from '@/lib/utils/parseSizeQuery'
 
 /** Enough to choose from; small enough that the dropdown stays usable. */
 const MAX_RESULTS = 50
@@ -65,7 +66,13 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     // would copy from — the jobs list hides them for the same reason (104).
     .eq('job_kind', 'production')
 
-  if (q) {
+  // "190x100x45" is a SIZE, not text. Checked before the text search because a
+  // dimension is what an inquiry actually arrives as — the customer says "wohi
+  // 190 x 100 x 45 wala dabba", not a job number.
+  const size = parseSizeQuery(q)
+  if (size) {
+    query = applySizeFilter(query, size)
+  } else if (q) {
     const safe = escapeFilterValue(q)
     const clauses = [
       `job_number.ilike."%${safe}%"`,

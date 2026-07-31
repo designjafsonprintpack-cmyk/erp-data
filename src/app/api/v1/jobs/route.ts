@@ -12,6 +12,7 @@ import { jobSchema } from '@/lib/schemas/job'
 import { withCurrentStageNames } from '@/lib/utils/currentStageNames'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 import { findDuplicateJobs, duplicateJobResponse } from '@/lib/utils/duplicateJob'
+import { parseSizeQuery, applySizeFilter } from '@/lib/utils/parseSizeQuery'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -50,7 +51,13 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (status)   q = q.eq('status', status)
   if (priority) q = q.eq('priority', priority)
   if (customer) q = q.eq('customer_id', customer)
-  if (search)   q = q.or(`job_number.ilike."%${escapeFilterValue(search)}%",job_title.ilike."%${escapeFilterValue(search)}%"`)
+  // A search term shaped like "190x100x45" filters on the box size instead of
+  // the text columns — the same rule the New Job spec picker uses, from the
+  // same parser, so the two searches cannot drift apart. A bare number is
+  // deliberately still a text search (die and job numbers are bare integers).
+  const sizeSearch = parseSizeQuery(search)
+  if (sizeSearch)   q = applySizeFilter(q, sizeSearch)
+  else if (search)  q = q.or(`job_number.ilike."%${escapeFilterValue(search)}%",job_title.ilike."%${escapeFilterValue(search)}%"`)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })

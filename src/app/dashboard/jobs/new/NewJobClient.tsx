@@ -437,7 +437,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
                 <input className={cn(inputCls, 'pl-9')} value={repeatSearch} onChange={e => setRepeatSearch(e.target.value)}
-                  placeholder="Search by job number, title, customer or die number…" />
+                  placeholder="Search by size (190x100x45), job number, title, customer or die…" />
               </div>
               <select className={inputCls} value={repeat.parent_job_id} onChange={e => setRep('parent_job_id', e.target.value)} size={1}>
                 <option value="">Select job to repeat…</option>
@@ -507,7 +507,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
                   <input className={cn(inputCls, 'pl-9')} value={repeatSearch} onChange={e => setRepeatSearch(e.target.value)}
-                    placeholder="Search by job number, title, customer or die number…" />
+                    placeholder="Search by size (190x100x45), job number, title, customer or die…" />
                 </div>
                 <select className={inputCls} value={changedParentId} onChange={e => selectChangedParent(e.target.value)}>
                   <option value="">Select the job being repeated…</option>
@@ -600,7 +600,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
                 <input className={cn(inputCls, 'pl-9')} value={copySearch} onChange={e => setCopySearch(e.target.value)}
-                  placeholder="Search by job number, title, customer or die number…" />
+                  placeholder="Search by size (190x100x45), job number, title, customer or die…" />
               </div>
               <select className={inputCls} value={copiedFromId} onChange={e => copySpecsFrom(e.target.value)}>
                 <option value="">Start from blank…</option>
