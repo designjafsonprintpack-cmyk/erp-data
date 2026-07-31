@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, FileText, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { formatDate } from '@/lib/utils/format'
 import { QT_STATUS_CONFIG } from '@/modules/sales/quotations/types/quotation.types'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
@@ -44,10 +45,14 @@ const COLUMNS: DataListColumn<QT>[] = [
   },
   {
     key: 'total', header: 'Total', span: 2, role: 'meta', label: 'Total', align: 'right',
+    // Masked rather than dropped: DataList spans are fixed, so removing the
+    // cell would knock every following column out of line.
     render: qt => (
-      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-        PKR {Number(qt.total_amount).toLocaleString()}
-      </span>
+      <MoneyGate>
+        <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+          PKR {Number(qt.total_amount).toLocaleString()}
+        </span>
+      </MoneyGate>
     ),
   },
   {

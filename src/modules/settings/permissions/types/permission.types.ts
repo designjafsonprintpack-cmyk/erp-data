@@ -47,6 +47,10 @@ export const ERP_MODULES = [
   { key: 'machines',       label: 'Machines' },
   { key: 'production',     label: 'Production Floor' },
   { key: 'admin',          label: 'Admin' },
+  // Seeded by migration 119. Unlike every other module this one gates NO page —
+  // it decides whether rupee amounts are rendered on pages the user can already
+  // open (rates, totals, cost, margin, balances). See MoneyGate.
+  { key: 'money',          label: 'Money & Rates' },
 ] as const
 
 export type ModuleKey = typeof ERP_MODULES[number]['key']

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { Layers, Plus, TrendingUp, TrendingDown, SlidersHorizontal, AlertTriangle, Search, Download, Undo2, FileText, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate, useMoneyVisible, maskMoney } from '@/components/ui/MoneyGate'
 import { toast } from '@/components/ui/Toast'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
@@ -241,6 +242,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
   const [search, setSearch] = useState('')
   const [showLowOnly, setShowLowOnly] = useState(false)
   const [addModal, setAddModal] = useState(false)
+  const canSeeMoney = useMoneyVisible()
   const [movementModal, setMovementModal] = useState<{ item: BoardItem; action: MovementAction } | null>(null)
   const [view, setView] = useState<'items' | 'report'>('items')
   const [lotsItem, setLotsItem] = useState<BoardItem | null>(null)
@@ -515,8 +517,10 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                   'Reorder Level (packets)': Math.round(toPackets(i.reorder_level, i.sheets_per_packet) * 100) / 100,
                   // Both, for the same reason the balance is exported both ways:
                   // the store thinks in packets, costing thinks in sheets.
-                  'Unit Cost (PKR/sheet)': i.unit_cost,
-                  'Unit Cost (PKR/packet)': Math.round(Number(i.unit_cost ?? 0) * i.sheets_per_packet * 100) / 100,
+                  // Gated: an export walks out of the building, so a store user
+                  // without `money::view` must not be able to mail the rates.
+                  'Unit Cost (PKR/sheet)': maskMoney(canSeeMoney, i.unit_cost),
+                  'Unit Cost (PKR/packet)': maskMoney(canSeeMoney, Math.round(Number(i.unit_cost ?? 0) * i.sheets_per_packet * 100) / 100),
                   'Location': i.location ?? '', 'Active': i.is_active ? 'Yes' : 'No',
                 })), 'board-inventory-export')
               }}
@@ -660,6 +664,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                     per ream, so per-packet stays available.
                     Blank is allowed and changes nothing: an unpriced delivery
                     must not drag the item's average toward zero. */}
+                <MoneyGate hide>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor="boardinventoryclient-in-rate" className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -711,6 +716,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                     Weight uses the estimator&rsquo;s own formula (L × W × GSM ÷ 15500 per 100 sheets).
                   </p>
                 </div>
+                </MoneyGate>
                 {/* "Kon sa board kis job ke liye aaya" for board that arrives
                     WITHOUT a purchase order. The PO path already asks this per
                     line (113); a manual Stock In had no way to answer it, so
@@ -856,6 +862,7 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
         <label htmlFor={`${idPrefix}-7`} className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
         <input id={`${idPrefix}-7`} type="number" step="0.01" className={inputCls} value={form.reorder_level} onChange={e => set('reorder_level', e.target.value)} placeholder="100" />
       </div>
+      <MoneyGate hide>
       <div className="space-y-1.5">
         {/* Per SHEET, and now labelled as such. The field never said which unit
             it meant, and the one consumer that spends it (store issue → job
@@ -877,6 +884,7 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
           )
         })()}
       </div>
+      </MoneyGate>
       <div className="space-y-1.5">
         <label htmlFor={`${idPrefix}-9`} className="text-sm font-medium text-[var(--color-text-primary)]">Location</label>
         <input id={`${idPrefix}-9`} className={inputCls} value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Rack A-3" />
@@ -888,6 +896,7 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
 function BoardLotHistory({ itemId }: { itemId: string }) {
   const [lots, setLots] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const canSeeMoney = useMoneyVisible()
 
   useState(() => {
     fetch(`/api/v1/board-inventory/${itemId}/lots`)
@@ -914,7 +923,7 @@ function BoardLotHistory({ itemId }: { itemId: string }) {
             {l.vendors?.name ? ` · ${l.vendors.name}` : ''}
             {/* "/unit" said nothing. The column is per sheet — and until this
                 commit the PO path wrote a per-packet figure into it. */}
-            {l.unit_cost ? ` · PKR ${Number(l.unit_cost).toFixed(4)}/sheet` : ''}
+            {l.unit_cost && canSeeMoney ? ` · PKR ${Number(l.unit_cost).toFixed(4)}/sheet` : ''}
           </p>
           {/* Which job this lot came in for — a purchase_order / manual lot was
               bought FOR the job, a production_return lot came back OFF it. */}

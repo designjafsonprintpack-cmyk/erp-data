@@ -135,3 +135,45 @@ export function useNavPermissions() {
     canView: (module: string) => bypass || state.perms.has(`${module}::view`),
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// May this user see rupee amounts?
+//
+// FAIL-CLOSED, and deliberately the opposite of useNavPermissions above. That
+// hook fails open because a nav showing nothing looks like an outage; this one
+// fails closed because the whole point is that rates, cost and margin do not
+// reach the shop floor. So while permissions are still loading, and if the
+// permission set comes back empty for any reason, the answer is NO and amounts
+// render masked. Masked → visible is a safe transition; visible → masked would
+// flash the number first, which defeats it.
+//
+// Granted by migration 119 to superadmin / owner / ceo / gm / admin / accounts
+// / production_manager. Everything else is a tick in
+// Settings → Roles & Permissions → Money & Rates → View, so Mehboob can hand it
+// to Sales or Purchase without a deploy.
+//
+// SCOPE — this is a DISPLAY gate, not a data gate. The API still returns the
+// figures; this stops them being rendered. Stripping them server-side would
+// mean editing ~30 routes and would break the very forms (quotation, PO,
+// invoice) whose whole job is entering a rate.
+// ─────────────────────────────────────────────────────────────────────────────
+export const MONEY_MODULE = 'money'
+
+export function useCanSeeMoney(): { ready: boolean; canSeeMoney: boolean } {
+  const [state, setState] = useState<{ ready: boolean; allowed: boolean }>(
+    { ready: false, allowed: false }
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    loadPermissions()
+      .then(({ perms }) => {
+        if (cancelled) return
+        setState({ ready: true, allowed: perms.has('*') || perms.has(`${MONEY_MODULE}::view`) })
+      })
+      .catch(() => { if (!cancelled) setState({ ready: true, allowed: false }) })
+    return () => { cancelled = true }
+  }, [])
+
+  return { ready: state.ready, canSeeMoney: state.allowed }
+}

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, Receipt, Wallet, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate, useMoneyVisible } from '@/components/ui/MoneyGate'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { toast } from '@/components/ui/Toast'
@@ -61,12 +62,18 @@ const VENDOR_COLUMNS = (
     key: 'actions', header: 'Actions', span: 1, role: 'actions', align: 'right',
     render: v => (
       <span className="inline-flex items-center gap-1 justify-end">
-        <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
-          <Receipt size={12} />
-        </button>
-        <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
-          <Wallet size={12} />
-        </button>
+        {/* Ledger and Record Payment are payables end to end — a Purchase user
+            can still raise and read POs, just not see or move the balance. */}
+        <MoneyGate hide>
+          <button onClick={() => onLedger(v)} title="View Ledger" aria-label="View ledger" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
+            <Receipt size={12} />
+          </button>
+        </MoneyGate>
+        <MoneyGate hide>
+          <button onClick={() => onPay(v)} title="Record Payment" aria-label="Record payment" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-success)] hover:border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] transition-colors">
+            <Wallet size={12} />
+          </button>
+        </MoneyGate>
         <button onClick={() => onEdit(v)} title="Edit" aria-label="Edit vendor" className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[color:color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors">
           <Edit2 size={12} />
         </button>
@@ -144,6 +151,7 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
   }
 
   const [ledgerVendor, setLedgerVendor] = useState<Vendor | null>(null)
+  const canSeeMoney = useMoneyVisible()
   const [payVendor, setPayVendor] = useState<Vendor | null>(null)
   const [payForm, setPayForm] = useState({ amount: '', payment_date: new Date().toISOString().slice(0, 10), payment_method: 'bank_transfer', reference: '', notes: '' })
   const [payLoading, setPayLoading] = useState(false)
@@ -255,7 +263,10 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       </Modal>
 
       {/* Record Payment Modal */}
-      <Modal open={!!payVendor} onClose={() => setPayVendor(null)} title={payVendor ? `Record Payment — ${payVendor.name}` : ''} size="sm"
+      {/* Both modals are gated as well as their buttons — the buttons are the
+          only way in today, but a modal that can never be opened is not a
+          guarantee, and these two render nothing but money. */}
+      <Modal open={!!payVendor && canSeeMoney} onClose={() => setPayVendor(null)} title={payVendor ? `Record Payment — ${payVendor.name}` : ''} size="sm"
         footer={
           <>
             <button onClick={() => setPayVendor(null)} className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
@@ -296,8 +307,8 @@ export default function VendorsClient({ initialVendors }: { initialVendors: Vend
       </Modal>
 
       {/* Ledger Modal */}
-      <Modal open={!!ledgerVendor} onClose={() => setLedgerVendor(null)} title={ledgerVendor ? `Ledger — ${ledgerVendor.name}` : ''} size="lg">
-        {ledgerVendor && <VendorLedgerView vendorId={ledgerVendor.id} />}
+      <Modal open={!!ledgerVendor && canSeeMoney} onClose={() => setLedgerVendor(null)} title={ledgerVendor ? `Ledger — ${ledgerVendor.name}` : ''} size="lg">
+        {ledgerVendor && canSeeMoney && <VendorLedgerView vendorId={ledgerVendor.id} />}
       </Modal>
       <ConfirmDialog
         open={!!deleteTarget}

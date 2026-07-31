@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { formatDate } from '@/lib/utils/format'
 import { SO_STATUS_CONFIG } from '@/modules/sales/sales-orders/types/so.types'
 import { DataList, type DataListColumn } from '@/components/ui/DataList'
@@ -62,9 +63,11 @@ const COLUMNS: DataListColumn<SO>[] = [
   {
     key: 'total', header: 'Total', span: 1, role: 'meta', label: 'Total', align: 'right',
     render: so => (
-      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-        {Number(so.total_amount).toLocaleString()}
-      </span>
+      <MoneyGate>
+        <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+          {Number(so.total_amount).toLocaleString()}
+        </span>
+      </MoneyGate>
     ),
   },
 ]

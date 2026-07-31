@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save } from 'lucide-react'
 import { toast } from '@/components/ui/Toast'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { type JobFormData } from '@/modules/jobs/types/job.types'
 
 interface Props {
@@ -309,10 +310,15 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
             </select>
             <p className="text-xs text-[var(--color-text-muted)]">Changing this doesn&apos;t move already-started stage progress — only affects newly initialized stages.</p>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="editjobclient-23" className={labelCls}>Quoted Amount (PKR)</label>
-            <input id="editjobclient-23" type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
-          </div>
+          {/* Hidden, not removed: the value stays in form state and is saved
+              back untouched, so an operator editing a job cannot blank out the
+              quoted amount just by not being allowed to see it. */}
+          <MoneyGate hide>
+            <div className="space-y-1.5">
+              <label htmlFor="editjobclient-23" className={labelCls}>Quoted Amount (PKR)</label>
+              <input id="editjobclient-23" type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
+            </div>
+          </MoneyGate>
           <div className="col-span-3 space-y-1.5">
             <label htmlFor="editjobclient-24" className={labelCls}>Internal Remarks</label>
             <input id="editjobclient-24" className={inputCls} value={form.internal_remarks} onChange={e => set('internal_remarks', e.target.value)} placeholder="Internal notes (not on job card)" />

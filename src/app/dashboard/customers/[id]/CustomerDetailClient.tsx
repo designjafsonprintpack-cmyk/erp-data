@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui'
 import { INDUSTRIES } from '@/modules/crm/customers/types/customer.types'
+import { useMoneyVisible } from '@/components/ui/MoneyGate'
 
 interface Customer { id: string; customer_code: string; name: string; business_type: string; pipeline_stage: string; ntn: string | null; strn: string | null; email: string | null; phone: string | null; mobile: string | null; website: string | null; industry: string | null; credit_limit: number; payment_terms: number; notes: string | null; lead_source: string | null }
 interface Contact { id: string; name: string; designation: string | null; email: string | null; phone: string | null; mobile: string | null; is_primary: boolean }
@@ -37,6 +38,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'contact' | 'address' | 'customer'; id: string; name: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'addresses' | 'ledger' | 'activity'>('info')
+  const canSeeMoney = useMoneyVisible()
 
   const promoteStage = async (nextStage: string) => {
     setLoading(true)
@@ -142,7 +144,11 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl p-1 w-fit">
-        {[{ key: 'info', label: 'Information' }, { key: 'contacts', label: `Contacts (${contacts.length})` }, { key: 'addresses', label: `Addresses (${addresses.length})` }, { key: 'activity', label: 'Activity' }, { key: 'ledger', label: 'Ledger' }].map(t => (
+        {[{ key: 'info', label: 'Information' }, { key: 'contacts', label: `Contacts (${contacts.length})` }, { key: 'addresses', label: `Addresses (${addresses.length})` }, { key: 'activity', label: 'Activity' },
+          // The Ledger tab is nothing but debit / credit / balance, so it goes
+          // away entirely rather than rendering a table of `•••`.
+          ...(canSeeMoney ? [{ key: 'ledger', label: 'Ledger' }] : []),
+        ].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key as any)}
             className={cn('px-4 h-8 rounded-lg text-sm font-medium transition-all', activeTab === t.key ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)]')}>
             {t.label}
@@ -164,7 +170,10 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   { key: 'name', label: 'Name', req: true }, { key: 'email', label: 'Email', type: 'email' },
                   { key: 'phone', label: 'Phone' }, { key: 'mobile', label: 'Mobile' },
                   { key: 'ntn', label: 'NTN' }, { key: 'strn', label: 'STRN' },
-                  { key: 'credit_limit', label: 'Credit Limit', type: 'number' },
+                  // Dropped from the form, not just from the read view —
+                  // infoForm still carries the saved value, so saving without
+                  // this field writes it back unchanged.
+                  ...(canSeeMoney ? [{ key: 'credit_limit', label: 'Credit Limit', type: 'number' }] : []),
                   { key: 'payment_terms', label: 'Payment Terms (Days)', type: 'number' },
                 ].map(f => (
                   <div key={f.key} className="space-y-1.5">
@@ -211,7 +220,9 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
                   { label: 'Email', value: customer.email }, { label: 'Phone', value: customer.phone },
                   { label: 'Mobile', value: customer.mobile }, { label: 'Website', value: customer.website },
                   { label: 'NTN', value: customer.ntn }, { label: 'STRN', value: customer.strn },
-                  { label: 'Credit Limit', value: customer.credit_limit ? `PKR ${Number(customer.credit_limit).toLocaleString()}` : '—' },
+                  ...(canSeeMoney
+                    ? [{ label: 'Credit Limit', value: customer.credit_limit ? `PKR ${Number(customer.credit_limit).toLocaleString()}` : '—' }]
+                    : []),
                   { label: 'Payment Terms', value: `${customer.payment_terms} days` },
                   { label: 'Industry', value: customer.industry },
                   { label: 'Lead Source', value: customer.lead_source ? customer.lead_source.replace(/_/g, ' ') : null },
@@ -338,7 +349,7 @@ export default function CustomerDetailClient({ customer: initial, contacts: init
       )}
 
       {activeTab === 'activity' && <CustomerActivityTab customerId={customer.id} />}
-      {activeTab === 'ledger' && <CustomerLedgerTab customerId={customer.id} />}
+      {activeTab === 'ledger' && canSeeMoney && <CustomerLedgerTab customerId={customer.id} />}
 
       <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
         title={`Delete ${deleteTarget?.type === 'customer' ? 'Customer' : deleteTarget?.type === 'contact' ? 'Contact' : 'Address'}`}

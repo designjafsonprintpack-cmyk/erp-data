@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, Save, Calculator } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string }
@@ -157,9 +158,15 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
                 <input type="number" className={cn(inputCls, 'h-8')} value={item.size_h} onChange={e => setItem(idx, 'size_h', e.target.value)} placeholder="Height" />
                 <input type="number" className={cn(inputCls, 'h-8')} value={item.quantity} onChange={e => setItem(idx, 'quantity', e.target.value)} placeholder="0" />
                 <input type="number" min="1" max="8" className={cn(inputCls, 'h-8')} value={item.no_of_colors} onChange={e => setItem(idx, 'no_of_colors', e.target.value)} placeholder="4" />
-                <input type="number" className={cn(inputCls, 'h-8')} value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                {/* Fixed gridTemplateColumns — both cells have to stay, so
+                    these mask rather than disappear. */}
+                <MoneyGate>
+                  <input type="number" className={cn(inputCls, 'h-8')} value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                </MoneyGate>
                 <div className="h-8 flex items-center justify-end">
-                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  <MoneyGate>
+                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </MoneyGate>
                 </div>
                 <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
                   <Trash2 size={13} />
@@ -170,6 +177,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         </div>
 
         {/* Totals */}
+        <MoneyGate hide>
         <div className="border-t border-[var(--color-border)] px-5 py-4 flex justify-end">
           <div className="w-72 space-y-2">
             <div className="flex justify-between text-sm">
@@ -188,6 +196,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
             </div>
           </div>
         </div>
+        </MoneyGate>
       </div>
 
       {/* Actions */}

@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **114**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **119**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -751,7 +751,98 @@ Board type matched by exact name only, so 12 descriptions have none — includin
 **Econo Board, whose master row is spelled "Ecano"**. Not guessed; set by hand
 in Settings if wanted.
 
+### Sidebar groups + money visibility (migration 119)
+Mehboob: *"side bar bohat lambi ho chuki hay… price to sirf account admin gm
+production manager ko hi show ho"*. Two separate problems, one batch.
+
+**A. The sidebar was already permission-gated; that was never the issue.**
+Probed live first: Store sees 7 links, Dispatch 7, Sales 9, printing 11 — those
+roles were fine. The long list belongs to the roles that genuinely need
+everything (superadmin/owner/ceo 29–30, gm 29, admin 26) and to **planning,
+which has 22 view modules and should not** (purchase, dispatch, workflow,
+machines, quotations, sales_orders…). Permissions cannot shorten the first
+group, so `NAV_ITEMS`' two inline dividers became **eight collapsible sections**
+(`NAV_SECTIONS` + `buildSidebarSections()` in `navConfig.ts`).
+- Membership is keyed by **href, not module** — Board Inventory and MRP share
+  `board_inventory`; Jobs, My Queue and Scan all share `jobs`, and they belong
+  in different groups.
+- Dashboard / My Queue / Scan are pinned at the top and Help at the bottom,
+  ungrouped and never collapsible.
+- **Groups start open when the user has ≤14 links and closed above that**, so a
+  Store user's nav is unchanged and a Super Admin's 29 rows become 10. The
+  choice is then remembered per group in `localStorage` (`SIDEBAR_GROUPS_KEY`).
+- **The group holding the current page is force-open and its heading disabled** —
+  collapsing the section you are standing in hides the one row that says where
+  you are.
+- The collapsed 56px icon rail drops the grouping entirely and lists every link
+  flat; there is no room for a heading.
+- **A link missing from `NAV_SECTIONS` falls into a "More" group, never
+  vanishes.** The assertion script checks that group stays empty.
+- `NavDivider` / `isDivider` are gone. `NavItem` is now an alias of `NavLink`
+  and `isNavLink` stays, because Header, HelpClient and the mobile builders all
+  call `NAV_ITEMS.filter(isNavLink)`.
+- **Not done, and deliberately** — planning's and admin's over-broad permission
+  sets were offered and Mehboob picked only the grouping. Both are still open
+  (see Open threads).
+
+**B. There was no way to hide a rupee figure from someone who needs the page
+it sits on.** Module permissions gate whole PAGES and always have. Finance and
+Costing Rates were fine; Quotations, Sales Orders, Purchase, Board Inventory,
+MRP, Customers, Vendors, Jobs, Dispatch and Reports were not — Store, Purchase,
+Planning, Artwork, Plates, QC and Dispatch could all read the company's rates
+and margins. 119 adds a **`money` permission module** whose `view` action is the
+single switch, granted to **superadmin / owner / ceo / gm / admin / accounts /
+production_manager and nobody else**.
+- **`money` gates NO page.** It decides whether the figures on a page you can
+  already open are drawn. `finance` / `purchase` / `settings` still gate access.
+- **`MoneyGate` is a wrapper, not a `<Money value={n}/>` component.** Amounts
+  here are inline JSX, template strings inside Excel export columns, `<input>`
+  rate fields, whole stat cards and whole table columns — a per-number
+  component would have fitted half of them and missed the exports. Two shapes:
+  `<MoneyGate>` masks to `•••` (use where a fixed grid must keep its cell), and
+  `<MoneyGate hide>` removes (whole cards, totals blocks, rate inputs).
+  `useMoneyVisible()` / `maskMoney()` cover strings being built rather than
+  rendered.
+- **`useCanSeeMoney()` fails CLOSED — the opposite of `useNavPermissions()`.**
+  That one fails open because an empty nav looks like an outage; this one must
+  not flash the number before hiding it. Masked → visible is safe; the reverse
+  is not.
+- **Hiding a rate input never removes it from form state.** The saved value is
+  posted back unchanged, so an operator editing a job cannot blank the quoted
+  amount just by not being allowed to see it. (§5's rule is about *removing* a
+  field; this is deliberately the other case.)
+- **Excel exports are gated too** — Board Inventory's unit cost, Dispatch's
+  charges, and six Reports sheets. An export file leaves the building; that is
+  where a leak actually costs something.
+- **`src/app/print/*` needed a SERVER gate** — they are server components
+  reachable by URL, so the client wrapper cannot touch them.
+  `canSeeMoneyServer()` (`src/lib/utils/canSeeMoneyServer.ts`) wraps
+  `has_permission()`. The two SO print pages, both invoice print pages and
+  `/api/v1/print/so` refuse outright; the dispatch challan only drops its
+  Delivery Charges line, because the driver still needs the challan.
+- **This is a DISPLAY gate, not a data gate.** The API still returns the
+  figures. Stripping them server-side means editing ~30 routes and would break
+  the very forms whose job is entering a rate.
+
+Verified: 93 assertions on the nav sections, 27 render assertions on the real
+`Sidebar` (headings, closed groups leaking no links, active group forced open,
+icon rail flat with all 29), 62 on migration 119 against real Postgres
+(idempotent, a permission switched off by hand stays off, the undo block
+restores exactly the 15 roles and 252 permissions), and 84 on the money gate
+(fail-closed first paint, every money site within reach of a gate, no ungated
+money page left).
+
 ### Open threads
+- **Sales and Purchase can no longer see a rate — including on their own
+  documents.** 119 follows Mehboob's list literally (accounts / admin / gm /
+  production manager), so a salesman cannot price his own quotation and a
+  purchaser cannot price his own PO. Both are **one tick** in Settings → Roles
+  & Permissions → Money & Rates → View, which is exactly why it is a permission
+  row and not a hardcoded role list. Ask before assuming this is a bug.
+- **`planning` still has 22 view modules** (purchase, dispatch, workflow,
+  machines, quotations, sales_orders, all six production stages…), which is why
+  its sidebar is 23 links and auto-collapses. Tightening it was offered and not
+  picked — do not do it unasked.
 - **The `admin` role has `customers` and `dashboard` switched OFF** — 18
   `role_permissions` rows with `is_active = false`, and `has_permission()`
   requires `rp.is_active`, so an Admin genuinely cannot open the dashboard or

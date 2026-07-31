@@ -2,9 +2,13 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
+import { canSeeMoneyServer } from '@/lib/utils/canSeeMoneyServer'
 
 export default async function PrintDispatchChallan({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
+  // Only this one line is money — the challan itself is the delivery note
+  // the driver carries, so the document stays printable for everyone.
+  const canSeeMoney = await canSeeMoneyServer(supabase)
   const { data } = await supabase.from('dispatch_orders' as any)
     .select('*, customers(name,customer_code,address,phone,mobile,email), dispatch_items(*, jobs(job_number,job_title,quantity,die_number,size_l,size_w,size_h))')
     .eq('id', params.id).maybeSingle()
@@ -152,7 +156,7 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
           )}
 
           {/* Delivery Charges */}
-          {d.delivery_charges > 0 && (
+          {d.delivery_charges > 0 && canSeeMoney && (
             <div style={{ textAlign: 'right', marginBottom: 12, fontSize: 11 }}>
               Delivery Charges: <strong>PKR {d.delivery_charges.toLocaleString()}</strong>
             </div>

@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronRight, FileText, Camera, Clock, Send, ExternalLink, Download
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate, useMoneyVisible, maskMoney } from '@/components/ui/MoneyGate'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -75,6 +76,7 @@ export default function DispatchClient({ initialDispatches, initialTotal, custom
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [loading, setLoading]       = useState(false)
   const [tab, setTab]               = useState<'all'|'pending'|'dispatched'|'delivered'>('all')
+  const canSeeMoney = useMoneyVisible()
 
   const list = useServerPagedList<Dispatch>({
     endpoint: '/api/v1/dispatch',
@@ -231,7 +233,9 @@ export default function DispatchClient({ initialDispatches, initialTotal, custom
       'City': d.delivery_city ?? '',
       'Scheduled': d.scheduled_date ?? '',
       'Dispatched At': d.dispatched_at ?? '',
-      'Charges': d.delivery_charges,
+      // Gated: the export file leaves the building, so a dispatch clerk
+      // without `money::view` must not be able to mail out the charges.
+      'Charges': maskMoney(canSeeMoney, d.delivery_charges),
     }))
     if (!rows.length) { toast.error('Nothing to export'); return }
     exportToExcel(rows, 'dispatch-export')
@@ -657,10 +661,12 @@ export default function DispatchClient({ initialDispatches, initialTotal, custom
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="dispatchclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Charges (PKR)</label>
-              <input id="dispatchclient-9" type="number" className={inputCls} value={form.delivery_charges} onChange={e => setForm(p => ({ ...p, delivery_charges: e.target.value }))} />
-            </div>
+            <MoneyGate hide>
+              <div className="space-y-1.5">
+                <label htmlFor="dispatchclient-9" className="text-sm font-medium text-[var(--color-text-primary)]">Delivery Charges (PKR)</label>
+                <input id="dispatchclient-9" type="number" className={inputCls} value={form.delivery_charges} onChange={e => setForm(p => ({ ...p, delivery_charges: e.target.value }))} />
+              </div>
+            </MoneyGate>
             <div className="space-y-1.5">
               <label htmlFor="dispatchclient-10" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>
               <input id="dispatchclient-10" className={inputCls} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Special delivery instructions" />

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { toast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { INDUSTRIES } from '@/modules/crm/customers/types/customer.types'
@@ -145,10 +146,12 @@ export default function NewCustomerPage() {
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Financial Settings</h2>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label htmlFor="page-8" className="text-sm font-medium text-[var(--color-text-primary)]">Credit Limit (PKR)</label>
-            <input id="page-8" className={inputCls} type="number" value={form.credit_limit} onChange={e => set('credit_limit', e.target.value)} placeholder="0" />
-          </div>
+          <MoneyGate hide>
+            <div className="space-y-1.5">
+              <label htmlFor="page-8" className="text-sm font-medium text-[var(--color-text-primary)]">Credit Limit (PKR)</label>
+              <input id="page-8" className={inputCls} type="number" value={form.credit_limit} onChange={e => set('credit_limit', e.target.value)} placeholder="0" />
+            </div>
+          </MoneyGate>
           <div className="space-y-1.5">
             <label htmlFor="page-9" className="text-sm font-medium text-[var(--color-text-primary)]">Payment Terms (Days)</label>
             <input id="page-9" className={inputCls} type="number" value={form.payment_terms} onChange={e => set('payment_terms', e.target.value)} placeholder="30" />

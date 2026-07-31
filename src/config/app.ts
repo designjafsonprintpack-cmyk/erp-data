@@ -5,6 +5,8 @@ export const APP_CONFIG = {
 } as const
 
 export const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed'
+/** Which sidebar groups the user has left open. JSON `Record<sectionKey, boolean>`. */
+export const SIDEBAR_GROUPS_KEY = 'erp_sidebar_groups'
 export const THEME_KEY = 'erp_theme'
 export const DEFAULT_THEME = 'github-dark' as const
 

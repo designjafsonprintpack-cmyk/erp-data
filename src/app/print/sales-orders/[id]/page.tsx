@@ -2,9 +2,16 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
+import { canSeeMoneyServer } from '@/lib/utils/canSeeMoneyServer'
 
 export default async function PrintSalesOrder({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
+
+  // A priced document. Anyone without `money::view` (migration 119) is refused
+  // here rather than only being denied the button that opens it — a print page
+  // is reachable by URL, and the client-side MoneyGate cannot reach a server
+  // component. Fails closed.
+  if (!(await canSeeMoneyServer(supabase))) notFound()
   const { data } = await supabase
     .from('sales_orders' as any)
     .select('*, customers(name,customer_code,address,phone,mobile,email,ntn), sales_order_items(*)')

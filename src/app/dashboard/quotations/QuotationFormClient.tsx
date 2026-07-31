@@ -9,6 +9,7 @@ import { calculateQuotationItemCost, type UnitBasis } from '@/lib/costing/quotat
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
 import { formatTimeAgo } from '@/lib/utils/format'
 import { DesktopOnly } from '@/components/ui/DesktopOnly'
+import { MoneyGate, useMoneyVisible } from '@/components/ui/MoneyGate'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string; sheet_width_in: number | null; sheet_height_in: number | null; rate_per_sheet: number | null; rate_per_kg: number | null; gsm: number | null }
@@ -132,6 +133,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
   )
   const [loading, setLoading] = useState(false)
   const [openCalc, setOpenCalc] = useState<number | null>(null)
+  const canSeeMoney = useMoneyVisible()
 
   // Autosave only applies to brand-new quotations — never in edit mode, to
   // avoid ever restoring a stale local draft over a real saved record.
@@ -446,20 +448,34 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
                       </optgroup>
                     </select>
                   </div>
+                  {/* Both cells stay in place — this line-item table is a
+                      fixed grid with no breakpoints, so removing a cell shifts
+                      every column after it. The rate input becomes the mask,
+                      which also stops anyone pricing a quotation they are not
+                      allowed to see the price of. */}
                   <div>
-                    <input className={inputCls} type="number" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                    <MoneyGate>
+                      <input className={inputCls} type="number" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                    </MoneyGate>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                    </span>
+                    <MoneyGate>
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </span>
+                    </MoneyGate>
                   </div>
                   <div className="flex justify-end gap-1">
-                    <button onClick={() => setOpenCalc(isOpen ? null : idx)}
-                      className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
-                        isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
-                      <Calculator size={12} /> Cost {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
+                    {/* The Cost panel is board rate, cost per unit, profit
+                        amount and suggested price — nothing in it survives the
+                        gate, so the button goes with it. */}
+                    <MoneyGate hide>
+                      <button onClick={() => setOpenCalc(isOpen ? null : idx)}
+                        className={cn('flex items-center gap-1 px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
+                          isOpen ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]')}>
+                        <Calculator size={12} /> Cost {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                    </MoneyGate>
                     {items.length > 1 && (
                       <button onClick={() => removeLine(idx)} className="w-11 md:w-8 h-11 md:h-8 flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] transition-colors">
                         <Trash2 size={13} />
@@ -469,7 +485,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
                 </div>
 
                 {/* Costing calculator panel */}
-                {isOpen && (
+                {isOpen && canSeeMoney && (
                   <div className="px-4 pb-4 -mt-1">
                     <div className="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_40%,transparent)] p-4 space-y-3">
                       <div className="grid grid-cols-4 gap-3">
@@ -650,6 +666,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
         </div>
 
         {/* Totals */}
+        <MoneyGate hide>
         <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)]">
           <div className="flex justify-end">
             <div className="w-72 space-y-2">
@@ -676,6 +693,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
             </div>
           </div>
         </div>
+        </MoneyGate>
       </div>
 
       {/* Actions */}

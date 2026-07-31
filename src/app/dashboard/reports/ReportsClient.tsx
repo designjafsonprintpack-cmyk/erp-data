@@ -8,6 +8,7 @@ import {
   ArrowUpRight, ArrowDownRight, RefreshCw, Package, Download, Sliders, Trash2, Timer, Layers, Droplet
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useMoneyVisible, maskMoney, MONEY_MASK } from '@/components/ui/MoneyGate'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 import { formatDate } from '@/lib/utils/format'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
@@ -83,7 +84,7 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: 'var(--color-text-muted)',
 }
 
-const PKR = (n: number) => `PKR ${Math.round(n).toLocaleString('en-PK')}`
+const formatPKR = (n: number) => `PKR ${Math.round(n).toLocaleString('en-PK')}`
 const PCT = (n: number | null) => n != null ? `${n}%` : '—'
 
 /* ─── Mini bar chart ─────────────────────────────────────────────────────────── */
@@ -156,6 +157,13 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  // Every rupee figure on this page goes through PKR(). Shadowing the module
+  // formatter here gates all ~40 of them in one place rather than wrapping
+  // forty call sites — and the Excel exports below use maskMoney for the same
+  // reason, since an exported file leaves the building.
+  const canSeeMoney = useMoneyVisible()
+  const PKR = (n: number) => (canSeeMoney ? formatPKR(n) : MONEY_MASK)
+  const $ = <T,>(v: T) => maskMoney(canSeeMoney, v)
   const [tab, setTab] = useState<Tab>(
     (initialTab && ['overview','breakdown','production','turnaround','wastage','materials',
       'customers','financial','quality','costing','custom'].includes(initialTab))
@@ -299,7 +307,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
     switch (t) {
       case 'production':
         return () => exportToExcel(
-          monthly.map(m => ({ Month: m.month_label, 'Jobs Created': m.jobs_created, 'Jobs Completed': m.jobs_completed, 'Jobs Dispatched': m.jobs_dispatched, 'Jobs Cancelled': m.jobs_cancelled, 'On Hold': m.jobs_on_hold, 'Total Quantity': m.total_quantity, 'Quoted Value (PKR)': m.total_quoted_value, 'Avg Turnaround (days)': m.avg_turnaround_days, 'On-Time %': m.on_time_pct })),
+          monthly.map(m => ({ Month: m.month_label, 'Jobs Created': m.jobs_created, 'Jobs Completed': m.jobs_completed, 'Jobs Dispatched': m.jobs_dispatched, 'Jobs Cancelled': m.jobs_cancelled, 'On Hold': m.jobs_on_hold, 'Total Quantity': m.total_quantity, 'Quoted Value (PKR)': $(m.total_quoted_value), 'Avg Turnaround (days)': m.avg_turnaround_days, 'On-Time %': m.on_time_pct })),
           'production-report', 'Monthly Production')
       case 'customers':
         // One sheet, so revenue and margin are merged per customer rather than
@@ -311,16 +319,16 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
             return {
               Customer: c.customer_name, Code: c.customer_code,
               'Total Jobs': c.total_jobs, 'Completed Jobs': c.completed_jobs,
-              'Invoiced (PKR)': c.total_invoiced, 'Paid (PKR)': c.total_paid, 'Outstanding (PKR)': c.total_outstanding,
+              'Invoiced (PKR)': $(c.total_invoiced), 'Paid (PKR)': $(c.total_paid), 'Outstanding (PKR)': $(c.total_outstanding),
               'Costed Jobs': p?.costed_jobs ?? 0, 'Uncosted Jobs': p?.uncosted_jobs ?? 0,
-              'Cost (PKR)': p?.total_cost ?? 0, 'Margin (PKR)': p?.total_margin ?? 0, 'Margin %': p?.margin_pct ?? '',
+              'Cost (PKR)': $(p?.total_cost ?? 0), 'Margin (PKR)': $(p?.total_margin ?? 0), 'Margin %': $(p?.margin_pct ?? ''),
               'Quotes Raised': f?.quotes_raised ?? 0, 'Quotes Won': f?.won ?? 0, 'Win %': f?.win_rate_pct ?? '',
             }
           }),
           `customer-report-${from}-to-${to}`, 'Customer Sales')
       case 'financial':
         return () => exportToExcel(
-          financial.map(f => ({ Month: f.month_label, Invoices: f.invoice_count, 'Invoiced (PKR)': f.total_invoiced, 'Collected (PKR)': f.total_collected, 'Outstanding (PKR)': f.total_outstanding, 'Overdue Count': f.overdue_count, 'Overdue Amount (PKR)': f.overdue_amount })),
+          financial.map(f => ({ Month: f.month_label, Invoices: f.invoice_count, 'Invoiced (PKR)': $(f.total_invoiced), 'Collected (PKR)': $(f.total_collected), 'Outstanding (PKR)': $(f.total_outstanding), 'Overdue Count': f.overdue_count, 'Overdue Amount (PKR)': $(f.overdue_amount) })),
           'financial-report', 'Financial')
       case 'quality':
         return () => exportToExcel(
@@ -328,7 +336,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           'qc-report', 'Quality')
       case 'costing':
         return () => exportToExcel(
-          costingVariance.map(c => ({ 'Job #': c.job_number, Title: c.job_title, Customer: c.customer_name ?? '—', 'Order Date': c.order_date, Quoted: c.quoted_amount, 'Actual Cost': c.total_cost, Margin: c.margin_amount, 'Margin %': c.margin_pct, 'Variance': c.variance_amount, 'Variance %': c.variance_pct, Status: c.budget_status })),
+          costingVariance.map(c => ({ 'Job #': c.job_number, Title: c.job_title, Customer: c.customer_name ?? '—', 'Order Date': c.order_date, Quoted: $(c.quoted_amount), 'Actual Cost': $(c.total_cost), Margin: $(c.margin_amount), 'Margin %': $(c.margin_pct), 'Variance': $(c.variance_amount), 'Variance %': $(c.variance_pct), Status: c.budget_status })),
           'costing-variance-report', 'Costing Variance')
       case 'wastage':
         return () => exportToExcel(
@@ -343,7 +351,7 @@ export default function ReportsClient({ kpi, monthly, customers, financial, mach
           `jobs-by-${dimension}-${from}-to-${to}`, 'Job Breakdown')
       case 'materials':
         return () => exportToExcel(
-          board.map(b => ({ Board: b.board_name, GSM: b.gsm ?? '—', 'Sheets Issued': b.sheets_issued, Jobs: b.jobs_count, Issues: b.issue_count, 'Est. Value (PKR)': b.est_value })),
+          board.map(b => ({ Board: b.board_name, GSM: b.gsm ?? '—', 'Sheets Issued': b.sheets_issued, Jobs: b.jobs_count, Issues: b.issue_count, 'Est. Value (PKR)': $(b.est_value) })),
           `board-consumption-${from}-to-${to}`, 'Board Consumption')
       case 'turnaround':
         return () => exportToExcel(

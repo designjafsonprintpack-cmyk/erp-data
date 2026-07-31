@@ -9,6 +9,7 @@ import {
   MessageSquare, Layers, Activity, FileText, Pencil, Trash2, FilePenLine, Droplet, Stamp
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { formatIssuedGsm, hasGsmVariance, type IssuedGsmEntry } from '@/lib/utils/jobIssuedGsm'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 import { toast } from '@/components/ui/Toast'
@@ -632,12 +633,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               {(job as any).customers?.phone && <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{(job as any).customers.phone}</p>}
             </div>
 
-            {/* Financial */}
+            {/* Financial — hidden outright, not masked: a card whose only
+                content is the amount has nothing left to say without it. */}
             {job.quoted_amount && (
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
-                <p className="text-xs text-[var(--color-text-muted)] mb-1">Quoted Amount</p>
-                <p className="text-lg font-bold text-[var(--color-text-primary)]">PKR {job.quoted_amount.toLocaleString()}</p>
-              </div>
+              <MoneyGate hide>
+                <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Quoted Amount</p>
+                  <p className="text-lg font-bold text-[var(--color-text-primary)]">PKR {job.quoted_amount.toLocaleString()}</p>
+                </div>
+              </MoneyGate>
             )}
 
             {/* Hold info */}

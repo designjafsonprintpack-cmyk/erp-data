@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pencil, FileText, Calendar, User, CheckCircle, XCircle, Printer, Truck, Receipt } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { SO_STATUS_CONFIG } from '@/modules/sales/sales-orders/types/so.types'
 import { ConfirmDialog } from '@/components/ui/Modal'
@@ -71,9 +72,14 @@ export default function SODetailClient({ so }: { so: SO }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-            <Printer size={14} /> Print
-          </button>
+          {/* The printed SO is a priced document and the route now refuses it
+              (403) without `money::view`, so the button goes too rather than
+              leaving a dead end. */}
+          <MoneyGate hide>
+            <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+              <Printer size={14} /> Print
+            </button>
+          </MoneyGate>
           {!['cancelled', 'dispatched'].includes(so.status) && (
             <Link href={`/dashboard/sales-orders/${so.id}/edit`} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
               <Pencil size={14} /> Edit
@@ -121,7 +127,8 @@ export default function SODetailClient({ so }: { so: SO }) {
           </div>
         </div>
 
-        {/* Financials */}
+        {/* Financials — the whole card, heading included. */}
+        <MoneyGate hide>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
           <div className="flex items-center gap-2 mb-3">
             <FileText size={14} className="text-[var(--color-text-muted)]" />
@@ -144,6 +151,7 @@ export default function SODetailClient({ so }: { so: SO }) {
             </div>
           </div>
         </div>
+        </MoneyGate>
       </div>
 
       {/* Special instructions */}
@@ -186,10 +194,14 @@ export default function SODetailClient({ so }: { so: SO }) {
                 <span className="text-sm text-[var(--color-text-secondary)]">{item.no_of_colors ?? '—'}</span>
               </div>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
-                <span className="text-sm text-[var(--color-text-primary)]">{Number(item.unit_price).toLocaleString()}</span>
+                <MoneyGate>
+                  <span className="text-sm text-[var(--color-text-primary)]">{Number(item.unit_price).toLocaleString()}</span>
+                </MoneyGate>
               </div>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
-                <span className="text-sm font-semibold text-[var(--color-text-primary)]">{Number(item.subtotal).toLocaleString()}</span>
+                <MoneyGate>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">{Number(item.subtotal).toLocaleString()}</span>
+                </MoneyGate>
               </div>
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
                 {(() => {

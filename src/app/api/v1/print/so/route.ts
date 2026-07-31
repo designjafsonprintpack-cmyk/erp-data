@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { canSeeMoneyServer } from '@/lib/utils/canSeeMoneyServer'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -11,6 +12,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
+  // Same priced document as the /print/sales-orders page, so the same gate.
+  // Migration 119; fails closed.
+  if (!(await canSeeMoneyServer(supabase))) return new NextResponse('Forbidden', { status: 403 })
   const companyId = await getCompanyId(user, supabase)
 
   const { data, error } = await supabase

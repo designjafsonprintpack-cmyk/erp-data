@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale, Download } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -295,9 +296,11 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                         {po.expected_date && <span>Expected: {formatDate(po.expected_date)}</span>}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-[var(--color-text-primary)]">PKR {po.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                    </div>
+                    <MoneyGate hide>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-[var(--color-text-primary)]">PKR {po.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </MoneyGate>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium', statusCfg.color)}>{statusCfg.label}</span>
                       {po.status === 'draft' && (
@@ -344,14 +347,19 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                           {/* The basis matters as much as the number — PKR 250
                               per kg and per packet are different purchases. */}
                           <div className="col-span-2 text-right text-[var(--color-text-secondary)]">
-                            PKR {item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            <span className="text-[var(--color-text-muted)]">
-                              {item.rate_basis === 'kg' ? ' /kg' : item.rate_basis === 'unit' ? ' /unit' : ' /pkt'}
-                            </span>
+                            <MoneyGate>
+                              PKR {item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-[var(--color-text-muted)]">
+                                {item.rate_basis === 'kg' ? ' /kg' : item.rate_basis === 'unit' ? ' /unit' : ' /pkt'}
+                              </span>
+                            </MoneyGate>
                           </div>
-                          <div className="col-span-2 text-right font-medium text-[var(--color-text-primary)]">PKR {item.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                          <div className="col-span-2 text-right font-medium text-[var(--color-text-primary)]">
+                            <MoneyGate>PKR {item.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</MoneyGate>
+                          </div>
                         </div>
                       ))}
+                      <MoneyGate hide>
                       <div className="flex justify-end px-10 py-2.5 text-sm">
                         <div className="space-y-1">
                           <div className="flex justify-between gap-12 text-[var(--color-text-muted)]"><span>Subtotal</span><span>PKR {po.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
@@ -359,6 +367,7 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                           <div className="flex justify-between gap-12 font-bold text-[var(--color-text-primary)] border-t border-[var(--color-border)] pt-1"><span>Total</span><span>PKR {po.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                         </div>
                       </div>
+                      </MoneyGate>
                     </div>
                   )}
                 </div>
@@ -436,7 +445,7 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                       <div className="col-span-2 md:col-span-3"><input className={inputCls} value={item.specification} onChange={e => setLine(idx, 'specification', e.target.value)} placeholder="Spec / grade" /></div>
                       <div className="col-span-1 md:col-span-1"><input type="number" className={inputCls} value={item.quantity} onChange={e => setLine(idx, 'quantity', e.target.value)} /></div>
                       <div className="col-span-1 md:col-span-2 flex items-center gap-1">
-                        <input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                        <MoneyGate><input type="number" className={inputCls} value={item.unit_price} onChange={e => setLine(idx, 'unit_price', e.target.value)} placeholder="0.00" /></MoneyGate>
                         {/* The basis, per line: board comes per kg, a paper ream
                             per packet, a service line per unit. */}
                         <select aria-label="Rate basis" className="h-9 px-1 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)]"
@@ -447,7 +456,7 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                         </select>
                       </div>
                       <div className="col-span-2 md:col-span-2 flex items-center justify-between">
-                        <span className="text-sm font-medium text-[var(--color-text-primary)] tabular-nums">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}</span>
+                        <MoneyGate><span className="text-sm font-medium text-[var(--color-text-primary)] tabular-nums">{lineTotal > 0 ? `PKR ${lineTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}</span></MoneyGate>
                         {lineItems.length > 1 && <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"><Trash2 size={14} /></button>}
                       </div>
                     </div>
@@ -456,10 +465,12 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                         the total against the vendor's invoice. */}
                     {item.rate_basis === 'kg' && (
                       lineWeightKg > 0 ? (
-                        <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                          {lineWeightKg.toFixed(1)} kg × PKR {parseFloat(item.unit_price || '0').toLocaleString()}/kg
-                          {' · '}PKR {(lineTotal / Math.max(parseFloat(item.quantity || '0'), 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet
-                        </p>
+                        <MoneyGate hide>
+                          <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                            {lineWeightKg.toFixed(1)} kg × PKR {parseFloat(item.unit_price || '0').toLocaleString()}/kg
+                            {' · '}PKR {(lineTotal / Math.max(parseFloat(item.quantity || '0'), 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} per packet
+                          </p>
+                        </MoneyGate>
                       ) : (
                         <p className="text-xs text-[var(--color-warning)]">
                           Per-kg pricing needs the stock item&rsquo;s sheet size and GSM — pick a board stock item below, or set them in Board Inventory first. Use <strong>/pkt</strong> otherwise.
@@ -509,6 +520,7 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
             </div>
 
             {/* Totals */}
+            <MoneyGate hide>
             <div className="flex justify-end mt-3 pt-3 border-t border-[var(--color-border)]">
               <div className="w-64 space-y-1.5 text-sm">
                 <div className="flex justify-between text-[var(--color-text-secondary)]"><span>Subtotal</span><span>PKR {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
@@ -519,6 +531,7 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                 <div className="flex justify-between font-bold text-[var(--color-text-primary)] pt-1 border-t border-[var(--color-border)]"><span>Total</span><span>PKR {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               </div>
             </div>
+            </MoneyGate>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

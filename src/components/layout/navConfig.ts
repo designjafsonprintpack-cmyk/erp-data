@@ -39,19 +39,19 @@ export interface NavLink {
   alwaysVisible?: boolean
 }
 
-export interface NavDivider {
-  divider: true
-  label: string
-}
-
-export type NavItem = NavLink | NavDivider
-
-export function isDivider(item: NavItem): item is NavDivider {
-  return 'divider' in item
-}
+/**
+ * Kept as an alias rather than the old `NavLink | NavDivider` union.
+ *
+ * NAV_ITEMS used to carry two inline `{ divider: true }` rows that the Sidebar
+ * rendered as section headings. Section membership now lives in NAV_SECTIONS
+ * below, which the Sidebar renders as collapsible groups, so the union has no
+ * remaining member. The alias and `isNavLink` stay because Header, HelpClient
+ * and the mobile builders all call `NAV_ITEMS.filter(isNavLink)`.
+ */
+export type NavItem = NavLink
 
 export function isNavLink(item: NavItem): item is NavLink {
-  return !('divider' in item)
+  return true
 }
 
 /**
@@ -82,7 +82,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Vendors',                                href: '/dashboard/vendors',                  icon: Users,           color: '#ef4444', module: 'vendors' },
   { label: 'Finance',                                href: '/dashboard/finance',                  icon: CreditCard,      color: '#ca8a04', module: 'finance' },
 
-  { divider: true, label: 'Production' },
   // Stage-driven work list — every job currently sitting at a stage this
   // department owns, with Start / Complete right there. Was only reachable as
   // a mobile home tile until migration 091 made stage→department mapping real;
@@ -97,8 +96,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'QC',                                     href: '/dashboard/qc',                       icon: ShieldCheck,     color: '#22d3ee', module: 'qc' },
   { label: 'Dispatch',                               href: '/dashboard/dispatch',                 icon: Truck,           color: '#0ea5e9', module: 'dispatch' },
 
-  { divider: true, label: 'Operations' },
-  { label: 'Scan',                                   href: '/dashboard/scan',                     icon: ScanLine,        color: '#a3e635', module: 'jobs' },
+  { label: 'Scan',                                href: '/dashboard/scan',                     icon: ScanLine,        color: '#a3e635', module: 'jobs' },
   { label: 'Reports',                                href: '/dashboard/reports',                  icon: TrendingUp,      color: '#22c55e', module: 'reports' },
   { label: 'Users',                                  href: '/dashboard/users',                    icon: UserCog,         color: '#64748b', module: 'users' },
   { label: 'Admin',                                  href: '/dashboard/admin',                    icon: Building2,       color: '#78716c', module: 'admin' },
@@ -110,6 +108,161 @@ export const NAV_ITEMS: NavItem[] = [
 /** Is this link visible to a user who can view `module`? */
 export function isNavLinkVisible(link: NavLink, canView: (module: string) => boolean): boolean {
   return link.alwaysVisible === true || canView(link.module)
+}
+
+
+/* ─────────────────────────── Sidebar sections ───────────────────────────── */
+
+/**
+ * WHY SECTIONS EXIST
+ *
+ * The sidebar had grown to 29 links under two headings. Permissions already
+ * cut that down for shop roles (Store sees 7, Dispatch 7, Sales 9), but the
+ * roles that legitimately need everything — superadmin, owner, ceo, gm — got
+ * one 29-row scrolling column with no structure, which is exactly the
+ * complaint that started this: "side bar bohat lambi ho chuki hay".
+ *
+ * Permissions cannot fix that; those users really do need all of it. So the
+ * flat list becomes seven collapsible groups. All collapsed, a Super Admin
+ * sees ten rows instead of twenty-nine.
+ *
+ * Membership is keyed by HREF, not by module, because two links can share a
+ * module (Board Inventory and MRP are both `board_inventory`; Jobs, My Queue
+ * and Scan are all `jobs`) and they belong in different groups.
+ */
+export interface NavSection {
+  key: string
+  /**
+   * `null` means "no heading, never collapsible" — the pinned rows at the top
+   * (Dashboard / My Queue / Scan, the three things people open all day) and
+   * Help at the bottom. Burying those behind a disclosure would cost more
+   * clicks than the grouping saves.
+   */
+  label: string | null
+  hrefs: string[]
+}
+
+export const NAV_SECTIONS: NavSection[] = [
+  { key: 'pinned', label: null, hrefs: [
+    '/dashboard',
+    '/dashboard/production/queue',
+    '/dashboard/scan',
+  ] },
+  { key: 'sales', label: 'Sales', hrefs: [
+    '/dashboard/customers',
+    '/dashboard/quotations',
+    '/dashboard/sales-orders',
+  ] },
+  { key: 'jobs', label: 'Jobs & Planning', hrefs: [
+    '/dashboard/jobs',
+    '/dashboard/artwork',
+    '/dashboard/plates',
+    '/dashboard/planning',
+  ] },
+  { key: 'production', label: 'Production', hrefs: [
+    '/dashboard/production/printing',
+    '/dashboard/production/lamination',
+    '/dashboard/production/die-cutting',
+    '/dashboard/production/hot-foil',
+    '/dashboard/production/folder-gluing',
+    '/dashboard/production/packing',
+    '/dashboard/qc',
+    '/dashboard/dispatch',
+  ] },
+  { key: 'materials', label: 'Store & Purchase', hrefs: [
+    '/dashboard/store',
+    '/dashboard/board-inventory',
+    '/dashboard/mrp',
+    '/dashboard/purchase',
+    '/dashboard/vendors',
+  ] },
+  { key: 'money', label: 'Money & Reports', hrefs: [
+    '/dashboard/finance',
+    '/dashboard/reports',
+  ] },
+  { key: 'admin', label: 'Administration', hrefs: [
+    '/dashboard/users',
+    '/dashboard/admin',
+    '/dashboard/settings',
+  ] },
+  { key: 'guide', label: null, hrefs: [
+    '/dashboard/help',
+  ] },
+]
+
+/**
+ * Anything added to NAV_ITEMS but forgotten here lands in this group rather
+ * than vanishing from the sidebar. A silently missing link is the one failure
+ * mode worth engineering against — the assertion script checks this stays
+ * empty, but the app degrades to "shown under More", never to "not shown".
+ */
+const FALLBACK_SECTION_KEY = 'other'
+const FALLBACK_SECTION_LABEL = 'More'
+
+export interface BuiltNavSection {
+  key: string
+  label: string | null
+  links: NavLink[]
+}
+
+/**
+ * The sidebar's permitted links, grouped. Sections whose links were all
+ * filtered out by permissions disappear entirely — a Store user never sees an
+ * empty "Sales" heading.
+ */
+export function buildSidebarSections(canView: (module: string) => boolean): BuiltNavSection[] {
+  const byHref = new Map<string, NavLink>()
+  for (const l of NAV_ITEMS) byHref.set(l.href, l)
+
+  const placed = new Set<string>()
+  const sections: BuiltNavSection[] = []
+
+  for (const def of NAV_SECTIONS) {
+    const links: NavLink[] = []
+    for (const href of def.hrefs) {
+      const link = byHref.get(href)
+      if (!link) continue
+      placed.add(href)
+      if (isNavLinkVisible(link, canView)) links.push(link)
+    }
+    if (links.length) sections.push({ key: def.key, label: def.label, links })
+  }
+
+  const orphans = NAV_ITEMS.filter(l => !placed.has(l.href) && isNavLinkVisible(l, canView))
+  if (orphans.length) {
+    sections.push({ key: FALLBACK_SECTION_KEY, label: FALLBACK_SECTION_LABEL, links: orphans })
+  }
+
+  return sections
+}
+
+/**
+ * Which section holds the page currently open. Longest-href-first so
+ * `/dashboard/production/printing` doesn't match `/dashboard` — the same
+ * prefix trap the Sidebar's own active check has to dodge.
+ */
+export function sectionKeyForPath(sections: BuiltNavSection[], pathname: string): string | null {
+  let best: { key: string; len: number } | null = null
+  for (const s of sections) {
+    for (const l of s.links) {
+      const hit = pathname === l.href || (l.href !== '/dashboard' && pathname.startsWith(l.href + '/'))
+      if (hit && (!best || l.href.length > best.len)) best = { key: s.key, len: l.href.length }
+    }
+  }
+  return best?.key ?? null
+}
+
+/**
+ * Groups start open for a user with a short nav and closed for a user with a
+ * long one, because the grouping is only worth a click when there is something
+ * to hide. A Store user (7 links) gets what he has today; a Super Admin (29)
+ * gets ten rows. Either way the choice is remembered from then on.
+ */
+export const NAV_SECTION_AUTO_OPEN_LIMIT = 14
+
+export function defaultSectionsOpen(sections: BuiltNavSection[]): boolean {
+  const total = sections.reduce((n, s) => n + s.links.length, 0)
+  return total <= NAV_SECTION_AUTO_OPEN_LIMIT
 }
 
 /**

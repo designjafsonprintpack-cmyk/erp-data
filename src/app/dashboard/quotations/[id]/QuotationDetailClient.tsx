@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils/cn'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
+import { MoneyGate, useMoneyVisible, MONEY_MASK } from '@/components/ui/MoneyGate'
 import { QT_STATUS_CONFIG } from '@/modules/sales/quotations/types/quotation.types'
 
 interface QItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number }
@@ -148,31 +149,39 @@ export default function QuotationDetailClient({ quotation: initial }: { quotatio
               <div className="col-span-1 md:col-span-2 text-sm text-[var(--color-text-secondary)]">
                 {item.quantity} pcs {item.no_of_colors ? `· ${item.no_of_colors}C` : ''}
               </div>
+              {/* Masked, not removed — the line-item grid is a fixed 12
+                  columns, so dropping these two cells would shove the spec
+                  columns across the row. */}
               <div className="col-span-1 md:col-span-2 text-sm text-[var(--color-text-secondary)] text-right md:text-left">
-                <span className="md:hidden text-xs text-[var(--color-text-muted)]">@ </span>PKR {Number(item.unit_price).toLocaleString()}
+                <MoneyGate>
+                  <span className="md:hidden text-xs text-[var(--color-text-muted)]">@ </span>PKR {Number(item.unit_price).toLocaleString()}
+                </MoneyGate>
               </div>
               <div className="col-span-2 md:col-span-3 text-right text-sm font-semibold text-[var(--color-text-primary)] border-t md:border-0 border-[var(--color-border-subtle)] pt-1.5 md:pt-0">
-                PKR {Number(item.subtotal).toLocaleString()}
+                <MoneyGate>PKR {Number(item.subtotal).toLocaleString()}</MoneyGate>
               </div>
             </div>
           ))}
         </div>
-        {/* Totals */}
-        <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] flex justify-end">
-          <div className="w-64 space-y-2">
-            <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">
-              <span>Subtotal</span><span>PKR {Number(qt.subtotal).toLocaleString()}</span>
-            </div>
-            {Number(qt.discount_amount) > 0 && (
-              <div className="flex justify-between text-sm text-[var(--color-danger)]">
-                <span>Discount ({qt.discount_percent}%)</span><span>- PKR {Number(qt.discount_amount).toLocaleString()}</span>
+        {/* Totals — the whole block goes, since Subtotal / Discount / Total
+            with the figures blanked out says nothing at all. */}
+        <MoneyGate hide>
+          <div className="px-5 py-4 border-t border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] flex justify-end">
+            <div className="w-64 space-y-2">
+              <div className="flex justify-between text-sm text-[var(--color-text-secondary)]">
+                <span>Subtotal</span><span>PKR {Number(qt.subtotal).toLocaleString()}</span>
               </div>
-            )}
-            <div className="flex justify-between text-base font-bold text-[var(--color-text-primary)] pt-2 border-t border-[var(--color-border)]">
-              <span>Total</span><span>PKR {Number(qt.total_amount).toLocaleString()}</span>
+              {Number(qt.discount_amount) > 0 && (
+                <div className="flex justify-between text-sm text-[var(--color-danger)]">
+                  <span>Discount ({qt.discount_percent}%)</span><span>- PKR {Number(qt.discount_amount).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-bold text-[var(--color-text-primary)] pt-2 border-t border-[var(--color-border)]">
+                <span>Total</span><span>PKR {Number(qt.total_amount).toLocaleString()}</span>
+              </div>
             </div>
           </div>
-        </div>
+        </MoneyGate>
       </div>
 
       {qt.notes && (
@@ -220,13 +229,19 @@ interface VersionSnapshot {
   }
 }
 
-const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
 function VersionHistoryView({ quotationId }: { quotationId: string }) {
   const [versions, setVersions] = useState<VersionSnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [leftIdx, setLeftIdx] = useState(1)
   const [rightIdx, setRightIdx] = useState(0)
+  // Above the early returns below — a hook cannot sit behind a conditional.
+  // The revision diff is built as STRINGS, so it needs the boolean rather than
+  // the <MoneyGate> wrapper.
+  const canSeeMoney = useMoneyVisible()
+  const fmt = (n: number) =>
+    canSeeMoney
+      ? `PKR ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : MONEY_MASK
 
   useState(() => {
     fetch(`/api/v1/quotations/${quotationId}/versions`)

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, History, X, RefreshCw, Search, Sparkles, FilePenLine, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { MoneyGate } from '@/components/ui/MoneyGate'
 import { toast } from '@/components/ui/Toast'
 import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types'
 import { CHANGE_ASPECTS } from '@/modules/jobs/constants/changeAspects'
@@ -639,10 +640,15 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
               {workflows.map((w: any) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (Default)' : ''}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="newjobclient-30" className={labelCls}>Quoted Amount (PKR)</label>
-            <input id="newjobclient-30" type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
-          </div>
+          {/* Someone who may not SEE a rate must not be able to type one
+              either. The key stays in form state, so nothing is lost — an
+              empty string still goes through blankToNull as before. */}
+          <MoneyGate hide>
+            <div className="space-y-1.5">
+              <label htmlFor="newjobclient-30" className={labelCls}>Quoted Amount (PKR)</label>
+              <input id="newjobclient-30" type="number" className={inputCls} value={form.quoted_amount} onChange={e => set('quoted_amount', e.target.value)} placeholder="0.00" />
+            </div>
+          </MoneyGate>
           <div className="col-span-3 space-y-1.5">
             <label htmlFor="newjobclient-31" className={labelCls}>Internal Remarks</label>
             <input id="newjobclient-31" className={inputCls} value={form.internal_remarks} onChange={e => set('internal_remarks', e.target.value)} placeholder="Internal notes (not on job card)" />
