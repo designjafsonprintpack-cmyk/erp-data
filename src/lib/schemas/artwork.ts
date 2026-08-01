@@ -43,9 +43,8 @@ export const artworkUpdateSchema = z.object({
   file_type: z.string().optional().nullable(),
 })
 
-export const artworkApprovalLinkSchema = z.object({
-  expiry: z.string().optional(),
-})
+// `artworkApprovalLinkSchema` is gone with the customer approval link it
+// validated — approval is taken on WhatsApp and recorded by staff.
 
 export const artworkCommentSchema = z.object({
   comment_text: z.string().trim().min(1, 'Comment text is required'),

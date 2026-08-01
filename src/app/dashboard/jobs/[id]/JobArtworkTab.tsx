@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Plus, Trash2, ExternalLink, Link2, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, Stamp } from 'lucide-react'
+import { Upload, Plus, Trash2, ExternalLink, MessageCircle, X, Maximize2, Sparkles, AlertTriangle, Stamp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 import { MarkupOverlay, markNumber } from '@/components/artwork/MarkupOverlay'
@@ -13,8 +13,6 @@ import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
-import { artworkShareLabel, type ArtworkShareContext } from '@/lib/utils/artworkShareText'
-import { ApprovalLinkShare } from '@/components/artwork/ApprovalLinkShare'
 
 interface ArtworkComment {
   id: string; author_type: 'staff' | 'customer'; author_name: string | null
@@ -118,15 +116,6 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         versions: [...versions].sort((a, b) => b.version - a.version),
       }))
   })()
-  const [linkModal, setLinkModal] = useState<Artwork | null>(null)
-  const [linkExpiry, setLinkExpiry] = useState('7d')
-  const [generatedLink, setGeneratedLink] = useState('')
-  // The message that goes out WITH the link — who it's for, which job, which
-  // design, when it expires. Both built by the route so this screen and the
-  // Artwork page can't word it differently. See artworkShareText.ts.
-  const [share, setShare] = useState<ArtworkShareContext | null>(null)
-  const [shareText, setShareText] = useState('')
-  const [linkLoading, setLinkLoading] = useState(false)
   const [commentsModal, setCommentsModal] = useState<Artwork | null>(null)
   const [commentsModalImageUrl, setCommentsModalImageUrl] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, ArtworkComment[]>>({})
@@ -245,44 +234,6 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
     warning: { color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]', label: 'AI: Warnings' },
     fail:    { color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]', label: 'AI: Issues Found' },
   }
-
-  const openLinkModal = (art: Artwork) => {
-    setLinkModal(art)
-    setGeneratedLink('')
-    setShare(null)
-    setShareText('')
-    setLinkExpiry('7d')
-  }
-
-  const generateLink = async () => {
-    if (!linkModal) return
-    setLinkLoading(true)
-    try {
-      const res = await fetch(`/api/v1/artwork/${linkModal.id}/approval-link`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expiry: linkExpiry }),
-      })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      const { data, approval_url, share: shareCtx, share_text } = await res.json()
-      setGeneratedLink(approval_url)
-      setShare(shareCtx ?? null)
-      // Falls back to the bare URL if an older build of the route is deployed,
-      // so the button never copies an empty string.
-      setShareText(share_text || approval_url)
-      setArtworks(prev => prev.map(a => a.id === linkModal.id ? { ...a, status: data.status } : a))
-      router.refresh()
-    } catch (e: any) { toast.error(e.message || 'Failed to generate link') }
-    finally { setLinkLoading(false) }
-  }
-
-  /** Modal title / context line: "Design 2 (Lid) · Version 3", or "Version 3"
-   *  on a job with one unnamed design. */
-  const linkLabel = (art: Artwork | null) => art
-    ? artworkShareLabel({
-        design_no: art.design_no ?? 1, design_label: art.design_label ?? null,
-        design_count: designs.length || 1, version: art.version,
-      })
-    : ''
 
   const commentCount = (artworkId: string) => comments[artworkId]?.length || 0
   // Emboss marks are never resolved, so they must not count as an outstanding
@@ -425,12 +376,6 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
                     <Sparkles size={12} /> {preflightLoading === art.id ? 'Checking…' : 'AI Pre-flight'}
                   </button>
                 )}
-                {!['approved', 'rejected', 'archived'].includes(art.status) && (
-                  <button onClick={() => openLinkModal(art)}
-                    className="flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap">
-                    <Link2 size={12} /> Get Approval Link
-                  </button>
-                )}
                 <button onClick={() => openCommentsModal(art)}
                   className={cn('flex items-center gap-1 px-2.5 h-10 md:h-8 rounded-md border text-xs font-medium transition-colors whitespace-nowrap',
                     hasUnresolvedCustomerComment(art.id)
@@ -554,33 +499,6 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
             <label htmlFor="jobartworktab-2" className="text-sm font-medium text-[var(--color-text-primary)]">Designer Notes</label>
             <input id="jobartworktab-2" className={inputCls} value={designerNotes} onChange={e => setDesignerNotes(e.target.value)} placeholder={targetDesign ? 'What changed in this version…' : 'Anything the floor should know…'} />
           </div>
-        </div>
-      </Modal>
-
-      {/* Approval Link Modal */}
-      <Modal open={!!linkModal} onClose={() => setLinkModal(null)} title={`Approval Link — ${linkLabel(linkModal)}`} size="md">
-        <div className="space-y-4">
-          {!generatedLink ? (
-            <>
-              <div className="space-y-1.5">
-                <label htmlFor="jobartworktab-3" className="text-sm font-medium text-[var(--color-text-primary)]">Link Expiry</label>
-                <select id="jobartworktab-3" className={inputCls} value={linkExpiry} onChange={e => setLinkExpiry(e.target.value)}>
-                  <option value="7d">7 Days</option>
-                  <option value="14d">14 Days</option>
-                  <option value="30d">30 Days</option>
-                  <option value="never">Never</option>
-                </select>
-              </div>
-              <p className="text-xs text-[var(--color-text-muted)]">The customer will be able to view this artwork and Approve, Reject, or Request Changes — no login needed. This also moves the status to &quot;Waiting Customer Approval&quot;.</p>
-              <button onClick={generateLink} disabled={linkLoading}
-                className="w-full flex items-center justify-center gap-2 h-11 md:h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-                <Link2 size={14} /> {linkLoading ? 'Generating…' : 'Generate Link'}
-              </button>
-            </>
-          ) : (
-            <ApprovalLinkShare share={share} shareText={shareText} link={generatedLink}
-              onDone={() => setLinkModal(null)} />
-          )}
         </div>
       </Modal>
 

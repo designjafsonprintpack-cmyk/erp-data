@@ -10,23 +10,25 @@ const PRINT_ROUTES = ['/print']
  * the service-role client. There is no session and there never will be one.
  *
  * WHAT WAS BROKEN
- *   None of these three were listed anywhere in this file, so every one of them
- *   fell through to `if (!user && !isPublicRoute)` and **redirected the customer
- *   to /login**. The artwork approval link, the quotation approval link and the
- *   customer portal have all been unreachable for the people they were built
- *   for. Nothing errored — the visitor just landed on a login screen for a
- *   company they don't work at.
+ *   Neither of these was listed anywhere in this file, so both fell through to
+ *   `if (!user && !isPublicRoute)` and **redirected the customer to /login**.
+ *   The quotation approval link and the customer portal have been unreachable
+ *   for the people they were built for. Nothing errored — the visitor just
+ *   landed on a login screen for a company they don't work at.
  *
- *   It survived because every test of this feature went through
- *   /api/v1/public/... , and `isApiRoute` returns early two checks above. The
- *   API half was always reachable; only the page a human opens was not.
+ *   It survived because every test of these went through /api/v1/public/... ,
+ *   and `isApiRoute` returns early two checks above. The API half was always
+ *   reachable; only the page a human opens was not.
+ *
+ *   (`/artwork/approve` was the third. That page has since been retired —
+ *   artwork approval is taken on WhatsApp — so it is deliberately not listed.)
  *
  * WHY NOT JUST ADD THEM TO PUBLIC_ROUTES
  *   That list also does the reverse: a logged-in user visiting one is bounced
  *   to /dashboard. A staff member checking the link they just sent would never
  *   see it. These routes are open to everybody, signed in or not.
  */
-const TOKEN_ROUTES = ['/artwork/approve', '/approve', '/portal']
+const TOKEN_ROUTES = ['/approve', '/portal']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
