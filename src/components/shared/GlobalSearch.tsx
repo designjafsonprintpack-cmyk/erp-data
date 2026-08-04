@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Search, Briefcase, Users, ShoppingCart, X, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatJobSizeLine } from '@/lib/utils/formatJobSize'
+import { useJobThumbnails, JobThumbStrip } from '@/components/artwork/ArtworkThumb'
 
 interface SearchResult {
   id: string
@@ -47,6 +48,14 @@ export function GlobalSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<NodeJS.Timeout>()
+
+  // A job row shows its artwork, exactly as the Jobs list and the Kanban cards
+  // do — the palette's other three lines (code, customer, size) all describe
+  // the box in words, and the picture is what actually tells two similar jobs
+  // apart at a glance. Same batched route the lists use, so a search is one
+  // extra request for at most 20 ids. Customers and sales orders keep their
+  // icon; they have no artwork.
+  const thumbs = useJobThumbnails(results.filter(r => r.entity_type === 'job').map(r => r.id))
 
   // Keyboard shortcut: ⌘K / Ctrl+K
   useEffect(() => {
@@ -160,11 +169,27 @@ export function GlobalSearch() {
                   const Icon = ENTITY_ICONS[result.entity_type] || Briefcase
                   return (
                     <button key={result.id} onClick={() => navigate(result)}
-                      className={cn('w-full flex items-center gap-3 px-4 py-3 min-h-14 md:min-h-0 text-left hover:bg-[var(--color-bg-secondary)] transition-colors',
+                      className={cn('w-full flex items-center gap-3 px-4 py-2 min-h-14 md:min-h-0 text-left hover:bg-[var(--color-bg-secondary)] transition-colors',
                         selectedIndex === idx && 'bg-[var(--color-bg-secondary)]')}>
-                      <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center flex-shrink-0">
-                        <Icon size={14} className="text-[var(--color-accent)]" />
-                      </div>
+                      {/* Both slots are 40px wide so the text column starts at
+                          the same x on every row, whichever kind it is. 'xs'
+                          (40x52) is the size the Jobs list uses for its compact
+                          density — a 60x77 tile here would make five results
+                          taller than the dropdown. */}
+                      {result.entity_type === 'job' ? (
+                        <JobThumbStrip
+                          designs={thumbs[result.id]}
+                          size="xs"
+                          max={1}
+                          fallbackName={result.title}
+                        />
+                      ) : (
+                        <div className="w-10 flex justify-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] flex items-center justify-center">
+                            <Icon size={14} className="text-[var(--color-accent)]" />
+                          </div>
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">{result.title}</span>
