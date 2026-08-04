@@ -122,6 +122,8 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       special_finishing:    p.special_finishing || '',
       pasting:              p.pasting || '',
       workflow_template_id: p.workflow_template_id || defaultWorkflowId,
+      // Part of the spec — the ups split and component sizes live here.
+      internal_remarks:     p.internal_remarks || '',
       quoted_amount:        s(p.quoted_amount),
       required_date:        '',   // the new order has its own date
     }))
@@ -205,6 +207,9 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       special_finishing:    p.special_finishing || '',
       pasting:              p.pasting || '',
       workflow_template_id: p.workflow_template_id || defaultWorkflowId,
+      // A spec field like the rest of this list — see the block below on what
+      // is deliberately left out (title, quantity, date, price, sales order).
+      internal_remarks:     p.internal_remarks || '',
     }))
   }
 

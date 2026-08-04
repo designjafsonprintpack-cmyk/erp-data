@@ -34,7 +34,7 @@ export default async function NewJobPage() {
     // client-side MoneyGate between it and the screen. The search route returns
     // it instead, gated on canSeeMoneyServer().
     supabase.from('jobs' as any)
-      .select('id,job_number,job_title,description,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,gsm,board_type_id,paper_type_id,lamination_type_id,foil_type_id,uv_coating,special_finishing,pasting,workflow_template_id,customer_id,customers(name)')
+      .select('id,job_number,job_title,description,quantity,ups,no_of_colors,die_number,size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,gsm,board_type_id,paper_type_id,lamination_type_id,foil_type_id,uv_coating,special_finishing,pasting,workflow_template_id,internal_remarks,customer_id,customers(name)')
       .eq('company_id', companyId).is('deleted_at', null)
       .order('created_at', { ascending: false })
       // The 478 legacy jobs share one backdated created_at, so without this the

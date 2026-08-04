@@ -95,6 +95,13 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     foil_type_id:         orig.foil_type_id,
     special_finishing:    orig.special_finishing,
     pasting:              orig.pasting,
+    // Internal Remarks is part of the SPEC, not a note about one order. On live
+    // it holds the things the floor cannot work without — "INNER 10_UP &
+    // OUTTER 1_UP / INNER SIZE 58 x 21 x 90 / OUTTER SIZE 92 x 42 x 295" — and
+    // an exact repeat that loses it arrives at the press missing the layout.
+    // 104 of 488 jobs carry one. Money (quoted_amount) is deliberately NOT
+    // copied: a reorder is priced again.
+    internal_remarks:     orig.internal_remarks,
     workflow_template_id: repeatTemplateId,
     priority:             'normal',
     required_date:        required_date || null,

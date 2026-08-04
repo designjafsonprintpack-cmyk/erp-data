@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **130**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **132**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -121,6 +121,13 @@ broke, why this fixes it, and how to undo it.
   Once any proof run exists, **Printing on the parent is hard-blocked until one
   is approved**; a proof job itself is exempt or nothing could ever print.
   Proof runs are hidden from the jobs list by default (`?kind=` filter).
+- **A carton is one thing; each order of it is a RUN.** Mehboob: *"job hamesha
+  aik hi rehna chahiye … lekin history bhi ho, pata bhi chale ke job kab chala
+  kitna chala."* The row still models the run (merging rows would erase the
+  earlier one — quantity, stages, MRN, costing, dispatch, invoice all hang off
+  it); the IDENTITY is the `parent_job_id` chain, read by `get_job_family()`
+  (132) and shown as Job Detail's **Runs** tab + a "Run 2 of 2" header chip.
+  A product/item master is the real end state — not built, deliberately.
 - **A GANG RUN is two jobs on one sheet** (126) — same customer, one press setup,
   one plate set, one die. Mehboob's four facts, and the model rests on them:
   the **die** bounds the layout so the ERP must never decide the split
@@ -322,6 +329,11 @@ deliberately left empty. Never read from it.
   round trips per call, serial. The Department Queue's 89 pending stages took
   **57 s**; batched it is **0.6 s**, proven identical on all 88 rows. Any list
   uses `loadStageGateContext()` + `checkStageGateFrom()`, never the loop.
+- **FIVE paths copy a job's specs** — exact Repeat, QC Reprint, press Proof,
+  "Repeat with Changes" and "Copy specs from an old job" — and each has its own
+  field list. `internal_remarks` was missing from all five (it holds the ups
+  split and component sizes, on 104 of 488 jobs). Add a spec column to all
+  five, and to `spec-search` + `jobs/new/page.tsx`, whose SELECTs feed two of them.
 - **A checkbox whose promise nothing reads is worse than no checkbox.** Repeat's
   "same artwork, no new artwork needed" (default ON) only wrote a
   `job_artwork_references` note; the workflow gate reads `job_artworks`, so every
@@ -450,6 +462,8 @@ Rules that govern future work are in §4 and §5, not here.
 | 128 | approved the 7 in-flight artwork rows left behind when upload-means-approved shipped |
 | 129 | carried the parent's approved artwork onto the 3 repeats that had only a reference row |
 | 130 | `job_artworks.thumb_url` — a 400px WEBP preview per artwork, so a tile stops downloading the 1 MB original |
+| 131 | carried the parent's `internal_remarks` onto the 3 repeats that had lost it |
+| 132 | `get_job_family()` — every RUN of one carton, from any member; feeds Job Detail's Runs tab |
 
 **No-migration work, same rule — one line each:**
 

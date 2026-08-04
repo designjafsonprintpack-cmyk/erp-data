@@ -32,12 +32,17 @@ interface ArtworkVersion {
   file_size: number | null; file_type: string | null; designer_notes: string | null
   status: string; is_production_ready: boolean; approved_at: string | null; created_at: string
 }
+import JobRunsPanel, { type JobRun } from './JobRunsPanel'
+
 interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
   wastageReasons: WastageReason[]; machines: Machine[]; wastageEntries: JobWastage[]
   companyId: string; artworks: ArtworkVersion[]
   inkTypes: InkType[]; inkEntries: InkEntry[]
   issuedGsm: IssuedGsmEntry[]
+  /** Every run of this carton — this job plus its repeats (migration 132).
+   *  Always at least one row: a job with no repeats is a family of itself. */
+  runs: JobRun[]
 }
 
 interface InkType { id: string; name: string; color_code: string | null }
@@ -52,7 +57,7 @@ interface InkEntry {
  *  made without one is not assigned to a shift by guesswork. */
 const SHIFTS = ['A', 'B', 'C'] as const
 
-type Tab = 'overview' | 'workflow' | 'artwork' | 'proofing' | 'timeline' | 'remarks' | 'wastage' | 'ink'
+type Tab = 'overview' | 'workflow' | 'artwork' | 'runs' | 'proofing' | 'timeline' | 'remarks' | 'wastage' | 'ink'
 
 const EVENT_LABELS: Record<string, string> = {
   created: 'Job Created', status_changed: 'Status Changed', stage_started: 'Stage Started',
@@ -84,7 +89,7 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, inkTypes, inkEntries, issuedGsm }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, inkTypes, inkEntries, issuedGsm, runs }: Props) {
   const gsmVariance = hasGsmVariance((initialJob as any).gsm, issuedGsm)
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
@@ -358,16 +363,25 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                   <PauseCircle size={11} /> On Hold
                 </span>
               )}
-              {job.is_repeat && (
-                isChangedRepeat ? (
-                  <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] flex items-center gap-1.5">
-                    <FilePenLine size={11} /> Changed Repeat #{job.repeat_sequence}
-                  </span>
-                ) : (
-                  <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] flex items-center gap-1.5">
-                    <RefreshCw size={11} /> Repeat #{job.repeat_sequence}
-                  </span>
-                )
+              {/* "Run 2 of 2" — the one line that says this job number and the
+                  older one are the SAME carton, not two jobs. Clickable,
+                  because the next question is always "what were the others?".
+                  Only shown once a family actually has more than one run; a
+                  solo job keeps the header it always had. */}
+              {runs.length > 1 && (
+                <button type="button" onClick={() => setActiveTab('runs')}
+                  title="See every run of this job"
+                  className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)] flex items-center gap-1.5 hover:border-[var(--color-info)] transition-colors">
+                  <RefreshCw size={11} />
+                  Run {runs.findIndex(r => r.id === job.id) + 1 || runs.length} of {runs.length}
+                </button>
+              )}
+              {/* Kept separate: "changed" is about THIS run's artwork, not about
+                  how many runs there have been. */}
+              {job.is_repeat && isChangedRepeat && (
+                <span className="text-xs px-2.5 py-1 rounded-full border font-medium text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] flex items-center gap-1.5">
+                  <FilePenLine size={11} /> Changed Repeat
+                </span>
               )}
               {urgency && (
                 <span className={cn('text-xs px-2.5 py-1 rounded-full border font-medium flex items-center gap-1.5', urgency.cls)}>
@@ -495,6 +509,10 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
           { key: 'overview', label: 'Overview', icon: FileText },
           { key: 'workflow', label: 'Workflow', icon: Layers },
           { key: 'artwork',  label: 'Artwork',  icon: Package },
+          // "Yeh job kitni baar chala" — the same carton's other runs. Sits
+          // beside Artwork because both answer "what else belongs to this job",
+          // and before Proofing/Timeline, which are about this run alone.
+          { key: 'runs',     label: 'Runs',     icon: RefreshCw },
           // A proof run is itself a job, so it opens this same page — but a
           // proof of a proof is not a thing, so the tab is hidden there.
           { key: 'proofing', label: 'Proofing', icon: Stamp },
@@ -511,6 +529,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                   ? 'border-b-[var(--color-accent)] text-[var(--color-accent)]'
                   : 'border-b-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               <Icon size={14} />{tab.label}
+              {/* Only once there IS more than one run — a "1" on every job in
+                  the shop would be noise, and the tab still opens. */}
+              {tab.key === 'runs' && runs.length > 1 && (
+                <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{runs.length}</span>
+              )}
               {tab.key === 'artwork' && artworks.length > 0 && (
                 <span className="ml-1 text-xs bg-[var(--color-bg-elevated)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full">{artworks.length}</span>
               )}
@@ -811,6 +834,12 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       )}
 
       {/* ─── Tab: Proofing ───────────────────────────────────────────────────── */}
+      {activeTab === 'runs' && (
+        <div className="pt-4">
+          <JobRunsPanel runs={runs} currentJobId={job.id} />
+        </div>
+      )}
+
       {activeTab === 'proofing' && (
         <JobProofingTab jobId={job.id} artworks={artworks as any[]} />
       )}

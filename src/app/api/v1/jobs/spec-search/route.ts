@@ -58,7 +58,11 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
             'size_l,size_w,size_h,sheet_width_in,sheet_height_in,box_type_id,' +
             'quantity,no_of_colors,die_number,gsm,ups,board_type_id,paper_type_id,' +
             'lamination_type_id,foil_type_id,uv_coating,special_finishing,' +
-            'pasting,workflow_template_id,quoted_amount')
+            // internal_remarks is a SPEC, not a note about one order: on live it
+            // carries things like "INNER 10_UP & OUTTER 1_UP / INNER SIZE 58 x
+            // 21 x 90". The prefills that read this list drop anything not
+            // selected here, which is how a repeat lost it.
+            'pasting,workflow_template_id,quoted_amount,internal_remarks')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)

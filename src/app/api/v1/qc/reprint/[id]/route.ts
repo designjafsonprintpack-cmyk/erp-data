@@ -81,6 +81,9 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       foil_type_id:         origJob.foil_type_id,
       special_finishing:    origJob.special_finishing,
       pasting:              origJob.pasting,
+      // Same reasoning as the material fields above: a reprint runs the same
+      // job, so it needs the same layout note (ups split, component sizes).
+      internal_remarks:     origJob.internal_remarks,
       workflow_template_id: reprintTemplateId,
       priority:             req_.priority,
       status:               'new',

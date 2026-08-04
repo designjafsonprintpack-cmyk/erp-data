@@ -60,6 +60,17 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   // What the store actually issued, as opposed to what the job planned.
   const issuedGsm = await getIssuedGsm(supabase, companyId, params.id)
 
+  // Every run of this carton — the original and each repeat (migration 132).
+  // Server-side because both the header line ("Run 2 of 2") and the Runs tab
+  // need it on first paint; a client fetch would flash the wrong count.
+  //
+  // A solo job returns exactly one row (itself), so this is never empty and the
+  // tab never has to guess. Errors are not swallowed into [] — that would read
+  // as "no history" on a job that has some.
+  const { data: familyRows, error: familyErr } = await (supabase as any)
+    .rpc('get_job_family', { p_company_id: companyId, p_job_id: params.id })
+  if (familyErr) console.error('[job detail] family lookup failed:', familyErr.message)
+
   return (
     <JobDetailClient
       job={jobRes.data as any}
@@ -74,6 +85,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       inkTypes={(inkTypesRes.data ?? []) as any[]}
       inkEntries={(inkRes.data ?? []) as any[]}
       issuedGsm={issuedGsm}
+      runs={(familyRows ?? []) as any[]}
     />
   )
 }

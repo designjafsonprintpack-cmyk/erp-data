@@ -140,6 +140,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     foil_type_id:         orig.foil_type_id,
     special_finishing:    orig.special_finishing,
     pasting:              orig.pasting,
+    // A proof is the parent job pulled on the real press, so it runs off the
+    // same layout note the parent carries.
+    internal_remarks:     orig.internal_remarks,
     workflow_template_id: (tpl as any).id,
     priority:             orig.priority || 'normal',
     status:               'new',
