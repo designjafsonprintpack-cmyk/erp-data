@@ -12,19 +12,41 @@ export const ARTWORK_STATUS_CONFIG: Record<ArtworkStatus, { label: string; color
   archived:                  { label: 'Archived',                  color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',         dot: 'bg-[var(--color-text-muted)]' },
 }
 
-// Which statuses a version can move to FROM its current status — used to
-// build the action menu so the UI never offers an invalid/nonsensical jump
-// (e.g. straight from Draft to Archived). The server doesn't enforce this
-// transition graph in Phase 1 (any authorized user can PATCH any valid
-// status), only the UI does — worth tightening server-side in a later
-// phase once the full approval workflow (with customer-driven transitions)
-// is in place and the full set of legitimate transitions is finalized.
+/**
+ * Which statuses a version can move to FROM its current status — used to build
+ * the "Move to…" menu. The server does not enforce this graph (any authorized
+ * user can PATCH any valid status); only the UI does.
+ *
+ * FLATTENED, because the ladder it modelled no longer exists.
+ *   It used to walk draft → internal review → waiting customer approval →
+ *   approved, which mirrored the customer approval LINK. That link is retired:
+ *   the customer approves on WhatsApp and staff upload the file that was
+ *   already signed off, so a new row lands `approved` and never passes through
+ *   the middle rungs.
+ *
+ *   Leaving the ladder in place stranded every row uploaded before that change.
+ *   A `draft` row could only reach Approved through THREE separate status
+ *   changes, and the workflow's artwork gate refuses to complete the Artwork
+ *   stage until it gets there — which is exactly the wall Mehboob hit on the
+ *   jobs already in flight ("no approved artwork version exists for this job
+ *   yet"). The four legacy statuses are kept so those old rows still render
+ *   with their real history; they simply can't be moved INTO any more.
+ *
+ * Two moves are all that are left, and both are real:
+ *   → approved   the only forward move. One click to correct a legacy row.
+ *   → archived   the undo for a wrong file.
+ */
+const LEGACY_ROW_MOVES: ArtworkStatus[] = ['approved', 'archived']
+
 export const ARTWORK_STATUS_TRANSITIONS: Record<ArtworkStatus, ArtworkStatus[]> = {
-  draft:                     ['internal_review', 'archived'],
-  internal_review:           ['waiting_customer_approval', 'draft', 'archived'],
-  waiting_customer_approval: ['approved', 'rejected', 'changes_requested'],
-  changes_requested:         ['draft', 'internal_review'],
+  draft:                     LEGACY_ROW_MOVES,
+  internal_review:           LEGACY_ROW_MOVES,
+  waiting_customer_approval: LEGACY_ROW_MOVES,
+  changes_requested:         LEGACY_ROW_MOVES,
+  rejected:                  LEGACY_ROW_MOVES,
+  // An approved row can only be taken back out; re-approving it is a no-op.
   approved:                  ['archived'],
-  rejected:                  ['draft', 'archived'],
+  // Archived is the end. Re-approving means uploading the file again, which
+  // is one action and leaves a correct audit trail.
   archived:                  [],
 }
