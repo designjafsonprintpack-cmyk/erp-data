@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
+import { jobNumberStem } from '@/lib/utils/jobRunNumber'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
@@ -92,5 +93,54 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ data: rows })
+  // ─── One carton, one result ────────────────────────────────────────────────
+  // Mehboob: "search main abhi bhi 2 hi show ho rahe hain … job number aik hi
+  // hona chahiye." A reorder is the same box, so listing every run separately
+  // made the palette read as duplicates and buried other matches.
+  //
+  // Collapsed on the number STEM (jobRunNumber.ts): every run of a carton now
+  // shares one — JOB-00408 and JOB-00408-R2. That needs no extra
+  // query and no join, and it works however deep the repeat chain goes.
+  //
+  // WHICH RUN SURVIVES, AND WHY IT IS NOT SIMPLY THE NEWEST
+  //   An EXACT match on what the user typed always wins. Someone who types the
+  //   old number is looking for that run — a search that answered with a
+  //   different job would be worse than showing two. Otherwise the live run
+  //   wins (the one still being worked), falling back to the newest, because
+  //   "where is this job now" is the question the palette is usually answering.
+  const typed = query.trim().toUpperCase()
+  const CLOSED = ['completed', 'dispatched', 'cancelled']
+
+  const byStem = new Map<string, any>()
+  const out: any[] = []
+
+  for (const r of rows) {
+    if (r.entity_type !== 'job') { out.push(r); continue }
+
+    const stem = jobNumberStem(r.code)
+    const seen = byStem.get(stem)
+    if (!seen) {
+      byStem.set(stem, r)
+      out.push(r)
+      r.run_count = 1
+      continue
+    }
+
+    seen.run_count = (seen.run_count ?? 1) + 1
+
+    const better =
+      String(r.code ?? '').toUpperCase() === typed ? true
+      : String(seen.code ?? '').toUpperCase() === typed ? false
+      : !CLOSED.includes(String(r.status ?? '')) && CLOSED.includes(String(seen.status ?? '')) ? true
+      : false
+
+    if (better) {
+      // Swap in place so the palette's ordering (relevance) is preserved.
+      out[out.indexOf(seen)] = r
+      r.run_count = seen.run_count
+      byStem.set(stem, r)
+    }
+  }
+
+  return NextResponse.json({ data: out })
 })

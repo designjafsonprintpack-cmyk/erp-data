@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { resolveWorkflowTemplateId } from '@/lib/utils/resolveWorkflowTemplate'
 import { autoStartArtworkStage } from '@/lib/utils/autoStartArtworkStage'
+import { nextRunNumber } from '@/lib/utils/jobRunNumber'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobRepeatSchema } from '@/lib/schemas/jobActions'
@@ -32,17 +33,14 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
 
   const orig = original as any
 
-  // Count existing repeats
-  const { count: repeatCount } = await supabase
-    .from('jobs' as any)
-    .select('*', { count: 'exact', head: true })
-    .eq('parent_job_id', params.id)
-
-  // Generate new job number
-  const { data: jobNumber } = await (supabase as any).rpc('get_next_sequence_number', {
-    p_company_id: companyId,
-    p_document_type: 'JOB',
-  })
+  // The repeat carries the ORIGINAL's number with the run on the end —
+  // JOB-00408 → JOB-00408-R2 — so one carton keeps one number.
+  // See jobRunNumber.ts for why, and for why the row is still separate.
+  //
+  // It deliberately no longer calls get_next_sequence_number: a reorder is not
+  // a new job in the JOB series, and every repeat used to burn a number that
+  // then looked like a gap.
+  const { jobNumber, runNo } = await nextRunNumber(supabase, companyId, params.id, orig.job_number)
 
   // Resolved up front because sheet_qty is derived from it (Sheet Qty =
   // ceil(Box Qty / Ups)) — the repeat may carry a different quantity than
@@ -66,14 +64,18 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     job_number:           jobNumber,
     parent_job_id:        params.id,
     is_repeat:            true,
-    repeat_sequence:      (repeatCount ?? 0) + 2,
+    // The same number the job_number carries, so the badge and the number agree.
+    repeat_sequence:      runNo,
     // This route is the EXACT repeat path — every spec is copied and only
     // quantity/date can differ. A repeat whose printed content changed goes
     // through POST /api/v1/jobs with parent_job_id instead (migration 097).
     repeat_kind:          'exact',
     customer_id:          orig.customer_id,
     sales_order_id:       null, // Repeat jobs start fresh
-    job_title:            `${orig.job_title} (Repeat ${(repeatCount ?? 0) + 2})`,
+    // The title no longer repeats what the number already says. It used to read
+    // "… (Repeat 2)" on a job numbered JOB-2026-00010, which is how one carton
+    // came to look like two unrelated jobs in the list and in search.
+    job_title:            orig.job_title,
     description:          orig.description,
     size_l:               orig.size_l,
     size_w:               orig.size_w,

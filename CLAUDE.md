@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **132**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **134**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -150,6 +150,16 @@ broke, why this fixes it, and how to undo it.
   Cards. The Print Job Card shows no workflow checklist.
 - Job edit/delete is **superadmin only** — deliberately excluding `owner`, unlike
   every other permission check.
+- **A job number carries NO year and never changes** — `JOB-00408`, one
+  continuous series from the 478 legacy jobs onward (134). A repeat does not
+  take a new number; it appends the run: `-R2`, `-R3`, the same scheme as a
+  press proof's `-P1` (133). Mehboob remembers a carton BY its number, so one
+  box has exactly one. The STEM (`jobNumberStem()`) is therefore the carton's
+  identity, and the search palette collapses a family to one row on it.
+  **Only JOB dropped the year** — `document_sequences.prefix_format` (a column
+  that existed unread since day one) now drives the shape, so INV/PO/QT/SO/
+  DISP/MRN/CUST/VND/GANG are byte-identical to before. JOB's counter is a
+  single row keyed `year = 0`.
 - Doc prefixes: `JOB- DISP- PO- INV- QT- SO- CUST- VND- MRN-`
 - Roles: superadmin, admin, owner, ceo, gm, sales, artwork, planning, store,
   printing, dispatch, **plates, qc, purchase, accounts** (last four added in 105).
@@ -464,6 +474,8 @@ Rules that govern future work are in §4 and §5, not here.
 | 130 | `job_artworks.thumb_url` — a 400px WEBP preview per artwork, so a tile stops downloading the 1 MB original |
 | 131 | carried the parent's `internal_remarks` onto the 3 repeats that had lost it |
 | 132 | `get_job_family()` — every RUN of one carton, from any member; feeds Job Detail's Runs tab |
+| 133 | renumbered the 5 repeats to `PARENT-R2` and dropped " (Repeat 2)" from their titles |
+| 134 | **the year left the job number** — 488 jobs renumbered to one series `JOB-00001…00483`; only JOB, via `prefix_format` |
 
 **No-migration work, same rule — one line each:**
 

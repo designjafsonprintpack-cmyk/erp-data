@@ -70,8 +70,11 @@ export const CONCEPTS: HelpSection[] = [
       'JOB- (job), QT- (quotation), SO- (sales order), MRN- (material requisition), ' +
       'PO- (purchase order), INV- (invoice), DISP- (dispatch), CUST- (customer), VND- (vendor).',
     warnings: [
-      'Purani Excel wali 478 jobs JOB-2025-##### hain, aur naya kaam JOB-2026-##### se shuru hota hai. ' +
-      'Do series jaan-boojh kar alag rakhi gayi hain taake ek nazar mein pata chale ke kaam purana hai ya naya.',
+      'Job number mein saal nahi hota — JOB-00408. Ek hi series chalti hai, purani Excel wali 478 jobs se le kar aaj tak. ' +
+      'Saal is liye nikaal diya ke ek hi box baar baar chalta hai; kaam kab hua yeh order date batati hai, number nahi.',
+      'Jab wohi job dobara chalta hai to naya number nahi banta — usi number ke aage run lag jaata hai: ' +
+      'JOB-00408 pehla run, JOB-00408-R2 doosra. Press proof isi tarah -P1, -P2 leta hai. ' +
+      'Is tarah ek box ka hamesha ek hi number rehta hai jise aap yaad rakh sakein.',
     ],
   },
   {

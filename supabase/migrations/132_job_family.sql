@@ -6,7 +6,7 @@
 --
 --   He is describing the distinction the schema does not name: a CARTON is one
 --   thing, and each order of it is a RUN. Today `jobs` models the run, so a
---   reorder of JOB-2025-00408 shows up as an unrelated JOB-2026-00010 and the
+--   reorder of JOB-00408 shows up as an unrelated JOB-2026-00010 and the
 --   two read as duplicates.
 --
 --   Merging them into one row is not the answer and he said why himself — the

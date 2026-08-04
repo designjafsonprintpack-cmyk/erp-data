@@ -13,6 +13,7 @@ import { withCurrentStageNames } from '@/lib/utils/currentStageNames'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 import { findDuplicateJobs, duplicateJobResponse } from '@/lib/utils/duplicateJob'
 import { parseSizeQuery, applySizeFilter } from '@/lib/utils/parseSizeQuery'
+import { nextRunNumber } from '@/lib/utils/jobRunNumber'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -116,11 +117,6 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'The job you are repeating was not found.' }, { status: 404 })
     }
     parentJob = parent
-    // Same counting rule as the /repeat route: existing children + 2, so the
-    // original itself reads as #1.
-    const { count } = await supabase.from('jobs' as any)
-      .select('*', { count: 'exact', head: true }).eq('parent_job_id', parentJob.id)
-    repeatSequence = (count ?? 0) + 2
   }
 
   const isChanged = !!parentJob && body.repeat_kind === 'changed'
@@ -150,11 +146,23 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     if (warn) return warn
   }
 
-  // Generate job number
-  const { data: jobNumber } = await (supabase as any).rpc('get_next_sequence_number', {
-    p_company_id: companyId,
-    p_document_type: 'JOB',
-  })
+  // A repeat — changed or not — carries the ORIGINAL's number with the run on
+  // the end (JOB-00408-R2), so one carton keeps one number the shop can
+  // remember it by. Only a genuinely new job takes the next JOB- number.
+  // Mehboob asked for this on both paths: "repeat kernay per bhi aur repeat
+  // with changes per bhi". See jobRunNumber.ts.
+  let jobNumber: string
+  if (parentJob) {
+    const run = await nextRunNumber(supabase, companyId, parentJob.id, parentJob.job_number)
+    jobNumber = run.jobNumber
+    repeatSequence = run.runNo
+  } else {
+    const { data: seq } = await (supabase as any).rpc('get_next_sequence_number', {
+      p_company_id: companyId,
+      p_document_type: 'JOB',
+    })
+    jobNumber = seq
+  }
 
   const { data: job, error } = await supabase.from('jobs' as any).insert({
     company_id:           companyId,

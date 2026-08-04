@@ -19,6 +19,9 @@ interface SearchResult {
   size_h?: number | null
   sheet_width_in?: number | null
   sheet_height_in?: number | null
+  /** Jobs only — how many runs of this carton the search collapsed into this
+   *  one row. Absent or 1 means it has only ever run once. */
+  run_count?: number
 }
 
 const ENTITY_ICONS = {
@@ -199,6 +202,15 @@ export function GlobalSearch() {
                         </div>
                         <div className="flex items-center gap-3 mt-0.5">
                           <span className="text-xs font-mono text-[var(--color-text-muted)]">{result.code}</span>
+                          {/* The palette shows one row per carton, so it has to
+                              say when that carton has run more than once —
+                              otherwise the other runs look missing rather than
+                              folded in. */}
+                          {(result.run_count ?? 1) > 1 && (
+                            <span className="text-xs text-[var(--color-info)] flex-shrink-0">
+                              {result.run_count} runs
+                            </span>
+                          )}
                           {result.customer_name && result.entity_type !== 'customer' && (
                             <span className="text-xs text-[var(--color-text-muted)]">{result.customer_name}</span>
                           )}
