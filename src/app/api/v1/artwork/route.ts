@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { autoStartArtworkStage } from '@/lib/utils/autoStartArtworkStage'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { artworkSchema } from '@/lib/schemas/artwork'
@@ -131,6 +132,29 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   const inheritedLabel = inDesign.map(r => r.design_label).find(Boolean) ?? null
   const designLabel = body.design_label?.trim() || inheritedLabel
 
+  // ─── An upload IS the approval ────────────────────────────────────────────
+  // The customer approves on WhatsApp and staff then upload the file that was
+  // signed off — so there is no draft stage left to walk through, and a row
+  // sitting at 'draft' would only block the workflow's artwork gate for a
+  // design everyone has already agreed on. Rows land approved.
+  //
+  // The previously-approved version of THIS DESIGN is superseded, exactly as
+  // PATCH does when a status is changed by hand. Scoped to design_no since
+  // 124: job-wide it would archive the lid's approval the moment the base was
+  // uploaded, and the gate wants every design approved.
+  const now = new Date().toISOString()
+  const { error: supersedeErr } = await supabase.from('job_artworks' as any)
+    .update({ status: 'archived', is_production_ready: false })
+    .eq('job_id', body.job_id)
+    .eq('company_id', companyId)
+    .eq('design_no', designNo)
+    .eq('status', 'approved')
+    .is('deleted_at', null)
+  // Not fatal — the new row is still the approved one either way — but never
+  // swallowed: two rows both reading "approved" is exactly the confusion this
+  // supersede exists to prevent.
+  if (supersedeErr) console.error('[artwork] supersede failed:', supersedeErr.message)
+
   const { data, error } = await supabase.from('job_artworks' as any).insert({
     company_id:   companyId,
     job_id:       body.job_id,
@@ -142,8 +166,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     file_size:    body.file_size || null,
     file_type:    body.file_type || null,
     designer_notes: body.designer_notes || null,
-    status: 'draft',
-    is_production_ready: false,
+    status: 'approved',
+    is_production_ready: true,
+    approved_at: now,
+    approved_by: userTableId,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -152,8 +178,18 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     company_id: companyId, job_id: body.job_id,
     event_type: 'artwork_uploaded',
     new_value: `Design ${designNo}${designLabel ? ` (${designLabel})` : ''} v${nextVersion} — ${body.file_name}`,
+    notes: 'Approved on upload — customer approval taken on WhatsApp',
     actor_id: userTableId,
   }, supabase)
+
+  // The upload is now the moment artwork work is real, so it starts the
+  // Artwork stage — nobody has to remember to click Start. It deliberately
+  // does NOT complete it: see autoStartArtworkStage() for why a two-design job
+  // makes completing on upload wrong.
+  await autoStartArtworkStage(
+    supabase, companyId, body.job_id, userTableId,
+    'Auto-started — approved artwork uploaded',
+  )
 
   return NextResponse.json({ data })
 })

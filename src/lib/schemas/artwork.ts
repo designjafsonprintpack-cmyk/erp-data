@@ -45,13 +45,9 @@ export const artworkUpdateSchema = z.object({
 
 // `artworkApprovalLinkSchema` is gone with the customer approval link it
 // validated — approval is taken on WhatsApp and recorded by staff.
-
-export const artworkCommentSchema = z.object({
-  comment_text: z.string().trim().min(1, 'Comment text is required'),
-  position_x: z.union([z.string(), z.number()]).optional().nullable(),
-  position_y: z.union([z.string(), z.number()]).optional().nullable(),
-})
-
-export const artworkCommentUpdateSchema = z.object({
-  resolved: z.boolean().optional(),
-})
+//
+// `artworkCommentSchema` / `artworkCommentUpdateSchema` are gone with the
+// comment and markup feature. Approval happens on WhatsApp and only the
+// already-approved file is uploaded, so there is no round of remarks to
+// capture here. The `artwork_comments` table keeps its old rows; nothing in
+// the app writes to it any more.

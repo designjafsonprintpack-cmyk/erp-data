@@ -313,6 +313,15 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
             <div>{companyName}</div>
           </div>
         </div>
+
+        {/* Auto print — the card opened in a new tab and then just sat there,
+            so the operator had to press Ctrl+P himself every single time.
+            Same one-liner the Sales Order print pages already carry.
+            window.onload (not DOMContentLoaded) on purpose: this page draws the
+            artwork from signed Storage URLs, and firing the dialog before those
+            images arrive would put empty tiles on the preview — and on the
+            sheet, if he prints straight from it. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </body>
     </html>
   )

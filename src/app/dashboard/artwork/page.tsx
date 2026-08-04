@@ -28,28 +28,9 @@ export default async function ArtworkPage() {
     .order('created_at', { ascending: false })
     .limit(100)
 
-  // Comment summary (count + unresolved-customer flag) per artwork version —
-  // fetched upfront so the Comments button shows this immediately, instead
-  // of only after it's been clicked once (comments themselves still lazy-
-  // load on click, this is just the badge).
-  const artworkIds = (data ?? []).map((a: any) => a.id)
-  const commentSummary: Record<string, { total: number; unresolvedCustomer: boolean }> = {}
-  if (artworkIds.length > 0) {
-    const { data: allComments } = await supabase
-      .from('artwork_comments' as any)
-      .select('artwork_id, author_type, resolved, comment_type')
-      .in('artwork_id', artworkIds)
-      .is('deleted_at', null)
-    for (const c of (allComments ?? []) as any[]) {
-      if (!commentSummary[c.artwork_id]) commentSummary[c.artwork_id] = { total: 0, unresolvedCustomer: false }
-      commentSummary[c.artwork_id].total += 1
-      // Emboss marks (migration 089) are never "resolved" — counting them here
-      // would pin the badge to its unresolved/red state forever.
-      if (c.author_type === 'customer' && !c.resolved && c.comment_type !== 'emboss') {
-        commentSummary[c.artwork_id].unresolvedCustomer = true
-      }
-    }
-  }
+  // The per-version comment summary that used to be fetched here is gone with
+  // the comments feature — approval happens on WhatsApp and only the approved
+  // file is uploaded, so there is nothing on screen to comment on.
 
   return (
     <div className="space-y-5">
@@ -58,7 +39,7 @@ export default async function ArtworkPage() {
         <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{count ?? 0} artwork versions</p>
       </div>
       <ArtworkClient initialArtworks={(data ?? []) as any[]}
-        initialTotal={count ?? 0} jobs={(jobs ?? []) as any[]} companyId={companyId} commentSummary={commentSummary} />
+        initialTotal={count ?? 0} jobs={(jobs ?? []) as any[]} companyId={companyId} />
     </div>
   )
 }

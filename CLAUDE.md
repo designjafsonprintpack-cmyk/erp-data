@@ -350,10 +350,11 @@ clean and matches, the following are live:
   Colors / Quantity / Die Number / Box Type
 - New / Repeat toggle on New Job, with a searchable parent-job picker
 - Topbar: right controls pinned right, gutters additive to safe-area insets
-- Artwork approval: WhatsApp-style markup editor (draw/arrow/box/text/emboss +
-  undo, drafts saved in one `save_marks` call, shapes stored as 0–100 % points
-  in `artwork_comments.shape`, rendered everywhere by `MarkupOverlay`); approver
-  email optional, name still required — **needs migrations 089 + 090**
+- ~~Artwork approval: WhatsApp-style markup editor~~ — **all of this is gone.**
+  The customer approval link was retired first, then the markup editor,
+  comments and AI pre-flight with it. See "Artwork approval is WhatsApp" below.
+  Migrations 089 + 090 and the `artwork_comments` table still exist and still
+  hold their rows; only the code that wrote and drew them is gone.
 
 **Migrations 087 and 088 must have been run** (`jobs.gsm`,
 `sales_order_items.gsm`). If job save or edit 500s, check these first.
@@ -1893,6 +1894,83 @@ from the link. 7 assertions.
 The insert's error was not being read, so it surfaced as a TypeError three lines
 later rather than as the constraint violation it was. Check the error on a
 fixture insert too, not only in product code.
+
+### Artwork approval is WhatsApp — upload IS the approval (no migration)
+Mehboob: *"hum whatsapp say approve hony k bad hi approved image upload kery gy,
+is liyay AI preflight b remove ker do, comment b… artwork upload huwa matlab
+approved ho gya hy."*
+
+The customer approval link had already been retired in an earlier pass (its
+page, its public route and `artworkApprovalLinkSchema` were all gone; only
+070's `approval_token` columns remain). This finishes the job:
+
+- **A new `job_artworks` row lands `status = 'approved'`**, `is_production_ready
+  = true`, with `approved_at` / `approved_by` stamped — instead of `'draft'`.
+  A draft row would only block the workflow's artwork gate for a design the
+  customer has already signed off on WhatsApp.
+- **AI pre-flight removed** — route, `aiArtworkPreflight.ts`, both screens'
+  buttons and the results modal. `aiCostingSuggestion.ts` and
+  `aiDefectPatterns.ts` are untouched; only their comments mention it.
+- **Comments and on-image markup removed** — both routes, `MarkupOverlay.tsx`,
+  `markupShapeSchema`, both comment schemas, both screens' modals, the
+  fullscreen pin view, and the comment-summary query on `artwork/page.tsx`.
+- **Nothing was dropped from the database.** `artwork_comments` (071/089/090)
+  and the `ai_preflight_*` columns (078) keep every row. This is deliberately
+  reversible: the columns and tables are the expensive half.
+- The status badge is now a plain badge, not a button — it used to open the
+  comments modal, which no longer exists. The **"Move to…" dropdown stays**, so
+  a wrong upload can still be archived; from `approved` the only legal move is
+  `archived`, which is exactly the undo that is wanted.
+
+**The upload STARTS the Artwork stage, and deliberately does not COMPLETE it.**
+`autoStartArtworkStage()` (`src/lib/utils/autoStartArtworkStage.ts`) is the
+shared trigger, called from the upload route and still from PATCH.
+- **This behaviour had silently died.** The auto-start began life in
+  `POST /artwork/[id]/approval-link`, moved to the status change to
+  `waiting_customer_approval` when that link was retired — and once uploads
+  landed on `approved`, that status could no longer occur, so **nothing started
+  the stage at all**. The trigger moved to the upload, which is now the real
+  signal. Watch for this shape: retiring a status can strand the logic hanging
+  off it, and nothing errors.
+- **Auto-COMPLETE was asked for and refused, for one reason: two designs.**
+  Mehboob asked *"workflow main artwork & customer stage b complete ho jaey
+  image upload hoty hi, kia yay theek ho ga?"* — it is not, because a job can
+  carry more than one DESIGN (124) and nothing tells the ERP how many are
+  coming. Completing on the first upload would march the job into Planning with
+  the lid missing, and re-open the exact hole 124 closed: the gate wants EVERY
+  design approved and is only evaluated at completion time. **Complete stays a
+  human act meaning "that is all of them".** He agreed.
+- Only acts on a `pending` stage, so a second upload cannot rewrite who started
+  it or when; and only when no earlier stage is unfinished — the Label /
+  Sticker template runs Planning → Artwork, so Artwork is not always stage 1.
+  Blocked or workflow-less, it silently no-ops rather than failing the upload.
+
+Verified separately: **23 more assertions through the real routes** — the stage
+proven `pending` and the job `new` beforehand, then `in_progress` with
+`started_at`, `current_stage_id` and an audit line saying why, and
+`completed_at` still NULL; a second upload leaving `started_at` untouched;
+Complete working first click on a one-design job; the two-design job proven to
+still be sitting in Artwork with both designs approved at the point auto-
+complete would already have moved it on; and an upload onto a **legacy job with
+no workflow** succeeding with no stage touched and its status unchanged.
+
+**The supersede was job-wide and had to be scoped to the DESIGN.** Both POST
+and PATCH archive "the other approved version" — and they matched on `job_id`
+alone, which 124 made wrong: approving the base un-approved the lid. Harmless
+while approving was a manual, one-at-a-time act; **fatal the moment uploading
+approves**, because uploading design 2 would have silently un-approved design 1
+and the gate (which wants EVERY design approved) could never be cleared. Fixed
+in POST, PATCH and both clients' optimistic updates. The walk asserts it
+directly.
+
+Verified: **26 assertions through the real HTTP routes against live** — a row
+landing approved with `approved_by` set; v2 superseding v1 within a design; a
+second design landing as design 2 v1 with **design 1 v2 still approved**; the
+**artwork stage started AND completed with no status ever changed by hand**;
+all three removed endpoints returning 404; and both screens rendering 200 with
+no pre-flight or comments control in the HTML. Live returned to its exact prior
+state (485 jobs, 8 artwork rows, 15 users, JOB counter 7, temp user and auth
+account removed, all 3 test objects deleted from Storage).
 
 ### Open threads
 - **The other three cron routes stand open when `CRON_SECRET` is unset.** They
