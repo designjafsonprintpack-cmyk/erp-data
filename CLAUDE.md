@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **128**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **130**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -318,6 +318,13 @@ deliberately left empty. Never read from it.
   repeats can no longer be hard-deleted.
 - **React SSR inserts `<!-- -->` between adjacent text nodes**, so `Sheet {value}`
   serialises as `Sheet<!-- -->20 × 27`. Strip those before asserting on rendered text.
+- **A checkbox whose promise nothing reads is worse than no checkbox.** Repeat's
+  "same artwork, no new artwork needed" (default ON) only wrote a
+  `job_artwork_references` note; the workflow gate reads `job_artworks`, so every
+  exact repeat was born unable to complete Artwork. Fixed in the route + 129.
+- **Two `job_artworks` rows may share one `file_url`** (an exact repeat carries
+  its parent's file). Safe on purpose: the retention sweep keeps every path a
+  LIVE row points at. Any new file column must be added to that keep-set too.
 - **Changing what a write path produces does not change the rows already on live.**
   "Upload = approved" was proven end to end and still left five jobs stuck, because
   every existing row kept its old status. Ask what a change does to existing data in
@@ -433,6 +440,8 @@ Rules that govern future work are in §4 and §5, not here.
 | 126 | **gang runs** — two jobs on one sheet (see §4) |
 | 127 | the `UV Coating` workflow stage renamed to **`Coating`** (HL's "Varnish / Coating" left alone) |
 | 128 | approved the 7 in-flight artwork rows left behind when upload-means-approved shipped |
+| 129 | carried the parent's approved artwork onto the 3 repeats that had only a reference row |
+| 130 | `job_artworks.thumb_url` — a 400px WEBP preview per artwork, so a tile stops downloading the 1 MB original |
 
 **No-migration work, same rule — one line each:**
 

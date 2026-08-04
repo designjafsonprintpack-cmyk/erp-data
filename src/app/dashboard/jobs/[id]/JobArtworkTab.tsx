@@ -9,7 +9,8 @@ import { ARTWORK_ACCEPT, ARTWORK_ACCEPT_LABEL, ARTWORK_REJECT_MESSAGE, isAccepte
 import { Modal } from '@/components/ui/Modal'
 import { formatTimeAgo, formatDateTime } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
-import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
+import { getSignedUrl } from '@/lib/utils/uploadFile'
+import { uploadArtworkWithThumb } from '@/lib/utils/uploadArtwork'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
 
 // Comments, on-image markup and the AI pre-flight check are gone from this tab.
@@ -18,6 +19,8 @@ import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus }
 // and no decision for a machine to advise on.
 interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
+  /** Small preview beside the original (migration 130); NULL on older rows. */
+  thumb_url?: string | null
   /** Which DESIGN this belongs to (migration 124). Legacy rows are 1. */
   design_no?: number | null
   design_label?: string | null
@@ -126,8 +129,8 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
     setLoading(true)
     try {
       const supabase = createSupabaseClient()
-      const { path, error: uploadErr } = await uploadFile(
-        supabase, 'artwork', companyId, `${jobId}/${Date.now()}-${selectedFile.name}`, selectedFile
+      const { path, thumbPath, error: uploadErr } = await uploadArtworkWithThumb(
+        supabase, companyId, jobId, selectedFile
       )
       if (uploadErr || !path) throw new Error(uploadErr || 'Upload failed')
 
@@ -135,6 +138,7 @@ export default function JobArtworkTab({ jobId, companyId, initialArtworks }: { j
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: jobId, file_name: selectedFile.name, file_url: path,
+          ...(thumbPath ? { thumb_url: thumbPath } : {}),
           file_size: selectedFile.size, file_type: selectedFile.name.split('.').pop()?.toUpperCase(),
           designer_notes: designerNotes,
           // '' means NEW DESIGN — the route reads a missing design_no as

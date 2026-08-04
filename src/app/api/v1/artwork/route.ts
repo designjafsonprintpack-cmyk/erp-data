@@ -163,6 +163,9 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     version:      nextVersion,
     file_name:    body.file_name,
     file_url:     body.file_url,
+    // A cache, not data (migration 130) — NULL just means every reader falls
+    // back to the full-size original, exactly as before this existed.
+    thumb_url:    body.thumb_url || null,
     file_size:    body.file_size || null,
     file_type:    body.file_type || null,
     designer_notes: body.designer_notes || null,

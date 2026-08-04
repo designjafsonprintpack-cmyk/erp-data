@@ -43,7 +43,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 
   const { data: artworks, error } = await supabase
     .from('job_artworks' as any)
-    .select('id, job_id, design_no, design_label, version, file_name, file_type, file_url, status')
+    .select('id, job_id, design_no, design_label, version, file_name, file_type, file_url, thumb_url, status')
     .in('job_id', jobIds)
     .is('deleted_at', null)
     .order('job_id', { ascending: true })
@@ -61,21 +61,34 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
     if (!latestPerDesign.has(key)) latestPerDesign.set(key, a)
   }
 
+  // WHICH PATH IS SIGNED — the small preview whenever there is one.
+  //
+  // Every tile drawn from this route is between 40 and 77 px wide, while the
+  // originals average 634 kB and reach 1.17 MB on live. A 20-row search was
+  // therefore ~12 MB of image to paint postage stamps, which is why the boxes
+  // appeared and the pictures did not. `thumb_url` (migration 130) is ~30–60 kB.
+  //
+  // NULL is normal, not an error: every row uploaded before 130 has none, and a
+  // non-raster file never will. Those fall back to the original exactly as
+  // before, so nothing has to be backfilled for this route to work.
   const previewable = Array.from(latestPerDesign.values()).filter(a => {
+    if (a.thumb_url) return true
     const ext = (a.file_type || (a.file_name as string).split('.').pop() || '').toUpperCase()
     return PREVIEWABLE_EXT.has(ext)
   })
+
+  const pathOf = (a: any): string => a.thumb_url || a.file_url
 
   const signedByPath = new Map<string, string>()
   if (previewable.length > 0) {
     const { data: signed } = await supabase.storage
       .from('artwork')
-      .createSignedUrls(previewable.map(a => a.file_url), 3600)
+      .createSignedUrls(previewable.map(pathOf), 3600)
     // Results come back in request order; map by index, not by the returned
     // path, which Storage may normalise (same reasoning as the client-side
     // useArtworkThumbnails hook).
     signed?.forEach((row, i) => {
-      if (row?.signedUrl && previewable[i]) signedByPath.set(previewable[i].file_url, row.signedUrl)
+      if (row?.signedUrl && previewable[i]) signedByPath.set(pathOf(previewable[i]), row.signedUrl)
     })
   }
 
@@ -92,7 +105,7 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const data: Record<string, ThumbRow[]> = {}
   for (const a of Array.from(latestPerDesign.values())) {
     ;(data[a.job_id] ||= []).push({
-      url: signedByPath.get(a.file_url) ?? null,
+      url: signedByPath.get(pathOf(a)) ?? null,
       file_name: a.file_name,
       file_type: a.file_type,
       version: a.version,

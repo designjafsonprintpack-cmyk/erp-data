@@ -14,6 +14,12 @@ export const artworkSchema = z.object({
   job_id: z.string().uuid('job_id must be a valid id'),
   file_name: z.string().trim().min(1, 'file_name is required'),
   file_url: z.string().trim().min(1, 'file_url is required'),
+  // Storage path of the small preview the uploader generated (migration 130).
+  // Optional — non-raster files never get one, and a failed generation must not
+  // fail the upload. It has to be DECLARED here even so: z.object() strips
+  // unknown keys, so a field the route inserts but the schema never mentions is
+  // thrown away silently (§5 — the PO line-item bug).
+  thumb_url: z.string().trim().min(1).optional().nullable(),
   file_size: z.union([z.string(), z.number()]).optional().nullable(),
   file_type: z.string().optional().nullable(),
   designer_notes: z.string().optional().nullable(),

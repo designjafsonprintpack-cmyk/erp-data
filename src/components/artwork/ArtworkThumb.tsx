@@ -55,6 +55,10 @@ export function extLabel(fileName: string, fileType?: string | null): string {
 interface ThumbSource {
   id: string
   file_url: string
+  /** Small preview generated at upload (migration 130). Signed in preference to
+   *  file_url when present; NULL on every row uploaded before 130 and on every
+   *  non-raster file, which then fall back to the original as before. */
+  thumb_url?: string | null
   file_name: string
   file_type?: string | null
 }
@@ -92,8 +96,8 @@ export function useArtworkThumbnails(items: ThumbSource[]): Record<string, strin
   // path list rather than the array identity — otherwise every parent re-render
   // fires a fresh batch of signing requests.
   const key = items
-    .filter(a => isPreviewable(a.file_name, a.file_type))
-    .map(a => `${a.id}:${a.file_url}`)
+    .filter(a => a.thumb_url || isPreviewable(a.file_name, a.file_type))
+    .map(a => `${a.id}:${a.thumb_url || a.file_url}`)
     .sort()
     .join('|')
 

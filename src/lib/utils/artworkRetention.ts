@@ -64,6 +64,11 @@ export interface ArtworkSweepResult {
 
 interface ArtworkRow {
   file_url: string | null
+  /** The small preview beside the original (migration 130). It is a SECOND
+   *  object in the same bucket and nothing else points at it, so leaving it out
+   *  of the keep-set would have the sweep read every thumbnail as an orphan and
+   *  delete the lot 30 days after upload — with the row still live. */
+  thumb_url: string | null
   deleted_at: string | null
 }
 
@@ -130,7 +135,7 @@ export async function sweepArtworkFiles(
   const rows = await fetchAllRows<ArtworkRow>(
     (from, to) => supabase
       .from('job_artworks' as any)
-      .select('file_url, deleted_at')
+      .select('file_url, thumb_url, deleted_at')
       .order('id')
       .range(from, to) as any,
     'artwork retention sweep',
@@ -142,12 +147,16 @@ export async function sweepArtworkFiles(
   let keptRecentlyDeleted = 0
 
   for (const r of rows) {
-    if (!r.file_url) continue
-    if (r.deleted_at === null) { keep.add(r.file_url); keptLive++; continue }
+    // A row owns up to two objects — the original and its preview — and both
+    // live and die together. Counted once per ROW so the reported figures still
+    // mean "artworks", not "files".
+    const paths = [r.file_url, r.thumb_url].filter(Boolean) as string[]
+    if (paths.length === 0) continue
+    if (r.deleted_at === null) { paths.forEach(p => keep.add(p)); keptLive++; continue }
     if (new Date(r.deleted_at).getTime() >= cutoffMs) {
-      keep.add(r.file_url); keptRecentlyDeleted++
+      paths.forEach(p => keep.add(p)); keptRecentlyDeleted++
     } else {
-      expired.add(r.file_url)
+      paths.forEach(p => expired.add(p))
     }
   }
 

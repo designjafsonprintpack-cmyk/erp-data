@@ -7,7 +7,8 @@ import { ARTWORK_ACCEPT, ARTWORK_ACCEPT_LABEL, ARTWORK_REJECT_MESSAGE, isAccepte
 import { Modal } from '@/components/ui/Modal'
 import { formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import { createSupabaseClient } from '@/lib/supabase/client'
-import { uploadFile, getSignedUrl } from '@/lib/utils/uploadFile'
+import { getSignedUrl } from '@/lib/utils/uploadFile'
+import { uploadArtworkWithThumb } from '@/lib/utils/uploadArtwork'
 import { ArtworkThumb, useArtworkThumbnails } from '@/components/artwork/ArtworkThumb'
 import { ARTWORK_STATUS_CONFIG, ARTWORK_STATUS_TRANSITIONS, type ArtworkStatus } from '@/modules/artwork/types/artwork.types'
 import { Pagination } from '@/components/ui/Pagination'
@@ -20,6 +21,8 @@ import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
 // `ai_preflight_*` columns still hold their old rows — nothing was dropped.
 interface Artwork {
   id: string; job_id: string; version: number; file_name: string; file_url: string
+  /** Small preview beside the original (migration 130); NULL on older rows. */
+  thumb_url?: string | null
   /** Which DESIGN this belongs to (migration 124). Legacy rows are 1. */
   design_no?: number | null
   design_label?: string | null
@@ -120,14 +123,18 @@ export default function ArtworkClient({ initialArtworks, initialTotal, jobs, com
     setLoading(true)
     try {
       const supabase = createSupabaseClient()
-      const { path, error: uploadErr } = await uploadFile(
-        supabase, 'artwork', companyId, `${form.job_id}/${Date.now()}-${selectedFile.name}`, selectedFile
+      const { path, thumbPath, error: uploadErr } = await uploadArtworkWithThumb(
+        supabase, companyId, form.job_id, selectedFile
       )
       if (uploadErr || !path) throw new Error(uploadErr || 'Upload failed')
 
       const res = await fetch('/api/v1/artwork', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, file_url: path, file_size: form.file_size ? parseInt(form.file_size) : null }),
+        body: JSON.stringify({
+          ...form, file_url: path,
+          ...(thumbPath ? { thumb_url: thumbPath } : {}),
+          file_size: form.file_size ? parseInt(form.file_size) : null,
+        }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
