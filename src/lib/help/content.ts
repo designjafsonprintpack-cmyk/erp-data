@@ -258,8 +258,8 @@ export const MODULE_GUIDES: ModuleGuide[] = [
         heading: 'Job ka safar',
         body:
           'Aam carton ki 10 stages: Artwork & Customer Approval → Planning → Board Issue → Printing → ' +
-          'UV Coating → Die Cutting → Folder Gluing → Packing → Quality Check → Dispatch. ' +
-          'Artwork aur customer approval AIK hi stage hai, do nahi. UV Coating aur Folder Gluing optional hain. ' +
+          'Coating → Die Cutting → Folder Gluing → Packing → Quality Check → Dispatch. ' +
+          'Artwork aur customer approval AIK hi stage hai, do nahi. Coating aur Folder Gluing optional hain. ' +
           'Lamination aur Hot Foil wali jobs ka apna template hai ("Carton with Lamination / Foil", 12 stages), ' +
           'jo saal mein do-chaar jobs par haath se chuna jaata hai. ' +
           'Poora tafseeli safar "Job ka safar" tab mein hai.',
@@ -1120,8 +1120,8 @@ export const JOURNEY: JourneyStep[] = [
     auto: 'Board kam ho to sirf warning aati hai — kaam rukta nahi, kyunki shop bara board bhi use karta hai.',
   },
   {
-    n: 11, title: 'Stage 5 — UV Coating (optional)', isStage: true,
-    short: 'UV Coating', phase: 'production',
+    n: 11, title: 'Stage 5 — Coating (optional)', isStage: true,
+    short: 'Coating', phase: 'production',
     who: ['printing'], whoLabel: 'Production Operator',
     where: 'My Queue', href: '/dashboard/production/queue',
     what: ['Start → kaam → Complete.'],

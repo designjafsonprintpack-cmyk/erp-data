@@ -615,7 +615,7 @@ export default function FinanceClient({ initialInvoices, initialTotal, customers
               { key: 'ink_cost',        label: 'Ink Cost (PKR)' },
               { key: 'lamination_cost', label: 'Lamination (PKR)' },
               { key: 'foiling_cost',    label: 'Hot Foil (PKR)' },
-              { key: 'uv_cost',         label: 'UV Coating (PKR)' },
+              { key: 'uv_cost',         label: 'Coating (PKR)' },
               { key: 'die_cutting_cost',label: 'Die Cutting (PKR)' },
               { key: 'pasting_cost',    label: 'Pasting / Gluing (PKR)' },
               { key: 'other_finishing', label: 'Other Finishing (PKR)' },

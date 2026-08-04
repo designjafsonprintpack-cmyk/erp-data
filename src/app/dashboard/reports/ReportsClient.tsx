@@ -57,7 +57,7 @@ const DIMENSIONS: { value: string; label: string }[] = [
   { value: 'gsm',        label: 'GSM' },
   { value: 'board_gsm',  label: 'Board + GSM' },
   { value: 'colors',     label: 'No. of Colours' },
-  { value: 'uv_coating', label: 'UV Coating' },
+  { value: 'uv_coating', label: 'Coating' },
   { value: 'lamination', label: 'Lamination' },
   { value: 'pasting',    label: 'Pasting' },
   { value: 'die',        label: 'Die Number' },

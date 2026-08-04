@@ -106,9 +106,10 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
     { label: 'Quantity', value: j.quantity?.toLocaleString() || '—' },
     { label: 'No. of Colors', value: j.no_of_colors || '—' },
     { label: 'Die Number', value: j.die_number || '—' },
-    { label: 'UV Coating', value: j.uv_coating || '—' },
-    { label: 'Pasting', value: j.pasting || '—' },
-    { label: 'Special Finishing', value: j.special_finishing || '—' },
+    // Coating / Pasting / Special Finishing deliberately NOT listed here — they
+    // are printed once, in the Finishing section below, beside Lamination and
+    // Hot Foil where the operator looks for them. They used to appear in both
+    // blocks on the same sheet.
   ]
 
   return (
@@ -118,7 +119,9 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 12px; color: #1f2328; background: white; }
-          .page { width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; }
+          /* Flex column so the signature strip can be pushed to the foot of the
+             sheet regardless of how short the job's content is. */
+          .page { width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; display: flex; flex-direction: column; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0969da; margin-bottom: 16px; }
           .logo { font-size: 18px; font-weight: 700; color: #0969da; }
           .job-number { font-size: 22px; font-weight: 800; font-family: monospace; color: #0969da; }
@@ -138,7 +141,11 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           .workflow-stages { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
           .stage-badge { padding: 2px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 10px; }
           .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 10px; color: #57606a; }
-          .signature-line { border-bottom: 1px solid #1f2328; width: 150px; height: 36px; }
+          /* margin-top: auto eats every bit of leftover height, so the signatures
+             sit on the bottom margin of the page instead of floating just below
+             the remarks box on a short job. The footer follows them down. */
+          .signatures { margin-top: auto; padding-top: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+          .signature-line { border-bottom: 1px solid #1f2328; width: 150px; height: 36px; margin: 0 auto; }
           /* object-fit: contain, not cover — same reason as ArtworkThumb.
              30mm x 38mm is portrait and a dieline is landscape, so cover was
              cropping the sides off. This is the sheet the operator holds at the
@@ -272,9 +279,9 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
             <div className="grid-3">
               <div className="field"><div className="field-label">Lamination</div><div className="field-value">{(j as any).lamination_types?.name || '—'}</div></div>
               <div className="field"><div className="field-label">Hot Foil</div><div className="field-value">{(j as any).foil_types?.name || '—'}</div></div>
-              <div className="field"><div className="field-label">UV Coating</div><div className="field-value">{j.uv_coating || '—'}</div></div>
+              <div className="field"><div className="field-label">Coating</div><div className="field-value">{j.uv_coating || '—'}</div></div>
               <div className="field"><div className="field-label">Pasting</div><div className="field-value">{j.pasting || '—'}</div></div>
-              <div className="field"><div className="field-label">Special</div><div className="field-value">{j.special_finishing || '—'}</div></div>
+              <div className="field"><div className="field-label">Special Finishing</div><div className="field-value">{j.special_finishing || '—'}</div></div>
             </div>
           </div>
 
@@ -284,9 +291,14 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
             <div className="remarks-box">{j.internal_remarks || ' '}</div>
           </div>
 
-          {/* Signatures */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginTop: 20 }}>
-            {['Artwork', 'Planning', 'Production', 'QC'].map(dept => (
+          {/* Signatures — pinned to the bottom of the A4 sheet by .signatures'
+              margin-top:auto (the .page is a flex column). Artwork does not sign
+              here: artwork is signed off by the CUSTOMER on the approval link,
+              and that approval is what opens the workflow's artwork gate — a
+              second pen-and-paper signature for it on the shop's own card was
+              recording the same thing twice. */}
+          <div className="signatures">
+            {['Planning', 'Production', 'QC'].map(dept => (
               <div key={dept} style={{ textAlign: 'center' }}>
                 <div className="signature-line" />
                 <div style={{ fontSize: 10, color: '#57606a', marginTop: 4 }}>{dept}</div>

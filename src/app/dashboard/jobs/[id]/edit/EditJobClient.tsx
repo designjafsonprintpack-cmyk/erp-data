@@ -290,7 +290,7 @@ export default function EditJobClient({ job, boardTypes, boxTypes, paperTypes, l
             <input id="editjobclient-20" className={inputCls} value={form.special_finishing} onChange={e => set('special_finishing', e.target.value)} placeholder="e.g. Embossing" />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="editjobclient-21" className={labelCls}>UV Coating</label>
+            <label htmlFor="editjobclient-21" className={labelCls}>Coating</label>
             <select id="editjobclient-21" className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
               <option value="">None</option>
               {coatingOptions.map(name => <option key={name} value={name}>{name}</option>)}

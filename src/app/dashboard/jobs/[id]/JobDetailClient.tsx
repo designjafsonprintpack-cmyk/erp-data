@@ -654,7 +654,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
                 // — reading only board_types left every paper job blank.
                 { label: 'Board / Paper', value: (job as any).board_types?.name || (job as any).paper_types?.name || '—' },
                 { label: 'Lamination', value: (job as any).lamination_types?.name || '—' },
-                { label: 'UV Coating', value: job.uv_coating || '—' },
+                { label: 'Coating', value: job.uv_coating || '—' },
                 { label: 'Hot Foil', value: (job as any).foil_types?.name || '—' },
                 { label: 'Pasting', value: job.pasting || '—' },
                 { label: 'Special Finishing', value: job.special_finishing || '—' },

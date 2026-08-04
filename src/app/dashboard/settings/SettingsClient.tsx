@@ -53,7 +53,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
                'job', 'inv', 'qt', 'so', 'po', 'mrn', 'disp', 'cust', 'vnd'] },
   { title: 'Workflow Engine', description: 'Build production workflow templates with stages', href: '/dashboard/settings/workflow', icon: Workflow,
     keywords: ['stage', 'template', 'sequence', 'dependency', 'gate', 'qc', 'artwork', 'plates', 'board issue',
-               'printing', 'lamination', 'uv coating', 'die cutting', 'hot foil', 'folder gluing', 'packing', 'dispatch'] },
+               // 'uv coating' stays as a search alias after 127 renamed the stage
+               // to 'Coating' — people will keep typing the old name for years.
+               'printing', 'lamination', 'coating', 'uv coating', 'die cutting', 'hot foil', 'folder gluing', 'packing', 'dispatch'] },
   { title: 'Job Status & Delay Reasons', description: 'Job statuses and mandatory delay reason list', href: '/dashboard/settings/job-status', icon: Circle,
     keywords: ['status', 'hold', 'delay', 'reason', 'on hold', 'in progress', 'completed', 'cancelled'] },
   { title: 'Permissions & Roles', description: 'Role-based access control matrix', href: '/dashboard/settings/permissions', icon: Shield,

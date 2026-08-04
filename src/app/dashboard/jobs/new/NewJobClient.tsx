@@ -806,7 +806,7 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
             <input id="newjobclient-27" className={inputCls} value={form.special_finishing} onChange={e => set('special_finishing', e.target.value)} placeholder="e.g. Embossing" />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="newjobclient-28" className={labelCls}>UV Coating</label>
+            <label htmlFor="newjobclient-28" className={labelCls}>Coating</label>
             <select id="newjobclient-28" className={inputCls} value={form.uv_coating} onChange={e => set('uv_coating', e.target.value)}>
               <option value="">None</option>
               {coatingTypes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
