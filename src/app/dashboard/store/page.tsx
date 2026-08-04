@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import StoreClient from './StoreClient'
 import { loadJobsAwaitingBoardIssue } from '@/lib/utils/jobsAwaitingBoardIssue'
@@ -16,7 +17,7 @@ export default async function StorePage() {
       .eq('company_id', companyId).is('deleted_at', null)
       // First page only — StoreClient pages the rest from /api/v1/store.
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('jobs' as any)
       .select('id,job_number,job_title').eq('company_id', companyId)
       .is('deleted_at', null).in('status', ['new','in_progress']).order('job_number').limit(100),

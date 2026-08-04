@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { checkStageGate } from './jobStageGate'
+import { loadStageGateContext, checkStageGateFrom } from './jobStageGate'
 import { getPlannedSlots } from './plannedDates'
 
 export interface StageQueueEntry {
@@ -89,11 +89,24 @@ export async function loadStageQueue(
     rows = rows.filter(r => match(r.workflow_stages?.name ?? ''))
   }
 
-  // Planned date per job, so a queue answers "yeh kab ka plan hai" without
-  // anyone opening the Planning page.
-  const planByJob = await getPlannedSlots(
-    supabase, companyId, Array.from(new Set(rows.map(r => r.job_id)))
-  )
+  const jobIds = Array.from(new Set(rows.map(r => r.job_id)))
+
+  // Both lookups the rest of this function needs, read ONCE and in parallel.
+  //
+  // The gate used to be asked per row, inside the loop below, and each ask cost
+  // two round trips that waited for the row before it. On live the "All
+  // departments" queue walks 89 pending stages — about 178 sequential requests
+  // before the page could render, which is exactly the wait Mehboob reported.
+  // The rule itself is untouched; only the number of requests changed.
+  const [planByJob, gateCtx] = await Promise.all([
+    // Planned date per job, so a queue answers "yeh kab ka plan hai" without
+    // anyone opening the Planning page.
+    getPlannedSlots(supabase, companyId, jobIds),
+    loadStageGateContext(
+      supabase, companyId, jobIds,
+      Array.from(new Set(rows.map(r => r.workflow_stage_id))),
+    ),
+  ])
 
   const ready: StageQueueEntry[] = []
   const blocked: StageQueueEntry[] = []
@@ -121,8 +134,8 @@ export async function loadStageQueue(
       continue
     }
 
-    const gate = await checkStageGate(
-      supabase, companyId, row.job_id, row.workflow_stage_id, row.sequence_order, entry.stage_name
+    const gate = checkStageGateFrom(
+      gateCtx, row.job_id, row.workflow_stage_id, row.sequence_order, entry.stage_name
     )
     if (gate.blocked) blocked.push({ ...entry, blocked_reason: gate.reason })
     else ready.push(entry)

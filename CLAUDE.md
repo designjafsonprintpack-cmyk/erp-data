@@ -318,6 +318,10 @@ deliberately left empty. Never read from it.
   repeats can no longer be hard-deleted.
 - **React SSR inserts `<!-- -->` between adjacent text nodes**, so `Sheet {value}`
   serialises as `Sheet<!-- -->20 × 27`. Strip those before asserting on rendered text.
+- **`checkStageGate()` inside a loop was the slowest thing in the app** — two
+  round trips per call, serial. The Department Queue's 89 pending stages took
+  **57 s**; batched it is **0.6 s**, proven identical on all 88 rows. Any list
+  uses `loadStageGateContext()` + `checkStageGateFrom()`, never the loop.
 - **A checkbox whose promise nothing reads is worse than no checkbox.** Repeat's
   "same artwork, no new artwork needed" (default ON) only wrote a
   `job_artwork_references` note; the workflow gate reads `job_artworks`, so every
@@ -361,7 +365,9 @@ A full 9-phase responsive project (R0–R8) shipped. Before hand-rolling layout:
   `DataList` (replaces 12-col list grids, gives cards on mobile automatically),
   `FormGrid` + `FormField`, `Toolbar`, `TabStrip`, `ScrollRow`, `PageHeader`,
   `DesktopOnly`, and a rebuilt `Modal`.
-- **Every list is page-wise, 50 per page, and paged BY THE SERVER.** `LoadMore`
+- **Every list is page-wise, paged BY THE SERVER, 20 per page by default** —
+  the pager carries a 10/20/30/40/50 picker (`useListPageSize`, one shared
+  preference in localStorage, so all lists agree and no call site wires it up). `LoadMore`
   and the browser-side filtering it fed on are both gone. Three pieces:
   `Pagination` + `LIST_PAGE_SIZE` (`src/components/ui/Pagination.tsx`),
   `useServerPagedList()` + `fetchAllPages()`
@@ -369,7 +375,9 @@ A full 9-phase responsive project (R0–R8) shipped. Before hand-rolling layout:
   (`src/lib/utils/pagedResponse.ts`).
   Rules that cost something to learn:
   - **The `.range()` in the page's server component must match
-    `LIST_PAGE_SIZE`**, or page 1 and page 2 overlap.
+    `LIST_PAGE_SIZE`**, or page 1 and page 2 overlap. All 14 now import it from
+    `src/lib/constants/pagination.ts` instead of hardcoding `.range(0, 49)`, so
+    the two can no longer drift.
   - **Every paged query needs `.order('id')` as a tiebreaker.** Rows sharing a
     `created_at` have no guaranteed order, so page 2 repeats rows page 1 already
     showed and drops others. The 478 legacy jobs all share one backdated
@@ -451,8 +459,9 @@ Rules that govern future work are in §4 and §5, not here.
   pre-flight, comments and on-image markup are removed; their tables and columns
   are kept. Accepts JPG/PNG/WEBP — **PDF was declined**, it renders as a grey
   tile without a raster preview step.
-- **Every list is server-paged, 50 a page** — see §6, which carries the rules
-  that cost something to learn.
+- **Every list is server-paged, 20 a page with a 10–50 picker** — see §6, which
+  carries the rules that cost something to learn. The **Jobs list opens on the
+  New tab**, not All, and its server component renders that tab.
 - **`resolveWorkflowTemplateId()`** is the single answer to "which workflow does
   this job get"; `applyWorkflowTemplateOnEdit()` builds stages on PATCH, and a
   template swap is refused once any stage has started.
@@ -483,6 +492,9 @@ Rules that govern future work are in §4 and §5, not here.
   instead (503), because a route that DELETES FILES is the wrong place to
   inherit that. The other three were left alone — changing auth on live crons
   unasked is its own risk.
+- **`/api/cron/production-reminders` still calls `checkStageGate()` per row.**
+  Left alone deliberately: it loops across companies, so batching needs one
+  context per `company_id`, and a daily cron does not feel the latency.
 - **Only Customers has a Restore tab.** Vendors, machines, departments and the
   master-data lists all soft-delete with no way back from the UI — same gap,
   same fix, not done unasked. `deleteGuard` is already wired to vendors.

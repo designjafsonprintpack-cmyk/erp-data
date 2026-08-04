@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import GangsClient from './GangsClient'
 
@@ -16,7 +17,7 @@ export default async function GangsPage() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .range(0, 49)
+    .range(0, LIST_PAGE_SIZE - 1)
 
   return <GangsClient initialGangs={(data ?? []) as any[]} />
 }

@@ -1,7 +1,7 @@
 'use client'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/ui/Toast'
-import { LIST_PAGE_SIZE } from '@/components/ui/Pagination'
+import { useListPageSize } from '@/lib/hooks/usePageSize'
 
 /**
  * Server-side paging for the operational list pages.
@@ -27,7 +27,10 @@ export function useServerPagedList<T>(opts: {
   pageSize?: number
   errorMessage?: string
 }) {
-  const { endpoint, initialRows, initialTotal, pageSize = LIST_PAGE_SIZE } = opts
+  const { endpoint, initialRows, initialTotal } = opts
+  // The user's rows-per-page choice, unless this list insists on its own.
+  const preferredPageSize = useListPageSize()
+  const pageSize = opts.pageSize ?? preferredPageSize
   const [rows, setRows] = useState<T[]>(initialRows)
   const [total, setTotal] = useState(initialTotal)
   const [page, setPage] = useState(1)
@@ -66,6 +69,20 @@ export function useServerPagedList<T>(opts: {
     // this callback constantly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, pageSize])
+
+  // Rows per page changed — re-read from page 1, because "page 3 of 50-row
+  // pages" and "page 3 of 10-row pages" are different rows entirely.
+  //
+  // This also covers the first paint: the server rendered its page at the
+  // DEFAULT size (it cannot read localStorage), so a browser that remembers a
+  // different size lands here once, on hydration, and refetches. Everyone still
+  // on the default pays nothing.
+  const lastPageSize = useRef(pageSize)
+  useEffect(() => {
+    if (lastPageSize.current === pageSize) return
+    lastPageSize.current = pageSize
+    fetchPage(1)
+  }, [pageSize, fetchPage])
 
   return {
     rows, setRows, total, setTotal, page, loading, pageSize,

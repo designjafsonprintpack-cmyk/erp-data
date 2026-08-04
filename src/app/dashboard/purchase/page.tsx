@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import PurchaseClient from './PurchaseClient'
 
@@ -14,7 +15,7 @@ export default async function PurchasePage() {
       // First page only — PurchaseClient pages the rest from
       // /api/v1/purchase-orders, which filters server-side.
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('vendors' as any).select('id,name,vendor_code')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),
     // Board stock items, so a PO line can say WHICH stock item it is buying.

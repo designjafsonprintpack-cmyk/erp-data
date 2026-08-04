@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import FinanceClient from './FinanceClient'
 
@@ -17,7 +18,7 @@ export default async function FinancePage() {
       // below, and FinanceClient pages the rest from /api/v1/finance/invoices,
       // so nothing is capped any more — neither counted nor shown.
       .order('invoice_date', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     // Migration 103. Sums every invoice and the last 30 days of payments in
     // Postgres and returns one row, so the four stat cards stay exact however
     // many invoices exist.

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import QCClient from './QCClient'
 import { loadJobsAwaitingQC } from '@/lib/utils/jobsAwaitingQC'
@@ -27,17 +28,17 @@ export default async function QCPage() {
       // First page only — QCClient pages the rest from /api/v1/qc/inspections.
       // The stat cards come from the exact counts below, not from this array.
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('qc_defects' as any)
       .select('*, jobs(job_number,job_title)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).eq('resolved', false)
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('reprint_requests' as any)
       .select('*, jobs!reprint_requests_original_job_id_fkey(job_number,job_title,customers(name))', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null)
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('qc_templates' as any)
       .select('*, qc_template_items(*)').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('jobs' as any)

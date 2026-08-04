@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import CustomersClient from './CustomersClient'
 
@@ -22,7 +23,7 @@ export default async function CustomersPage() {
     // match the ORDER BY in GET /api/v1/customers.
     .order('id')
     // Matches PAGE_SIZE in CustomersClient so "Load More" can ask for page 2 cleanly.
-    .range(0, 49)
+    .range(0, LIST_PAGE_SIZE - 1)
 
   return (
     <div className="space-y-5">

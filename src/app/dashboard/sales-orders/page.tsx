@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import SalesOrdersClient from './SalesOrdersClient'
 
@@ -13,7 +14,7 @@ export default async function SalesOrdersPage() {
     // Matches PAGE_SIZE in SalesOrdersClient so "Load More" can ask for page 2
     // cleanly; .order('id') is the tiebreaker that keeps paging stable when
     // rows share a created_at. Must match GET /api/v1/sales-orders.
-    .order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, 49)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, LIST_PAGE_SIZE - 1)
 
   return (
     <div className="space-y-5">

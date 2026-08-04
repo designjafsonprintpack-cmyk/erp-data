@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
-import { checkStageGate } from '@/lib/utils/jobStageGate'
+import { loadStageGateContext, checkStageGateFrom } from '@/lib/utils/jobStageGate'
 
 // GET — everything the Production Command Center dashboard needs in one
 // call: KPI counts, per-machine current+next job, a blocked/overdue alerts
@@ -93,8 +93,19 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
       .select('job_id, workflow_stage_id, sequence_order, status, workflow_stages(name), jobs(job_number, job_title)')
       .eq('company_id', companyId).in('job_id', jobIdsToCheck).eq('status', 'pending')
 
-    for (const stage of ((pendingStages ?? []) as any[])) {
-      const gate = await checkStageGate(supabase, companyId, stage.job_id, stage.workflow_stage_id, stage.sequence_order, stage.workflow_stages?.name || 'Stage')
+    // The gate's inputs are read ONCE for the whole batch. Asking per stage
+    // meant two sequential round trips each — 30 jobs × ~10 pending stages is
+    // 600 requests before this dashboard could answer, the same defect that
+    // made the Department Queue slow. Identical rule, two requests.
+    const stages = (pendingStages ?? []) as any[]
+    const gateCtx = await loadStageGateContext(
+      supabase, companyId,
+      stages.map(s => s.job_id),
+      stages.map(s => s.workflow_stage_id),
+    )
+
+    for (const stage of stages) {
+      const gate = checkStageGateFrom(gateCtx, stage.job_id, stage.workflow_stage_id, stage.sequence_order, stage.workflow_stages?.name || 'Stage')
       if (gate.blocked) {
         alerts.push({
           type: 'blocked', job_number: stage.jobs?.job_number || '', job_title: stage.jobs?.job_title || '',

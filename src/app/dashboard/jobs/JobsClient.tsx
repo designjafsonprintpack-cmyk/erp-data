@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Plus, Briefcase, PauseCircle, RefreshCw, LayoutGrid, List, Download, Rows3, Rows2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -13,13 +13,13 @@ import { Toolbar } from '@/components/ui/Toolbar'
 import { TabStrip } from '@/components/ui/TabStrip'
 import { JobThumbStrip, useJobThumbnails, type JobThumbData } from '@/components/artwork/ArtworkThumb'
 import { Pagination } from '@/components/ui/Pagination'
+import { useListPageSize } from '@/lib/hooks/usePageSize'
 import { formatBoxSize, formatSheetSize } from '@/lib/utils/formatJobSize'
 
-/** Rows per page. The server-rendered first page in page.tsx uses the same
- *  number — keep the two in sync or page 1 and page 2 overlap.
- *  50, not the old 100: with numbered pages the 478 legacy jobs are reachable
- *  in one click, so a taller first page buys nothing and costs render time. */
-const PAGE_SIZE = 50
+// Rows per page is the shared preference now (10/20/30/40/50, picked from the
+// pager itself) rather than a constant living here. page.tsx renders its first
+// page at LIST_PAGE_SIZE, the default — a browser set to anything else refetches
+// once on hydration, which is what useListPageSize + the effect below handle.
 
 /**
  * Row height on the Jobs list. The artwork thumbnail is worth its space when
@@ -50,6 +50,17 @@ interface Job {
   customers?: { name: string; customer_code: string } | null
   workflow_templates?: { name: string } | null
 }
+
+/**
+ * Mehboob asked for **New** to be the tab you land on, not All.
+ *
+ * All still exists and still sits first — it is the widest view and belongs at
+ * the left. Only the DEFAULT moved: the 478 completed legacy jobs dominate All,
+ * so opening Jobs used to mean scrolling past last year's work to find this
+ * week's. page.tsx renders its first page already filtered to `new` so the
+ * default costs no extra request.
+ */
+const DEFAULT_STATUS_TAB = 'new'
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'All' },
@@ -212,8 +223,9 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const [total, setTotal] = useState(initialTotal)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [activeStatus, setActiveStatus] = useState('')
+  const [activeStatus, setActiveStatus] = useState(DEFAULT_STATUS_TAB)
   const [loading, setLoading] = useState(false)
+  const pageSize = useListPageSize()
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [density, setDensity] = useState<Density>('compact')
   useEffect(() => {
@@ -273,7 +285,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   const fetchJobs = useCallback(async (q: string, status: string, pageNo: number) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(pageNo) })
+      const params = new URLSearchParams({ limit: String(pageSize), page: String(pageNo) })
       if (q) params.set('search', q)
       if (status) params.set('status', status)
       const res = await fetch(`/api/v1/jobs?${params}`)
@@ -286,7 +298,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       setSelected(new Set())
     } catch { toast.error('Failed to load jobs') }
     finally { setLoading(false) }
-  }, [])
+  }, [pageSize])
 
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -297,6 +309,19 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
     setActiveStatus(status)
     fetchJobs(search, status, 1)
   }
+
+  // Rows-per-page changed (or this browser remembers a size other than the one
+  // page.tsx server-rendered) — re-read page 1 at the new size. Same reasoning
+  // as useServerPagedList; Jobs has its own fetcher so it needs its own copy.
+  const lastPageSize = useRef(pageSize)
+  useEffect(() => {
+    if (lastPageSize.current === pageSize) return
+    lastPageSize.current = pageSize
+    fetchJobs(search, activeStatus, 1)
+    // search/activeStatus are read at fire time on purpose — a size change must
+    // not also re-run when the filter changes; the filter has its own handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, fetchJobs])
 
   return (
     <div className="space-y-4">
@@ -394,7 +419,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
         <Pagination
           page={page}
           total={total}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
           loading={loading}
           onPageChange={p => fetchJobs(search, activeStatus, p)}
           noun="jobs"

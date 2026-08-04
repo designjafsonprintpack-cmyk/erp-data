@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { attachCurrentJob } from '@/lib/utils/platesWithCurrentJob'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import PlatesClient from './PlatesClient'
@@ -21,7 +22,7 @@ export default async function PlatesPage() {
     // First page only — PlatesClient pages the rest from /api/v1/plates, which
     // now applies the search, the status and the job filter server-side.
     .order('id', { ascending: false })
-    .range(0, 49)
+    .range(0, LIST_PAGE_SIZE - 1)
 
   const { data: jobs } = await supabase
     .from('jobs' as any)

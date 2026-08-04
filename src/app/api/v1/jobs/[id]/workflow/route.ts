@@ -7,7 +7,7 @@ import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobWorkflowActionSchema } from '@/lib/schemas/jobActions'
-import { checkStageGate } from '@/lib/utils/jobStageGate'
+import { checkStageGate, loadStageGateContext, checkStageGateFrom } from '@/lib/utils/jobStageGate'
 import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 import { closeJobIfWorkflowDone } from '@/lib/utils/closeJobIfWorkflowDone'
 import { loadGangContext, applyToGangSiblings, markGangInProgress } from '@/lib/utils/jobGang'
@@ -34,8 +34,16 @@ async function notifyNewlyUnblockedStages(
     .eq('job_id', jobId).eq('company_id', companyId)
     .eq('status', 'pending')
 
-  for (const stage of ((pendingStages ?? []) as any[])) {
-    const gate = await checkStageGate(supabase, companyId, jobId, stage.workflow_stage_id, stage.sequence_order, stage.workflow_stages?.name || 'Stage')
+  // Read once for all of this job's pending stages. This runs on the way out of
+  // every Complete click, and asking the gate per stage made the operator wait
+  // through ~18 sequential round trips before the button came back.
+  const stages = (pendingStages ?? []) as any[]
+  const gateCtx = await loadStageGateContext(
+    supabase, companyId, [jobId], stages.map(s => s.workflow_stage_id),
+  )
+
+  for (const stage of stages) {
+    const gate = checkStageGateFrom(gateCtx, jobId, stage.workflow_stage_id, stage.sequence_order, stage.workflow_stages?.name || 'Stage')
     if (gate.blocked) continue
 
     const departmentId = stage.workflow_stages?.department_id ?? null

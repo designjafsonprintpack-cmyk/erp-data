@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { LIST_PAGE_SIZE } from '@/lib/constants/pagination'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import DispatchClient from './DispatchClient'
 import { loadJobsAwaitingDispatch } from '@/lib/utils/jobsAwaitingDispatch'
@@ -16,7 +17,7 @@ export default async function DispatchPage() {
       // which filters server-side, so nothing is unreachable any more.
       // Must match LIST_PAGE_SIZE, or page 2 overlaps page 1.
       .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(0, 49),
+      .range(0, LIST_PAGE_SIZE - 1),
     supabase.from('customers' as any)
       .select('id,name,customer_code,address,phone,mobile')
       .eq('company_id', companyId).is('deleted_at', null).order('name'),

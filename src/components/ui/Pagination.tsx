@@ -2,9 +2,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { LIST_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/lib/constants/pagination'
+import { useListPageSize, setListPageSize } from '@/lib/hooks/usePageSize'
 
-/** Rows per page across every list. One number so the app is consistent. */
-export const LIST_PAGE_SIZE = 50
+// Re-exported so the dozen files that already import it from here keep working.
+// The value itself moved to @/lib/constants/pagination, which has no
+// 'use client' — the list SERVER components need it too, for their first-page
+// .range(), and that is the pair CLAUDE.md warns must never drift apart.
+export { LIST_PAGE_SIZE }
 
 /**
  * Client-side paging for the operational pages (Dispatch, Purchase, Store,
@@ -68,6 +73,35 @@ const btn =
   'flex items-center justify-center rounded-md border border-[var(--color-border)] ' +
   'text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
 
+/**
+ * "Rows per page: 10 / 20 / 30 / 40 / 50".
+ *
+ * Writes straight to the shared preference rather than taking a callback, so no
+ * list has to opt in — every Pagination gets it, and all of them stay on the
+ * same number. Changing it puts the reader back on page 1, which is what
+ * useServerPagedList does when it sees the size change.
+ */
+function PageSizePicker({ noun, loading }: { noun: string; loading: boolean }) {
+  const pageSize = useListPageSize()
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] whitespace-nowrap">
+      <span className="hidden sm:inline">Show</span>
+      <select
+        value={pageSize}
+        disabled={loading}
+        onChange={e => setListPageSize(Number(e.target.value))}
+        aria-label={`${noun} per page`}
+        className="h-8 md:h-7 pl-2 pr-6 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)]
+                   text-xs text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-accent)]
+                   disabled:opacity-50 transition-colors"
+      >
+        {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+      <span>per page</span>
+    </label>
+  )
+}
+
 export function Pagination({
   page, total, pageSize, loading, onPageChange, noun = 'rows',
 }: {
@@ -82,12 +116,22 @@ export function Pagination({
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1
   const shownTo = Math.min(page * pageSize, total)
 
+  const sizePicker = <PageSizePicker noun={noun} loading={loading} />
+
   if (lastPage <= 1) {
-    // One page only — still worth stating the total once a list is long enough
-    // that "is this all of it?" is a real question.
-    return total > 25
-      ? <p className="text-xs text-[var(--color-text-muted)] text-center">All {total} {noun} shown</p>
-      : null
+    // One page only. The picker still has to be reachable, or someone who set
+    // 50 and then filtered down to 30 rows could never get back to 10 — the
+    // control would vanish at exactly the moment they wanted it.
+    const worthShowing = total > PAGE_SIZE_OPTIONS[0]
+    if (!worthShowing && total <= 25) return null
+    return (
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 pt-1">
+        <p className="text-xs text-[var(--color-text-muted)] text-center md:text-left">
+          All {total} {noun} shown
+        </p>
+        {worthShowing && <div className="flex justify-center md:justify-end">{sizePicker}</div>}
+      </div>
+    )
   }
 
   const go = (p: number) => {
@@ -103,11 +147,14 @@ export function Pagination({
       aria-label={`${noun} pagination`}
       className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-1"
     >
-      <p className="text-xs text-[var(--color-text-muted)] text-center md:text-left">
-        {loading
-          ? <span className="inline-flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Loading…</span>
-          : <>Showing <span className="text-[var(--color-text-secondary)] font-medium">{first}–{shownTo}</span> of {total} {noun}</>}
-      </p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <p className="text-xs text-[var(--color-text-muted)] text-center md:text-left">
+          {loading
+            ? <span className="inline-flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Loading…</span>
+            : <>Showing <span className="text-[var(--color-text-secondary)] font-medium">{first}–{shownTo}</span> of {total} {noun}</>}
+        </p>
+        <div className="flex justify-center sm:justify-start">{sizePicker}</div>
+      </div>
 
       <div className="flex items-center justify-center gap-1">
         <button
