@@ -396,11 +396,20 @@ deliberately left empty. Never read from it.
   modal pre-fills the REMAINING quantity, so a PO received in two goes ended up
   recording less than arrived and stuck on "Partially Received" forever. Both
   are deltas now.
+- **A cleanup script's own writes need their `error` checked too.** A restore
+  that set `job_stage_progress.started_by` failed silently — that column does not
+  exist — so a walk left Planning completed and Board Issue in progress on a live
+  job. The script even printed its "restored" line, because it never looked.
 - **A route walk's cleanup that deletes rows with the SERVICE CLIENT skips every
   release the route would have run.** Deleting a test PO that way left two
   demands claiming 2,500 sheets were on order forever — they could never return
   to To Buy. Reset the derived counters in the cleanup too, or delete through
   the route.
+- **MRN issue must consume lots FIFO, not just `current_stock`.** Board Inventory's
+  manual Stock Out called `consume_board_lots_fifo()`; the MRN issue path — the
+  way board actually leaves the store — did not, so all 51 lots sat at full
+  `quantity_remaining` and "which delivery did this job's board come from" could
+  never be answered. Both paths call it now.
 - **Cancelling or deleting a PO must release its demand's `sheets_ordered`**, or
   that board reads as "on order" forever and never returns to the To Buy list.
   `releaseDemandsOfPo()` in `purchase-orders/[id]`.
@@ -553,6 +562,15 @@ Rules that govern future work are in §4 and §5, not here.
   The ERP's July report will not match the Excel; July happened outside the
   system. The load user is kept, renamed "Opening Stock Load (system)", because
   the ledger references it.
+- **A Purchase Order is a document the VENDOR receives** — `print/purchase-orders/[id]`.
+  Money columns appear only when a line actually carries a rate: Mehboob quotes
+  the rate sometimes and asks for it other times, and a column of zeroes reads
+  as "free". The Excel export exports one row PER LINE now; it used to export
+  one row per PO with "Items: 6" and nothing about the board.
+- **Make-ready is already in the job quantity** — 3–5%, added by hand when the
+  job is raised. Do NOT add a wastage % to the board demand: it would be counted
+  twice. The estimator's `costing_default_wastage_percent` (3%) is a COSTING
+  input only.
 - **Store & Purchase rebuilt around board demands** — Purchase is now two tabs,
   **To Buy** (every job's outstanding board, ticked → one PO per vendor, stock
   item created if missing, sheets→packets converted, rate pre-filled from the

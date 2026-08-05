@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale, Download } from 'lucide-react'
+import Link from 'next/link'
+import { ShoppingCart, Plus, ChevronDown, ChevronRight, Trash2, Check, Send, Scale, Download, Printer } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { MoneyGate } from '@/components/ui/MoneyGate'
 import { TabStrip } from '@/components/ui/TabStrip'
@@ -168,17 +169,34 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
     const source = selected.size
       ? pos.filter(p => selected.has(p.id))
       : await fetchAllPages<PO>('/api/v1/purchase-orders', { status: filterStatus })
-    const rows = source.map(po => ({
-      'PO #': po.po_number,
-      'Vendor': po.vendors?.name ?? '',
-      'Status': po.status,
-      'Order Date': po.order_date,
-      'Expected': po.expected_date ?? '',
-      'Items': po.purchase_order_items?.length ?? 0,
-      'Subtotal': po.subtotal,
-      'Tax': po.tax_amount,
-      'Total': po.total_amount,
-    }))
+    // EK SATR PER LINE, per PO nahi. Pehle ye har PO ki ek satr nikalta tha —
+    // number, vendor, total, aur "Items: 6" — is liye khol kar dekhne par wahi
+    // cheez ghayab hoti thi jis ke liye export kiya jata hai: kaunsa board,
+    // kitna, kis size ka, kis job ka. Bagair line wali PO ki ek khali satr
+    // aati thi taake wo export se ghayab hi na ho jaye.
+    const rows = source.flatMap(po => {
+      const head = {
+        'PO #': po.po_number,
+        'Vendor': po.vendors?.name ?? '',
+        'Status': po.status,
+        'Order Date': po.order_date,
+        'Expected': po.expected_date ?? '',
+      }
+      const lines = po.purchase_order_items ?? []
+      if (!lines.length) return [{ ...head, 'Material': '—', 'Specification': '', 'For Job': '', 'Qty (pkt)': 0, 'Received (pkt)': 0, 'Rate': 0, 'Rate Basis': '', 'Amount': 0, 'PO Total': po.total_amount }]
+      return lines.map(i => ({
+        ...head,
+        'Material': i.description,
+        'Specification': i.specification ?? '',
+        'For Job': i.jobs?.job_number ?? '',
+        'Qty (pkt)': i.quantity,
+        'Received (pkt)': i.quantity_received,
+        'Rate': i.unit_price,
+        'Rate Basis': i.rate_basis ?? '',
+        'Amount': i.subtotal,
+        'PO Total': po.total_amount,
+      }))
+    })
     if (!rows.length) { toast.error('Nothing to export'); return }
     exportToExcel(rows, 'purchase-orders-export')
   }
@@ -321,6 +339,14 @@ export default function PurchaseClient({ initialPOs, initialTotal, vendors, boar
                           <Check size={11} /> Receive
                         </button>
                       )}
+                      {/* Wo kaghaz jo vendor ke paas jata hai. Har halat par
+                          maujood — draft dekh kar bhejna hota hai, aur received
+                          ho chuki PO ka record bhi nikalna parta hai. */}
+                      <Link href={`/print/purchase-orders/${po.id}`} target="_blank"
+                        title="Print / PDF — vendor ko bhejne ke liye"
+                        className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors">
+                        <Printer size={11} /> PDF
+                      </Link>
                       {['confirmed','partially_received','received'].includes(po.status) && (
                         <button onClick={() => setMatchModal(po)}
                           className="flex items-center gap-1 px-3 md:px-2.5 h-11 md:h-7 rounded border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">

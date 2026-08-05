@@ -10,6 +10,8 @@ export interface BoardIssueJob {
   planned_date: string | null
   required_date: string | null
   gsm: number | null
+  sheet_width_in: number | null
+  sheet_height_in: number | null
   sheet_qty: number | null
   board_type_name: string | null
   /** 'pending' — nobody has started Board Issue yet; 'in_progress' — started. */
@@ -36,7 +38,7 @@ export async function loadJobsAwaitingBoardIssue(
   companyId: string
 ): Promise<BoardIssueJob[]> {
   const { data: stageRows } = await supabase.from('job_stage_progress' as any)
-    .select('job_id, status, workflow_stages!inner(name, stage_type), jobs!inner(job_number, job_title, priority, required_date, gsm, sheet_qty, status, deleted_at, customers(name), board_types(name))')
+    .select('job_id, status, workflow_stages!inner(name, stage_type), jobs!inner(job_number, job_title, priority, required_date, gsm, sheet_width_in, sheet_height_in, sheet_qty, status, deleted_at, customers(name), board_types(name))')
     .eq('company_id', companyId)
     .in('status', ['pending', 'in_progress'])
     .eq('is_active', true)
@@ -83,6 +85,8 @@ export async function loadJobsAwaitingBoardIssue(
     planned_date: plannedDates.get(r.job_id) ?? null,
     required_date: r.jobs.required_date ?? null,
     gsm: r.jobs.gsm ?? null,
+    sheet_width_in: r.jobs.sheet_width_in ?? null,
+    sheet_height_in: r.jobs.sheet_height_in ?? null,
     sheet_qty: r.jobs.sheet_qty ?? null,
     board_type_name: r.jobs.board_types?.name ?? null,
     stage_status: r.status,

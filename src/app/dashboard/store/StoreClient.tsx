@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, planLabel } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import type { BoardIssueJob } from '@/lib/utils/jobsAwaitingBoardIssue'
+import { boardSpecText } from '@/lib/utils/boardSpecText'
 import Link from 'next/link'
 import { Pagination } from '@/components/ui/Pagination'
 import { useServerPagedList } from '@/lib/hooks/useServerPagedList'
@@ -146,6 +147,8 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
       ...EMPTY_ITEM,
       material_name: job.board_type_name ?? '',
       material_type: 'board',
+      // Wahi spec jo auto-MRN likhti hai, taake dono raaste ek jaisi MRN banayen.
+      specification: boardSpecText(job),
       quantity_required: job.sheet_qty != null ? String(job.sheet_qty) : '1',
     }])
     setNewMRNModal(true)
@@ -225,6 +228,9 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
                       {job.customer_name && <span>{job.customer_name}</span>}
                       {job.board_type_name && <span>· {job.board_type_name}</span>}
                       {job.gsm != null && <span>· {job.gsm} gsm</span>}
+                      {job.sheet_width_in != null && job.sheet_height_in != null && (
+                        <span>· {Number(job.sheet_width_in)} × {Number(job.sheet_height_in)} in</span>
+                      )}
                       {job.sheet_qty != null && <span>· {job.sheet_qty} sheets</span>}
                       {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
                     </div>
@@ -462,7 +468,14 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
               <div key={item.id} className="space-y-2">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-3 md:p-0">
                 <div className="flex-1 min-w-0 md:min-w-[140px]">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.material_name}</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    {item.material_name}
+                    {/* GSM aur sheet size yahin chahiyen — stock ki row isi
+                        se chuni jati hai, naam se nahi. */}
+                    {item.specification && (
+                      <span className="font-normal text-[var(--color-text-muted)]"> · {item.specification}</span>
+                    )}
+                  </p>
                   <p className="text-xs text-[var(--color-text-muted)]">Required: {item.quantity_required} | Issued so far: {item.quantity_issued}</p>
                 </div>
                 <select

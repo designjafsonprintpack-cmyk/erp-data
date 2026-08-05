@@ -82,6 +82,18 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         })
         if (resErr) console.error('[Store issue] consume_board_reservation failed', resErr)
 
+        // Lots ko bhi FIFO se ghatao — Board Inventory ka manual "Stock Out"
+        // ye pehle se karta hai, magar MRN issue, jo board nikalne ka ASAL
+        // raasta hai, nahi karta tha. Nateeja: 51 lots par 17,08,700 sheets
+        // "remaining" likhi rehtin jab ke stock nikal chuka hota, aur `lot`
+        // ki poori wajah — "is job ka board kis delivery ka tha" — kaam hi na
+        // karti. Quality ki shikayat par vendor tak pohanchne ka yehi ek
+        // raasta hai.
+        const { error: fifoErr } = await (supabase as any).rpc('consume_board_lots_fifo', {
+          p_company_id: companyId, p_board_item_id: boardItemId, p_quantity: delta,
+        })
+        if (fifoErr) console.error('[Store issue] consume_board_lots_fifo failed', fifoErr)
+
         await supabase.from('board_inventory_movements' as any).insert({
           company_id:     companyId,
           board_item_id:  boardItemId,

@@ -12,6 +12,7 @@ import { syncJobCurrentStage } from '@/lib/utils/syncJobCurrentStage'
 import { closeJobIfWorkflowDone } from '@/lib/utils/closeJobIfWorkflowDone'
 import { loadGangContext, applyToGangSiblings, markGangInProgress } from '@/lib/utils/jobGang'
 import { notifyDepartment } from '@/lib/utils/notifyDepartment'
+import { boardSpecText } from '@/lib/utils/boardSpecText'
 
 // After a stage completes, some previously-blocked stages may now be
 // unblocked (either because this was their last blocking sequential
@@ -378,7 +379,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
     if (!existingMrn) {
       const { data: jobRow } = await supabase.from('jobs' as any)
-        .select('board_type_id, sheet_qty, board_types(name)').eq('id', mrnJobId).eq('company_id', companyId).maybeSingle()
+        .select('board_type_id, sheet_qty, gsm, sheet_width_in, sheet_height_in, board_types(name)').eq('id', mrnJobId).eq('company_id', companyId).maybeSingle()
       const boardTypeName = (jobRow as any)?.board_types?.name
       const sheetQty = gang ? gang.sheetCount : (jobRow as any)?.sheet_qty
 
@@ -398,6 +399,10 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
           await supabase.from('material_requisition_items' as any).insert({
             company_id: companyId, requisition_id: (newMrn as any).id,
             material_name: boardTypeName, material_type: 'board',
+            // GSM + sheet size. Board ka naam akela Store ke kisi kaam ka nahi:
+            // "Bleach Board" naam ki 23 stock rows hain, alag alag GSM aur size
+            // ki. Ye khana pehle din se maujood tha aur khali ja raha tha.
+            specification: boardSpecText(jobRow as any) || null,
             quantity_required: sheetQty,
           })
         }
