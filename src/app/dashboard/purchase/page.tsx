@@ -71,6 +71,7 @@ export default async function PurchasePage() {
             initialDemands={demands as any[]}
             initialTotal={demandsRes.count ?? 0}
             boardTypes={(boardTypesRes.data ?? []) as any[]}
+            vendors={(vendorsRes.data ?? []) as any[]}
           />
         }
         orders={

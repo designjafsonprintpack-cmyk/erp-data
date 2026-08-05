@@ -177,7 +177,9 @@ broke, why this fixes it, and how to undo it.
   Vendor is a property of the board TYPE, not the size
   (`board_types.default_vendor_id`, 138) — and it is only a default, because
   *"ager nhi mil raha to bleach waly sy b board ka dosera brand mangwa sakty
-  hain."*
+  hain."* The Create-PO modal carries a vendor `<select>` per
+  line so that one-off is a click, and a vendor picked BY HAND is never learned
+  back onto the board type.
 - Doc prefixes: `JOB- DISP- PO- INV- QT- SO- CUST- VND- MRN-`
 - Roles: superadmin, admin, owner, ceo, gm, sales, artwork, planning, store,
   printing, dispatch, **plates, qc, purchase, accounts** (last four added in 105).
@@ -394,6 +396,11 @@ deliberately left empty. Never read from it.
   modal pre-fills the REMAINING quantity, so a PO received in two goes ended up
   recording less than arrived and stuck on "Partially Received" forever. Both
   are deltas now.
+- **A route walk's cleanup that deletes rows with the SERVICE CLIENT skips every
+  release the route would have run.** Deleting a test PO that way left two
+  demands claiming 2,500 sheets were on order forever — they could never return
+  to To Buy. Reset the derived counters in the cleanup too, or delete through
+  the route.
 - **Cancelling or deleting a PO must release its demand's `sheets_ordered`**, or
   that board reads as "on order" forever and never returns to the To Buy list.
   `releaseDemandsOfPo()` in `purchase-orders/[id]`.

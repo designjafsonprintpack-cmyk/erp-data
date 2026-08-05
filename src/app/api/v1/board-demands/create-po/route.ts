@@ -183,6 +183,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   for (const d of demands) {
     const v = vendorOf.get(d.id)
     if (!v || !d.board_type_id || d.board_types?.default_vendor_id) continue
+    // Jo vendor kharidar ne KHUD chuna, us se seekhna ghalat hai. Wo aksar ek
+    // dafa ka faisla hota hai — "mamool wale ke paas nahi tha, is dafa doosre
+    // se le liya" — aur usay board type ka mamool bana dena us ghair-mamooli
+    // soorat ko hamesha ke liye qaida bana deta. Sirf us vendor se seekho jo
+    // system ne khud nikala tha.
+    if (overrides[d.id]?.vendor_id) continue
     if (learned.has(d.board_type_id)) continue
     learned.add(d.board_type_id)
     await supabase.from('board_types' as any)

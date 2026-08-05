@@ -36,6 +36,7 @@ export interface Demand {
 }
 
 interface BoardType { id: string; name: string }
+interface Vendor { id: string; name: string; vendor_code?: string | null }
 
 const STATUS_CFG: Record<string, { label: string; cls: string }> = {
   open:              { label: 'To order',   cls: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_25%,transparent)]' },
@@ -60,9 +61,9 @@ const sizeText = (d: Demand) =>
  * bana do — vendor, stock item, aur packets sab server khud tay karta hai.
  */
 export default function DemandsClient({
-  initialDemands, initialTotal, boardTypes,
+  initialDemands, initialTotal, boardTypes, vendors,
 }: {
-  initialDemands: Demand[]; initialTotal: number; boardTypes: BoardType[]
+  initialDemands: Demand[]; initialTotal: number; boardTypes: BoardType[]; vendors: Vendor[]
 }) {
   const [tab, setTab] = useState('pending')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -71,6 +72,12 @@ export default function DemandsClient({
   const [loading, setLoading] = useState(false)
   const [expected, setExpected] = useState('')
   const [rates, setRates] = useState<Record<string, string>>({})
+  // Vendor khud chun jata hai (board type ka mamool ka vendor), magar wo sirf ek
+  // TAJWEEZ hai — taala nahi. Mehboob: *"agar nahi mil raha to bleach wale se
+  // bhi board ka doosra brand mangwa sakte hain."* Yani ek hi board kabhi kisi
+  // aur vendor se bhi aata hai, aur us ke liye kisi ko Settings kholne ki
+  // zaroorat nahi honi chahiye.
+  const [vendorPick, setVendorPick] = useState<Record<string, string>>({})
   const [forecast, setForecast] = useState({
     material_name: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
     sheets_required: '', notes: '',
@@ -105,11 +112,14 @@ export default function DemandsClient({
     if (!chosen.length) { toast.error('Pick at least one demand'); return }
     // Rate pichhli khareed se pehle se bhara hua — per packet.
     const seed: Record<string, string> = {}
+    const seedVendor: Record<string, string> = {}
     for (const d of chosen) {
       const perSheet = Number(d.board_inventory?.unit_cost ?? 0)
       seed[d.id] = perSheet > 0 ? String(Math.round(perSheet * (d.sheets_per_packet || 100) * 100) / 100) : ''
+      seedVendor[d.id] = d.vendor_id ?? ''
     }
     setRates(seed)
+    setVendorPick(seedVendor)
     setExpected('')
     setPoModal(true)
   }
@@ -119,8 +129,16 @@ export default function DemandsClient({
     try {
       const overrides: Record<string, any> = {}
       for (const d of chosen) {
+        const o: Record<string, any> = {}
         const r = rates[d.id]
-        if (r !== undefined && r !== '') overrides[d.id] = { unit_price: r }
+        if (r !== undefined && r !== '') o.unit_price = r
+        // Sirf tab bheja jaye jab waqai badla ho — warna server ko pata nahi
+        // chalta ke ye insaan ka faisla tha ya us ka apna chuna hua vendor, aur
+        // wo ek dafa ka faisla board type ka mamool ban kar likha jata.
+        const v = vendorPick[d.id]
+        if (v && v !== d.vendor_id) o.vendor_id = v
+        else if (v && !d.vendor_id) o.vendor_id = v
+        if (Object.keys(o).length) overrides[d.id] = o
       }
       const res = await fetch('/api/v1/board-demands/create-po', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -243,7 +261,11 @@ export default function DemandsClient({
   ]
 
   const totalToBuy = chosen.reduce((s, d) => s + Number(d.sheets_to_purchase || 0), 0)
-  const vendorCount = new Set(chosen.map(d => d.vendor_id).filter(Boolean)).size
+  // Har vendor ki apni PO banti hai, is liye vendor badalte hi ye ginti bhi
+  // badalni chahiye — warna button "Create PO" kehta rahe aur ban do jayen.
+  const effVendor = (d: Demand) => vendorPick[d.id] || d.vendor_id || ''
+  const vendorCount = new Set(chosen.map(effVendor).filter(Boolean)).size
+  const missingVendor = chosen.filter(d => !effVendor(d)).length
 
   return (
     <div className="space-y-4">
@@ -310,9 +332,16 @@ export default function DemandsClient({
         <div className="space-y-4">
           <p className="text-xs text-[var(--color-text-muted)]">
             {fmt(totalToBuy)} sheets across {chosen.length} line{chosen.length !== 1 ? 's' : ''}.
-            Vendor har line ke board se khud liya gaya hai; alag alag vendor hon to alag PO banti hai.
+            Vendor har line ke board se khud bhar jata hai — <span className="font-medium">badla ja sakta hai</span>.
+            Alag alag vendor hon to har vendor ki alag PO banti hai.
             PO <span className="font-medium">draft</span> banti hai — bhejne se pehle dekh lein.
           </p>
+
+          {missingVendor > 0 && (
+            <p className="text-xs text-[var(--color-warning)]">
+              {missingVendor} line{missingVendor > 1 ? 's have' : ' has'} no vendor — neeche se chun lein, warna PO nahi banegi.
+            </p>
+          )}
 
           <div className="space-y-2">
             {chosen.map(d => (
@@ -324,11 +353,31 @@ export default function DemandsClient({
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {d.jobs?.job_number ?? 'Forecast'} · {fmt(d.packets_to_purchase)} packets ({fmt(d.sheets_to_purchase)} sheets)
                     {' · '}
-                    {d.vendor_name
-                      ? <span className="text-[var(--color-text-secondary)]">{d.vendor_name}</span>
-                      : <span className="text-[var(--color-warning)]">no vendor</span>}
-                    {!d.board_item_id && <span className="text-[var(--color-info)]"> · naya stock item banega</span>}
+                    {!d.board_item_id && <span className="text-[var(--color-info)]">naya stock item banega</span>}
                   </p>
+                </div>
+                {/* Vendor ka khana. Mamool ka vendor pehle se bhara hota hai, magar
+                    ye ek dafa ka faisla hai — is line ka vendor badalne se board
+                    type ka mamool nahi badalta. Isi liye khali vendor wali demand
+                    bhi yahin se theek ho jati hai; Settings kholne ki zaroorat
+                    nahi (board type ka default vendor wahan waise bhi nahi hai). */}
+                <div className="flex-shrink-0 w-full md:w-44">
+                  <select
+                    aria-label={`Vendor for ${d.material_name}`}
+                    className={cn('h-11 md:h-8 w-full px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] transition-colors',
+                      effVendor(d) ? 'border-[var(--color-border)]' : 'border-[var(--color-warning)]')}
+                    value={vendorPick[d.id] ?? d.vendor_id ?? ''}
+                    onChange={e => setVendorPick(p => ({ ...p, [d.id]: e.target.value }))}>
+                    <option value="">Vendor chunein…</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                  {vendorPick[d.id] && d.vendor_id && vendorPick[d.id] !== d.vendor_id && (
+                    <span className="block mt-0.5 text-[10px] text-[var(--color-info)]">
+                      mamool: {d.vendor_name} — sirf is baar badla
+                    </span>
+                  )}
                 </div>
                 {/* Jo rate nahi dekh sakta usay khali khana bhi na dikhe — rate
                     server khud pichhli khareed se bhar deta hai. */}
