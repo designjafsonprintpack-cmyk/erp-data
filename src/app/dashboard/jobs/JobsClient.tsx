@@ -53,15 +53,20 @@ interface Job {
 }
 
 /**
- * Mehboob asked for **New** to be the tab you land on, not All.
+ * Jobs **All** par khulti hai.
  *
- * All still exists and still sits first — it is the widest view and belongs at
- * the left. Only the DEFAULT moved: the 478 completed legacy jobs dominate All,
- * so opening Jobs used to mean scrolling past last year's work to find this
- * week's. page.tsx renders its first page already filtered to `new` so the
- * default costs no extra request.
+ * Ek arse ke liye default `new` tha — 478 mukammal legacy jobs All par chhaa
+ * jati hain, is liye soch ye thi ke is hafte ka kaam saamne rahe. Mehboob ne
+ * wapas All maanga: chip ab New / Repeat / Repeat with Changes / In Progress
+ * khud batati hai, is liye poori list dekhne par bhi ye pehchanna aasan hai ke
+ * kaunsi job kis haal mein hai — aur "sab kuch ek jagah" us se zyada kaam ka
+ * hai.
+ *
+ * **Ye value aur `jobs/page.tsx` ka filter hamesha barabar rehne chahiyen.**
+ * Alag ho jayen to pehla paint ek tab ki rows doosre tab ke unwan ke neeche
+ * dikhata hai, aur client foran doosri request bhej kar unhein phenk deta hai.
  */
-const DEFAULT_STATUS_TAB = 'new'
+const DEFAULT_STATUS_TAB = ''
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: '', label: 'All' },

@@ -525,8 +525,10 @@ Rules that govern future work are in §4 and §5, not here.
   are kept. Accepts JPG/PNG/WEBP — **PDF was declined**, it renders as a grey
   tile without a raster preview step.
 - **Every list is server-paged, 20 a page with a 10–50 picker** — see §6, which
-  carries the rules that cost something to learn. The **Jobs list opens on the
-  New tab**, not All, and its server component renders that tab.
+  carries the rules that cost something to learn. The **Jobs list opens on All**
+  (it opened on New for a while; the kind-aware chip replaced the need).
+  `DEFAULT_STATUS_TAB` and the server component's filter must always agree, or
+  the first paint shows one tab's rows under another tab's heading.
 - **`resolveWorkflowTemplateId()`** is the single answer to "which workflow does
   this job get"; `applyWorkflowTemplateOnEdit()` builds stages on PATCH, and a
   template swap is refused once any stage has started.

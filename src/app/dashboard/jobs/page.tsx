@@ -31,10 +31,10 @@ export default async function JobsPage() {
     // under their parent instead — Job Detail shows them, and the list can ask
     // for them explicitly via ?kind=proofing on GET /api/v1/jobs.
     .eq('job_kind', 'production')
-    // Matches JobsClient's DEFAULT_STATUS_TAB. The list opens on New, so the
-    // server has to render New — otherwise the first paint is every job and the
-    // client immediately throws it away for a second request.
-    .eq('status', 'new')
+    // No status filter: the list opens on ALL, and this must keep matching
+    // JobsClient's DEFAULT_STATUS_TAB. If the two ever disagree the first paint
+    // shows one tab's rows under another tab's heading, and the client then
+    // throws them away for a second request.
     .order('created_at', { ascending: false })
     // Tiebreaker, not decoration: all 478 legacy jobs share one backdated
     // created_at, and Postgres does not promise a stable order among ties —
