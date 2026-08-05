@@ -15,6 +15,13 @@ const quotationItemCostLineSchema = z.object({
 // mirrors what the route already reads off each item.
 const quotationItemSchema = z.object({
   product_desc: z.string().trim().min(1, 'Product description is required'),
+  /**
+   * Kis purane carton ka dobara order hai (141). Quotation par isi liye ke rate
+   * ka faisla yahin hota hai — repeat par nayi die (6,000/ups) aur nayi plates
+   * (800/colour) nahi lagtin. SO ki line ise yahan se utha leti hai, aur job
+   * SO se — Sales ek dafa chunta hai, phir kisi ko yaad nahi rakhna parta.
+   */
+  repeat_of_job_id: z.string().uuid().optional().nullable(),
   box_type_id: z.preprocess(v => (v === '' ? undefined : v), z.string().uuid().optional().nullable()),
   size_l: z.union([z.string(), z.number()]).optional().nullable(),
   size_w: z.union([z.string(), z.number()]).optional().nullable(),

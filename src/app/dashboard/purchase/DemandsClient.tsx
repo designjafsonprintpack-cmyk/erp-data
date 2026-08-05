@@ -72,12 +72,20 @@ export default function DemandsClient({
   const [loading, setLoading] = useState(false)
   const [expected, setExpected] = useState('')
   const [rates, setRates] = useState<Record<string, string>>({})
-  // Vendor khud chun jata hai (board type ka mamool ka vendor), magar wo sirf ek
-  // TAJWEEZ hai — taala nahi. Mehboob: *"agar nahi mil raha to bleach wale se
-  // bhi board ka doosra brand mangwa sakte hain."* Yani ek hi board kabhi kisi
-  // aur vendor se bhi aata hai, aur us ke liye kisi ko Settings kholne ki
-  // zaroorat nahi honi chahiye.
-  const [vendorPick, setVendorPick] = useState<Record<string, string>>({})
+  /**
+   * POORI PO ka ek hi vendor. Mehboob: *"PO banate waqt aik aik ka vendor ki
+   * zaroorat nahi, sab job jo select hain unhein aik vendor select ho."*
+   *
+   * Pehle har line ka apna dropdown tha — jo theek to tha magar rozmarra ke
+   * kaam se mel nahi khata: ek PO ek hi vendor ko jati hai, aur ek hi board
+   * type ka vendor bhi ek hi hota hai. Das lines par das dropdown bharwana
+   * wahi sir khapai thi jo is poore kaam se hatani thi.
+   *
+   * Vendor phir bhi ek TAJWEEZ hai, taala nahi — *"agar nahi mil raha to
+   * bleach wale se bhi board ka doosra brand mangwa sakte hain."* Bas ab wo
+   * faisla ek dafa hota hai, har line par nahi.
+   */
+  const [poVendor, setPoVendor] = useState('')
   const [forecast, setForecast] = useState({
     material_name: '', board_type_id: '', gsm: '', sheet_width_in: '', sheet_height_in: '',
     sheets_required: '', notes: '',
@@ -112,14 +120,17 @@ export default function DemandsClient({
     if (!chosen.length) { toast.error('Pick at least one demand'); return }
     // Rate pichhli khareed se pehle se bhara hua — per packet.
     const seed: Record<string, string> = {}
-    const seedVendor: Record<string, string> = {}
     for (const d of chosen) {
       const perSheet = Number(d.board_inventory?.unit_cost ?? 0)
       seed[d.id] = perSheet > 0 ? String(Math.round(perSheet * (d.sheets_per_packet || 100) * 100) / 100) : ''
-      seedVendor[d.id] = d.vendor_id ?? ''
     }
     setRates(seed)
-    setVendorPick(seedVendor)
+    // Jo vendor sab se zyada lines par khud chuna gaya, wohi pehle se bhara
+    // hua — mamool yehi hota hai, aur badalna ek click ka kaam rehta hai.
+    const tally = new Map<string, number>()
+    for (const d of chosen) if (d.vendor_id) tally.set(d.vendor_id, (tally.get(d.vendor_id) ?? 0) + 1)
+    const top = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0]
+    setPoVendor(top?.[0] ?? '')
     setExpected('')
     setPoModal(true)
   }
@@ -132,12 +143,10 @@ export default function DemandsClient({
         const o: Record<string, any> = {}
         const r = rates[d.id]
         if (r !== undefined && r !== '') o.unit_price = r
-        // Sirf tab bheja jaye jab waqai badla ho — warna server ko pata nahi
-        // chalta ke ye insaan ka faisla tha ya us ka apna chuna hua vendor, aur
-        // wo ek dafa ka faisla board type ka mamool ban kar likha jata.
-        const v = vendorPick[d.id]
-        if (v && v !== d.vendor_id) o.vendor_id = v
-        else if (v && !d.vendor_id) o.vendor_id = v
+        // Vendor sirf tab bheja jaye jab wo us line ke apne vendor se ALAG ho —
+        // warna server ko pata nahi chalta ke ye insaan ka faisla tha ya us ka
+        // apna chuna hua, aur ek dafa ka faisla board type ka mamool ban jata.
+        if (poVendor && poVendor !== d.vendor_id) o.vendor_id = poVendor
         if (Object.keys(o).length) overrides[d.id] = o
       }
       const res = await fetch('/api/v1/board-demands/create-po', {
@@ -151,7 +160,7 @@ export default function DemandsClient({
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed')
       const numbers = (json.data ?? []).map((p: any) => p.po_number).join(', ')
-      toast.success(`Purchase order${(json.data ?? []).length > 1 ? 's' : ''} ${numbers} created`)
+      toast.success(`Purchase order ${numbers} created${vendorName ? ` — ${vendorName}` : ''}`)
       for (const w of (json.warnings ?? [])) toast.error(w)
       setPoModal(false)
       setSelected(new Set())
@@ -261,11 +270,8 @@ export default function DemandsClient({
   ]
 
   const totalToBuy = chosen.reduce((s, d) => s + Number(d.sheets_to_purchase || 0), 0)
-  // Har vendor ki apni PO banti hai, is liye vendor badalte hi ye ginti bhi
-  // badalni chahiye — warna button "Create PO" kehta rahe aur ban do jayen.
-  const effVendor = (d: Demand) => vendorPick[d.id] || d.vendor_id || ''
-  const vendorCount = new Set(chosen.map(effVendor).filter(Boolean)).size
-  const missingVendor = chosen.filter(d => !effVendor(d)).length
+  // Ab hamesha EK hi PO banti hai — sab lines ka vendor ek.
+  const vendorName = vendors.find(v => v.id === poVendor)?.name ?? ''
 
   return (
     <div className="space-y-4">
@@ -318,30 +324,38 @@ export default function DemandsClient({
 
       {/* ─── Create PO ─────────────────────────────────────────────────────── */}
       <Modal open={poModal} onClose={() => setPoModal(false)} size="lg"
-        title={`Create Purchase Order${vendorCount > 1 ? `s (${vendorCount} vendors)` : ''}`}
+        title="Create Purchase Order"
         footer={
           <>
             <button onClick={() => setPoModal(false)}
               className="px-4 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">Cancel</button>
-            <button onClick={createPO} disabled={loading}
+            <button onClick={createPO} disabled={loading || !poVendor}
               className="px-4 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors">
-              {loading ? 'Creating…' : `Create ${vendorCount > 1 ? `${vendorCount} POs` : 'PO'}`}
+              {loading ? 'Creating…' : 'Create PO'}
             </button>
           </>
         }>
         <div className="space-y-4">
           <p className="text-xs text-[var(--color-text-muted)]">
             {fmt(totalToBuy)} sheets across {chosen.length} line{chosen.length !== 1 ? 's' : ''}.
-            Vendor har line ke board se khud bhar jata hai — <span className="font-medium">badla ja sakta hai</span>.
-            Alag alag vendor hon to har vendor ki alag PO banti hai.
             PO <span className="font-medium">draft</span> banti hai — bhejne se pehle dekh lein.
           </p>
 
-          {missingVendor > 0 && (
-            <p className="text-xs text-[var(--color-warning)]">
-              {missingVendor} line{missingVendor > 1 ? 's have' : ' has'} no vendor — neeche se chun lein, warna PO nahi banegi.
+          {/* EK vendor, poori PO ke liye. Ek PO ek hi vendor ko jati hai, aur ek
+              board type ka vendor bhi ek hi hota hai — das lines par das
+              dropdown bharwana wahi sir khapai thi jo hatani thi. */}
+          <div className="space-y-1.5 max-w-sm">
+            <label htmlFor="po-vendor" className="text-sm font-medium text-[var(--color-text-primary)]">
+              Vendor <span className="text-[var(--color-danger)]">*</span>
+            </label>
+            <select id="po-vendor" className={inputCls} value={poVendor} onChange={e => setPoVendor(e.target.value)}>
+              <option value="">Vendor chunein…</option>
+              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+            <p className="text-[11px] text-[var(--color-text-muted)]">
+              Board ke mamool ke vendor se pehle se bhara hua hai — badal sakte hain.
             </p>
-          )}
+          </div>
 
           <div className="space-y-2">
             {chosen.map(d => (
@@ -352,32 +366,8 @@ export default function DemandsClient({
                   </p>
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {d.jobs?.job_number ?? 'Forecast'} · {fmt(d.packets_to_purchase)} packets ({fmt(d.sheets_to_purchase)} sheets)
-                    {' · '}
-                    {!d.board_item_id && <span className="text-[var(--color-info)]">naya stock item banega</span>}
+                    {!d.board_item_id && <span className="text-[var(--color-info)]"> · naya stock item banega</span>}
                   </p>
-                </div>
-                {/* Vendor ka khana. Mamool ka vendor pehle se bhara hota hai, magar
-                    ye ek dafa ka faisla hai — is line ka vendor badalne se board
-                    type ka mamool nahi badalta. Isi liye khali vendor wali demand
-                    bhi yahin se theek ho jati hai; Settings kholne ki zaroorat
-                    nahi (board type ka default vendor wahan waise bhi nahi hai). */}
-                <div className="flex-shrink-0 w-full md:w-44">
-                  <select
-                    aria-label={`Vendor for ${d.material_name}`}
-                    className={cn('h-11 md:h-8 w-full px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-accent)] transition-colors',
-                      effVendor(d) ? 'border-[var(--color-border)]' : 'border-[var(--color-warning)]')}
-                    value={vendorPick[d.id] ?? d.vendor_id ?? ''}
-                    onChange={e => setVendorPick(p => ({ ...p, [d.id]: e.target.value }))}>
-                    <option value="">Vendor chunein…</option>
-                    {vendors.map(v => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </select>
-                  {vendorPick[d.id] && d.vendor_id && vendorPick[d.id] !== d.vendor_id && (
-                    <span className="block mt-0.5 text-[10px] text-[var(--color-info)]">
-                      mamool: {d.vendor_name} — sirf is baar badla
-                    </span>
-                  )}
                 </div>
                 {/* Jo rate nahi dekh sakta usay khali khana bhi na dikhe — rate
                     server khud pichhli khareed se bhar deta hai. */}

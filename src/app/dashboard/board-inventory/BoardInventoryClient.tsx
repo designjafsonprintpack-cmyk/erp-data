@@ -168,8 +168,16 @@ const INV_COLUMNS = (
   {
     key: 'stock', header: 'Stock (pkt)', span: 1, role: 'status', align: 'right',
     render: i => {
-      const isLow = i.current_stock <= i.reorder_level
+      // `reorder_level` yahan se nikal gaya. Wo "stock ko ek target tak wapas
+      // le jao" wala tasawwur hai, aur ye shop us tarah kaam nahi karti — §4:
+      // board har job ke hisab se khareeda jata hai, stock sirf bacha hua maal
+      // hai. Live par 53 mein se EK item par bhi level set nahi tha, is liye wo
+      // column sirf sifar ki qatar tha aur "Low Stock" asal mein "khatam ho
+      // chuka" ka doosra naam ban gaya tha.
+      // Ab jo dikhta hai wo asal sawal hai: KHALI kitna hai — reserve nikal kar.
+      const free = Math.max(0, i.current_stock - Number(i.reserved_stock ?? 0))
       const isOut = i.current_stock <= 0
+      const isLow = !isOut && free <= 0        // sab kuch kisi job ke naam lag chuka
       return (
         <span className="inline-flex flex-col items-end">
           {/* Packets first because that is what the store counts; sheets
@@ -177,7 +185,7 @@ const INV_COLUMNS = (
           <span className={cn('text-sm font-bold tabular-nums',
             isOut ? 'text-[var(--color-danger)]' : isLow ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
             {fmtPackets(toPackets(i.current_stock, i.sheets_per_packet))}
-            {isLow && !isOut && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" />}
+            {isLow && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" aria-label="Sab reserve ho chuka — khali kuch nahi" />}
           </span>
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{i.current_stock.toLocaleString()} sht</span>
           {/* Reserved (135) — ye sheets kisi job ke naam lag chuki hain. Iske
@@ -195,14 +203,6 @@ const INV_COLUMNS = (
         </span>
       )
     },
-  },
-  {
-    key: 'reorder', header: 'Reorder (pkt)', span: 1, role: 'meta', label: 'Reorder at', align: 'right',
-    render: i => (
-      <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-        {fmtPackets(toPackets(i.reorder_level, i.sheets_per_packet))}
-      </span>
-    ),
   },
   {
     key: 'location', header: 'Location', span: 1, role: 'desktop',
@@ -311,10 +311,11 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
 
   const filtered = items
     .filter(i => !search || i.description.toLowerCase().includes(search.toLowerCase()))
-    .filter(i => !showLowOnly || i.current_stock <= i.reorder_level)
+    .filter(i => !showLowOnly || Math.max(0, i.current_stock - Number(i.reserved_stock ?? 0)) <= 0)
 
   const totalStock = items.reduce((s, i) => s + i.current_stock, 0)
-  const lowStockCount = items.filter(i => i.current_stock <= i.reorder_level).length
+  // Jin par khali kuch bhi nahi bacha — ya to stock khatam, ya poora reserve.
+  const lowStockCount = items.filter(i => Math.max(0, i.current_stock - Number(i.reserved_stock ?? 0)) <= 0).length
 
   const addItem = async () => {
     if (!addForm.description) { toast.error('Description required'); return }
@@ -484,7 +485,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
           // (100 for board, 500 for paper), so a packet total would be adding
           // up unlike things. Sheets are the one comparable unit.
           { label: 'Total Sheets in Stock', value: totalStock.toLocaleString(), icon: TrendingUp, color: 'var(--color-success)' },
-          { label: 'Low Stock Alerts', value: lowStockCount, icon: AlertTriangle, color: lowStockCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' },
+          { label: 'Nothing free', value: lowStockCount, icon: AlertTriangle, color: lowStockCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `color-mix(in srgb, ${stat.color} 10%, transparent)` }}>
@@ -505,7 +506,7 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
           <button onClick={() => setShowLowOnly(!showLowOnly)}
             className={cn('flex items-center gap-1.5 px-3 h-11 md:h-9 rounded-md border text-sm font-medium transition-colors w-full md:w-auto justify-center',
               showLowOnly ? 'bg-[var(--color-warning)] text-[var(--color-on-warning)] border-transparent' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-warning)]')}>
-            <AlertTriangle size={14} /> Low Stock only
+            <AlertTriangle size={14} /> Nothing free
           </button>
         }
         activeFilterCount={showLowOnly ? 1 : 0}
@@ -525,7 +526,6 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
                   'Balance (sheets)': i.current_stock,
                   'Sheets per Packet': i.sheets_per_packet,
                   'Reserved (sheets)': i.reserved_stock,
-                  'Reorder Level (packets)': Math.round(toPackets(i.reorder_level, i.sheets_per_packet) * 100) / 100,
                   // Both, for the same reason the balance is exported both ways:
                   // the store thinks in packets, costing thinks in sheets.
                   // Gated: an export walks out of the building, so a store user
@@ -552,11 +552,13 @@ export default function BoardInventoryClient({ initialItems, boardTypes, paperTy
         columns={INV_COLUMNS(setLotsItem, openMovement, openEdit)}
         getRowId={i => i.id}
         rowClassName={item => {
-          const isLow = item.current_stock <= item.reorder_level
           const isOut = item.current_stock <= 0
+          // Surkh = stock hi khatam. Amber = para to hai, magar poora kisi job
+          // ke naam reserve — uthaya nahi ja sakta.
+          const nothingFree = Math.max(0, item.current_stock - Number(item.reserved_stock ?? 0)) <= 0
           return cn(
             isOut && 'border-l-2 border-l-[var(--color-danger)]',
-            isLow && !isOut && 'border-l-2 border-l-[var(--color-warning)]'
+            nothingFree && !isOut && 'border-l-2 border-l-[var(--color-warning)]'
           )
         }}
         stickyHeader
@@ -869,10 +871,12 @@ function ItemFields({ mode, idPrefix, form, setForm, boardTypes, paperTypes, ven
           </p>
         </div>
       )}
-      <div className="space-y-1.5">
-        <label htmlFor={`${idPrefix}-7`} className="text-sm font-medium text-[var(--color-text-primary)]">Reorder Level (packets)</label>
-        <input id={`${idPrefix}-7`} type="number" step="0.01" className={inputCls} value={form.reorder_level} onChange={e => set('reorder_level', e.target.value)} placeholder="100" />
-      </div>
+      {/* "Reorder Level" ka khana yahan se nikal gaya. Wo poochta tha "stock
+          kis had tak wapas le jana hai" — aur ye shop us tarah kaam hi nahi
+          karti: board har job ke hisab se khareeda jata hai aur stock sirf
+          bacha hua maal hai (§4). Live par 53 mein se kisi ek item par bhi ye
+          set nahi tha. Column database mein maujood hai (koi purana data zaya
+          nahi hua), bas poochna band. */}
       <MoneyGate scope="purchase" hide>
       <div className="space-y-1.5">
         {/* Per SHEET, and now labelled as such. The field never said which unit

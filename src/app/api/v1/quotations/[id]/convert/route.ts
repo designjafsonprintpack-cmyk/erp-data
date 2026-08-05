@@ -64,6 +64,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
         company_id: companyId,
         sales_order_id: (so as any).id,
         quotation_item_id: item.id,
+        // Repeat ka faisla quotation par hua tha — usay yahin aage bahna hai,
+        // warna SO par line dobara "naya carton" ban jati aur us se banne wali
+        // job naya number le leti (141).
+        repeat_of_job_id: item.repeat_of_job_id ?? null,
         line_no: item.line_no,
         product_desc: item.product_desc,
         size_l: item.size_l, size_w: item.size_w, size_h: item.size_h,

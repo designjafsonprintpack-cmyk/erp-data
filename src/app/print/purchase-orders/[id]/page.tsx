@@ -33,7 +33,7 @@ export default async function PrintPurchaseOrder({ params }: { params: { id: str
   const { data } = await supabase
     .from('purchase_orders' as any)
     .select('*, vendors(name,vendor_code,contact_person,phone,mobile,email,address,ntn), '
-      + 'purchase_order_items(*, jobs(job_number), board_inventory(sheets_per_packet))')
+      + 'purchase_order_items(*, jobs(job_number,job_title), board_inventory(sheets_per_packet))')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -88,8 +88,11 @@ export default async function PrintPurchaseOrder({ params }: { params: { id: str
           td { border: 1px solid #d0d7de; padding: 7px 8px; vertical-align: top; }
           .r { text-align: right; }
           .c { text-align: center; }
-          .desc { font-weight: 600; }
-          .spec { font-size: 10px; color: #57606a; margin-top: 2px; }
+          /* Board ka naam, gsm aur sheet size — EK hi lakeer, ek hi font,
+             bold aur bara. Vendor ko yehi cheez parhni hai; pehle ye do alag
+             sizon mein bant kar chhoti par jaa rahi thi. */
+          .desc { font-size: 13px; font-weight: 700; letter-spacing: 0.01em; }
+          .spec { font-size: 10px; color: #57606a; margin-top: 3px; }
           .sheets { font-size: 10px; color: #57606a; }
           .totals { margin-left: auto; width: 70mm; }
           .totals td { border: none; padding: 3px 0; font-size: 12px; }
@@ -162,12 +165,15 @@ export default async function PrintPurchaseOrder({ params }: { params: { id: str
                 <tr key={i.id}>
                   <td className="c">{idx + 1}</td>
                   <td>
-                    <div className="desc">{i.description}</div>
-                    {/* GSM aur sheet size — wahi cheez jis se vendor board
-                        pehchanta hai. Job ka number bhi sath rehta hai taake
-                        delivery aane par store use jorna jaane. */}
-                    {i.specification && <div className="spec">{i.specification}</div>}
-                    {i.jobs?.job_number && <div className="spec">Our job: {i.jobs.job_number}</div>}
+                    {/* Board type + gsm + sheet size ek hi bold lakeer mein —
+                        vendor isi se board pehchanta hai. */}
+                    <div className="desc">
+                      {[i.description, i.specification].filter(Boolean).join(' · ')}
+                    </div>
+                    {/* Job ka NAAM, chhote haraf mein — number nahi. Number
+                        vendor ke kisi kaam ka nahi; naam se hamara apna store
+                        maal aane par jor leta hai. */}
+                    {i.jobs?.job_title && <div className="spec">{i.jobs.job_title}</div>}
                   </td>
                   <td className="r">
                     <div>{num(i.quantity, 2)} packets</div>

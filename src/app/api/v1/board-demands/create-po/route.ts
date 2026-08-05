@@ -208,13 +208,20 @@ function label(d: any): string {
   return d.jobs?.job_number ? `${d.jobs.job_number} (${d.material_name})` : d.material_name
 }
 
+/**
+ * Board ki poori pehchan — sirf maal ki baat, job ka zikr nahi.
+ *
+ * Pehle is mein "for JOB-00483" bhi likha jata tha, aur PDF neeche alag se
+ * "Our job: JOB-00483" bhi chhapta tha — ek hi baat do dafa, aur dono dafa us
+ * shakl mein jo vendor ke kisi kaam ki nahi. Vendor ko board chahiye; job ka
+ * NAAM PDF alag se, chhote haraf mein dikhata hai, taake maal aane par store
+ * jor sake.
+ */
 function specText(d: any): string {
-  const bits = [
+  return [
     d.gsm ? `${Number(d.gsm)} gsm` : null,
-    d.sheet_width_in && d.sheet_height_in ? `${Number(d.sheet_width_in)} x ${Number(d.sheet_height_in)} in` : null,
-    d.jobs?.job_number ? `for ${d.jobs.job_number}` : null,
-  ].filter(Boolean)
-  return bits.join(' · ')
+    d.sheet_width_in && d.sheet_height_in ? `${Number(d.sheet_width_in)} × ${Number(d.sheet_height_in)} in` : null,
+  ].filter(Boolean).join(' · ')
 }
 
 /** Ek hi board ki do demands ek hi naye stock item par aani chahiyen. */

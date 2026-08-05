@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, Trash2, Save, Calculator, ChevronDown, ChevronUp, History, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import RepeatPicker, { type RepeatLink, type RepeatCandidate } from '@/components/sales/RepeatPicker'
 import { toast } from '@/components/ui/Toast'
 import { calculateQuotationItemCost, type UnitBasis } from '@/lib/costing/quotationCosting'
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
@@ -26,6 +27,8 @@ interface CostItemType { id: string; name: string; unit_basis: UnitBasis; defaul
 interface CostLineDraft { cost_item_type_id: string; name: string; unit_basis: UnitBasis; rate: string; active: boolean; per_unit_qty: string }
 
 interface LineItem {
+  /** Kaunsa purana carton (141). null = naya. */
+  repeat: RepeatLink | null
   product_desc: string; size_l: string; size_w: string; size_h: string; quantity: string
   // Board OR paper, never both (116). The one dropdown writes whichever the
   // estimator picked and clears the other, the same shape jobs has used since
@@ -62,6 +65,7 @@ const UNIT_BASIS_LABELS: Record<UnitBasis, string> = {
 }
 
 const emptyLine = (costItemTypes: CostItemType[]): LineItem => ({
+  repeat: null,
   product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '1', no_of_colors: '4',
   // Board is bought by the kilo, so that is what a new line costs on. Existing
   // quotations are unaffected — each line's method is saved on the row.
@@ -116,6 +120,9 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
       for (const o of orphaned) merged.push({ cost_item_type_id: o.cost_item_type_id || '', name: o.name, unit_basis: o.unit_basis, rate: String(o.rate), active: true, per_unit_qty: String(o.per_unit_qty ?? 1000) })
 
       return {
+        repeat: i.repeat_of_job_id
+          ? { job_id: i.repeat_of_job_id, job_number: i.jobs?.job_number ?? '', job_title: i.jobs?.job_title ?? '' }
+          : null,
         product_desc: i.product_desc, size_l: String(i.size_l || ''), size_w: String(i.size_w || ''),
         size_h: String(i.size_h || ''), quantity: String(i.quantity), no_of_colors: String(i.no_of_colors || 4),
         board_type_id: i.board_type_id || '', paper_type_id: i.paper_type_id || '', box_type_id: i.box_type_id || '', board_costing_method: i.board_costing_method || 'per_sheet',
@@ -153,6 +160,34 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const setItem = (idx: number, k: keyof LineItem, v: any) => setItems(prev => prev.map((item, i) => i === idx ? { ...item, [k]: v } : item))
+
+  /**
+   * Purana carton chunte hi line bhar jati hai — naam, L/W/H aur colours.
+   * Bhara hua khana kabhi nahi badalta: jo estimator ne haath se likh diya wo
+   * us ka faisla hai.
+   */
+  const setRepeat = (idx: number, v: RepeatLink | null, c?: RepeatCandidate) =>
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it
+      if (!v || !c) return { ...it, repeat: null }
+      const keep = (cur: string, next: any) =>
+        cur.trim() !== '' ? cur : (next == null ? cur : String(Number(next)))
+      return {
+        ...it,
+        repeat: v,
+        product_desc: c.job_title || it.product_desc,
+        size_l: keep(it.size_l, c.size_l),
+        size_w: keep(it.size_w, c.size_w),
+        size_h: keep(it.size_h, c.size_h),
+        // Repeat par ye teeno pehle se maloom hain — estimator ka aadha kaam
+        // yahin khatam ho jata hai.
+        ups: keep(it.ups, c.ups),
+        board_gsm: keep(it.board_gsm, c.gsm),
+        no_of_colors: (it.no_of_colors === '' || it.no_of_colors === '4') && c.no_of_colors != null
+          ? String(c.no_of_colors)
+          : it.no_of_colors,
+      }
+    }))
   const addLine = () => setItems(prev => [...prev, emptyLine(costItemTypes)])
   const removeLine = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
@@ -263,6 +298,7 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
           const result = computeFor(item)
           return {
             product_desc: item.product_desc,
+            repeat_of_job_id: item.repeat?.job_id ?? null,
             size_l: item.size_l ? parseFloat(item.size_l) : null,
             size_w: item.size_w ? parseFloat(item.size_w) : null,
             size_h: item.size_h ? parseFloat(item.size_h) : null,
@@ -413,8 +449,19 @@ export default function QuotationFormClient({ mode, customers, boardTypes, paper
             return (
               <div key={idx}>
                 <div className={cn(lineGridCls, 'px-4 py-3 items-center')}>
-                  <div>
+                  <div className="space-y-1">
                     <input className={inputCls} value={item.product_desc} onChange={e => setItem(idx, 'product_desc', e.target.value)} placeholder="Product description *" />
+                    {/* "Ye carton pehle chala hai?" — rate ka faisla yahin hota
+                        hai, is liye picker quotation par bhi. Yahan grid ki
+                        satr pehle se lambi hai (calculator neeche khulta hai),
+                        is liye naam ke neeche baithna theek rehta hai. */}
+                    <RepeatPicker
+                      query={item.product_desc}
+                      customerId={form.customer_id}
+                      value={item.repeat}
+                      onChange={(v, c) => setRepeat(idx, v, c)}
+                      disabled={!form.customer_id}
+                    />
                   </div>
                   <div className="flex items-center gap-1">
                     <input className={cn(inputCls, 'text-center')} type="number" value={item.size_l} onChange={e => setItem(idx, 'size_l', e.target.value)} placeholder="L" />

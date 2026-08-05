@@ -566,6 +566,10 @@ Rules that govern future work are in §4 and §5, not here.
   (200×125×70) and `24 Sp.` (200×130×73) match 1.00 and are different cartons,
   so **size is shown largest** and nothing auto-links. Die number is NOT a
   carton identity either — one die number carries 10 different products on live.
+  The link flows quotation → SO → job: the quotation line owns it (that is where
+  the die/plate cost decision is made), `convert` copies it onto the SO line, and
+  New Job turns it into `parent_job_id`, so the job is born `-R2` without anyone
+  remembering. Search is scoped to that ONE customer (142).
   The picker is a **table cell in its own column** (after Unit Price), not a chip
   under the description — hanging it under one column made that column two rows
   tall and broke the whole grid's rhythm. Picking a carton fills the line's
@@ -581,6 +585,11 @@ Rules that govern future work are in §4 and §5, not here.
   The ERP's July report will not match the Excel; July happened outside the
   system. The load user is kept, renamed "Opening Stock Load (system)", because
   the ledger references it.
+- **One PO, one vendor.** The Create-PO modal asks for the vendor ONCE, not per
+  line — a PO goes to one supplier and a board type has one vendor, so ten
+  dropdowns were the sir-khapai this whole rebuild was removing. It is still only
+  a default: it pre-fills from the boards' own vendor and can be changed, and a
+  hand-picked vendor is never learned back onto the board type.
 - **A Purchase Order is a document the VENDOR receives** — `print/purchase-orders/[id]`.
   Money columns appear only when a line actually carries a rate: Mehboob quotes
   the rate sometimes and asks for it other times, and a column of zeroes reads
@@ -607,11 +616,13 @@ Rules that govern future work are in §4 and §5, not here.
   actually bought — so it fills itself. But a type nobody has bought yet cannot
   be given a vendor by hand; `settings/materials`' TypeManager only renders text
   and number inputs, and a vendor `<select>` needs a new field type there.
-- **`board_inventory.reorder_level` and `/api/v1/board-inventory/reorder-suggestions`
-  now contradict §4.** Reorder levels assume you restock to a target; this shop
-  buys per job. The column still drives `checkLowStock`'s notification and the
-  Board Stock colour, and the suggestions route has no UI at all. Left alone —
-  retiring them is its own decision.
+- **`reorder_level` is gone from the UI, not from the table.** It assumes you
+  restock to a target; this shop buys per job (§4), and live had it set on 0 of
+  53 items — so the column was a row of zeroes and "Low Stock" was really "out
+  of stock". Board Stock now shows **nothing free** (`current_stock −
+  reserved_stock ≤ 0`), the Add/Edit form no longer asks for a level, and the
+  UI-less `reorder-suggestions` route is deleted. The column stays so no data
+  is lost and `checkLowStock` keeps working.
 - **The other three cron routes stand open when `CRON_SECRET` is unset.** They
   compare the header against `` `Bearer ${process.env.CRON_SECRET}` `` directly,
   so on a deployment missing the variable the literal string
