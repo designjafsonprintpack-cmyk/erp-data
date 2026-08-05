@@ -61,13 +61,18 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (items?.length) {
-    await supabase.from('sales_order_items' as any).insert(
+    // Khata CHECK hota hai. Pehle nahi hota tha — aur ye theek wohi bimari hai
+    // jo purchase orders par pakri gayi thi: zod ka schema chup chaap ek NOT
+    // NULL column gira deta hai, insert nakaam hota hai, aur route phir bhi 200
+    // aur ek bagair line ka document wapas karta hai.
+    const { error: itemsErr } = await supabase.from('sales_order_items' as any).insert(
       items.map((item: any, idx: number) => ({
         ...item, sales_order_id: (so as any).id, company_id: companyId,
         line_no: idx + 1, sort_order: idx + 1,
         subtotal: parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0),
       }))
     )
+    if (itemsErr) return NextResponse.json({ error: `Sales order lines could not be saved: ${itemsErr.message}` }, { status: 500 })
   }
   return NextResponse.json({ data: so })
 })

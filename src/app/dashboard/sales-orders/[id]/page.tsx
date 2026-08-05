@@ -5,7 +5,8 @@ import SODetailClient from './SODetailClient'
 export default async function SODetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
   const { data: rawData } = await supabase.from('sales_orders' as any)
-    .select('*, customers(name, customer_code, email, phone, mobile), sales_order_items(*)')
+    // jobs ka embed HINTED — 141 ke baad in do tables ke beech do rishte hain.
+    .select('*, customers(name, customer_code, email, phone, mobile), sales_order_items(*, jobs!sales_order_items_repeat_of_job_id_fkey(job_number,job_title))')
     .eq('id', params.id).single()
   if (!rawData) notFound()
   const data = rawData as unknown as Record<string, any>

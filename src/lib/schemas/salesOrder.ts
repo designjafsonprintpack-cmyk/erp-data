@@ -18,6 +18,12 @@ const salesOrderItemSchema = z.object({
   lamination_type_id: z.string().uuid().optional().nullable(),
   unit_price: z.union([z.string(), z.number()]).optional(),
   notes: z.string().optional().nullable(),
+  /**
+   * Kis purane carton ka dobara order hai (141). Bhara hua = REPEAT, khali =
+   * naya carton. Job banate waqt yahi `parent_job_id` ban jata hai, is liye
+   * repeat ki pehchan Sales se le kar press tak ek hi dafa likhi jati hai.
+   */
+  repeat_of_job_id: z.string().uuid().optional().nullable(),
 })
 
 // Mirrors sales_orders columns (migration 013) the route spreads `...body`

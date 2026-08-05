@@ -13,7 +13,9 @@ export const GET = withErrorHandling(async function GET(_: NextRequest, { params
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const companyId = await getCompanyId(user, supabase)
   const { data: rawData, error } = await supabase.from('sales_orders' as any)
-    .select('*, customers(name, customer_code, email, phone), sales_order_items(*)')
+    // jobs ka embed HINTED hai — 141 ke baad in do tables ke beech do rishte
+    // hain, aur bagair hint ke poori query nakaam ho jati hai.
+    .select('*, customers(name, customer_code, email, phone), sales_order_items(*, jobs!sales_order_items_repeat_of_job_id_fkey(job_number,job_title))')
     .eq('id', params.id).eq('company_id', companyId).single()
   if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const data = rawData as unknown as Record<string, any>

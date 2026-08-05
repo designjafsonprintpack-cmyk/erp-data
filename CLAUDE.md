@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **139**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **141**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -285,6 +285,11 @@ deliberately left empty. Never read from it.
 - **`col-span-N` can't be built from a runtime number** — Tailwind scans source
   text and purges it. `DataList` solves this by publishing spans as CSS vars
   (`--sp-md`, `--sp-xl`) picked up by `.dl-cell` in globals.css.
+- **`jobs` ↔ `sales_order_items` now has TWO FKs too** (141 added
+  `sales_order_items.repeat_of_job_id`; `jobs.sales_order_item_id` was already
+  there), so the same unhinted-embed failure applies. Correct form:
+  `jobs!sales_order_items_repeat_of_job_id_fkey(...)`. Verified by running both
+  forms against live before wiring anything: unhinted really does fail.
 - **`jobs` ↔ `job_artworks` can no longer be embedded without an FK hint.**
   Migration 104 added `jobs.proof_artwork_id → job_artworks(id)`, so there are
   now TWO relationships between those tables and PostgREST refuses to guess:
@@ -531,6 +536,8 @@ Rules that govern future work are in §4 and §5, not here.
 | 133 | renumbered the 5 repeats to `PARENT-R2` and dropped " (Repeat 2)" from their titles |
 | 134 | **the year left the job number** — 488 jobs renumbered to one series `JOB-00001…00483`; only JOB, via `prefix_format` |
 | 135 – 139 | **board demands** — har job ka board khud maanga jata hai (see §4); 136 delete guard; 137 backfill; 138 board type ka default vendor; 139 `sync_missing_board_demands()` |
+| 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
+| 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
 
 **No-migration work, same rule — one line each:**
 
@@ -551,6 +558,13 @@ Rules that govern future work are in §4 and §5, not here.
 - **Deleted customers can be restored** (`?deleted=1` + a Deleted tab); duplicate
   names are a hard block, phone/NTN a warning, delete guarded by dependent count.
   Only Customers has this — vendors, machines and the master lists do not.
+- **"Is carton ka pichhla job"** — the SO/quotation line carries
+  `repeat_of_job_id` (141), so "5 lines · 3 repeat · 2 new" is answerable at the
+  SO, and the job born from that line is automatically `-R2`. The picker only
+  SUGGESTS: name similarity is not identity — `Aktive Chocolate 24 SP`
+  (200×125×70) and `24 Sp.` (200×130×73) match 1.00 and are different cartons,
+  so **size is shown largest** and nothing auto-links. Die number is NOT a
+  carton identity either — one die number carries 10 different products on live.
 - **Copy specs from an old job** without making it a repeat, plus
   **`L x W x H` size search** shared by the Jobs list and all three New Job
   pickers, and the size shown on the list, the Kanban card and the export.

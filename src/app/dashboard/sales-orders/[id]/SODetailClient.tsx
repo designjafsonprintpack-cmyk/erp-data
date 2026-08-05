@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, FileText, Calendar, User, CheckCircle, XCircle, Printer, Truck, Receipt } from 'lucide-react'
+import { ArrowLeft, Pencil, FileText, Calendar, User, CheckCircle, XCircle, Printer, Truck, Receipt, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { MoneyGate } from '@/components/ui/MoneyGate'
@@ -10,7 +10,10 @@ import { SO_STATUS_CONFIG } from '@/modules/sales/sales-orders/types/so.types'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { useRouter } from 'next/navigation'
 
-interface SOItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number; notes: string | null }
+interface SOItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number; notes: string | null
+  /** 141 — bhara hua = REPEAT. Embed HINTED aata hai, warna query hi nakaam. */
+  repeat_of_job_id?: string | null
+  jobs?: { job_number: string; job_title: string } | null }
 interface FulfillmentRow { sales_order_item_id: string; ordered_qty: number; dispatched_qty: number; invoiced_qty: number }
 interface SO {
   id: string; so_number: string; status: string; order_date: string; required_date: string | null
@@ -166,6 +169,19 @@ export default function SODetailClient({ so }: { so: SO }) {
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items ({so.sales_order_items.length})</h2>
+          {/* Wahi ginti jo SO banate waqt dikhti hai, taake baad mein kholne
+              par bhi ek nazar mein pata chale. */}
+          {so.sales_order_items.length > 0 && (() => {
+            const rep = so.sales_order_items.filter(i => i.repeat_of_job_id).length
+            const nw = so.sales_order_items.length - rep
+            return (
+              <span className="ml-2 text-xs text-[var(--color-text-muted)]">
+                {rep > 0 && <span className="text-[var(--color-info)] font-medium">{rep} repeat</span>}
+                {rep > 0 && nw > 0 && ' · '}
+                {nw > 0 && <span className="text-[var(--color-text-secondary)] font-medium">{nw} new</span>}
+              </span>
+            )
+          })()}
         </div>
         <div className="grid gap-0" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.5fr' }}>
           {/* Header */}
@@ -179,6 +195,30 @@ export default function SODetailClient({ so }: { so: SO }) {
               <div className="px-5 py-3 flex items-center border-b border-[var(--color-border-subtle)]">
                 <div>
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{item.product_desc}</p>
+                  {/* Repeat hai ya naya — aur repeat hai to KIS carton ka. */}
+                  <p className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {item.repeat_of_job_id ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium
+                          text-[var(--color-info)]
+                          bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)]
+                          border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]">
+                          <RefreshCw size={9} /> Repeat
+                        </span>
+                        {item.jobs?.job_number && (
+                          <Link href={`/dashboard/jobs/${item.repeat_of_job_id}`}
+                            className="text-[11px] font-mono text-[var(--color-accent)] hover:underline">
+                            {item.jobs.job_number}
+                          </Link>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border font-medium
+                        text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]">
+                        New
+                      </span>
+                    )}
+                  </p>
                   {item.notes && <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{item.notes}</p>}
                 </div>
               </div>

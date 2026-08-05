@@ -143,6 +143,9 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   // This copies the tedious half and links nothing. Safe to leave unlinked:
   // plate reuse is chosen by hand from any in-storage plate of the right size,
   // so it does not depend on a parent job (checked, not assumed).
+  /** SO ki line ne bataya ke ye carton pehle chal chuka hai (141). */
+  const [soRepeatParentId, setSoRepeatParentId] = useState('')
+
   const [copiedFromId, setCopiedFromId] = useState('')
   const [copySearch, setCopySearch] = useState('')
   const [copyCandidates, setCopyCandidates] = useState<any[]>(repeatableJobs)
@@ -291,12 +294,19 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
       // The GSM the quotation was priced on, carried through the sales order.
       gsm: item.gsm != null ? String(item.gsm) : p.gsm,
     }))
+    // Repeat ka faisla Sales pehle hi kar chuka hai (141) — yahan sirf utha
+    // liya jata hai. Ye `form` par nahi rakha ja sakta (JobFormData mein ye
+    // khane hain hi nahi), is liye apni state. Is ke bagair wo faisla SO par
+    // likha reh jata aur job dobara "naya" ban jati: naya number, alag carton,
+    // aur us carton ki Runs tab adhoori.
+    setSoRepeatParentId(item.repeat_of_job_id || '')
   }
 
   const handleSelectSO = (soId: string) => {
     const so = salesOrders.find((s: any) => s.id === soId)
     const items = so?.sales_order_items ?? []
     setForm(p => ({ ...p, sales_order_id: soId, sales_order_item_id: '', customer_id: so?.customer_id || p.customer_id }))
+    setSoRepeatParentId('')   // nayi SO chuni — purani line ka faisla saath na aaye
     if (items.length === 1) applyLineItem(items[0])
   }
 
@@ -328,7 +338,14 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           changed_aspects: changedAspects,
           change_note:     changeNote || null,
           ...(force ? { force: true } : {}),
-        } : { ...form, ...(force ? { force: true } : {}) }),
+        } : {
+          ...form,
+          // SO ki line par repeat likha tha to job usi carton ka agla RUN hai.
+          // 'exact' is liye ke Sales ne wohi carton dobara becha hai; kuch badla
+          // ho to "Repeat with Changes" apne raaste se aati hai.
+          ...(soRepeatParentId ? { parent_job_id: soRepeatParentId, repeat_kind: 'exact' } : {}),
+          ...(force ? { force: true } : {}),
+        }),
       })
 
       // The same customer already has an open job with this title. A warning,
@@ -668,8 +685,27 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
                 if (item) applyLineItem(item)
               }}>
                 <option value="">Which product is this job for?</option>
-                {selectedSOItems.map((it: any) => <option key={it.id} value={it.id}>{it.product_desc} — Qty {it.quantity}</option>)}
+                {selectedSOItems.map((it: any) => (
+                  <option key={it.id} value={it.id}>
+                    {it.repeat_of_job_id ? '↻ ' : ''}{it.product_desc} — Qty {it.quantity}
+                  </option>
+                ))}
               </select>
+            </div>
+          )}
+
+          {/* Sales ne is line par bata diya tha ke ye carton pehle chal chuka
+              hai — job chup chaap repeat ban rahi hai, is liye ye saamne likha
+              hai. Ek khamoshi se badalta hua job number ghalti lagta hai. */}
+          {soRepeatParentId && (
+            <div className="col-span-2 rounded-lg border p-3 text-sm
+              bg-[color:color-mix(in_srgb,var(--color-info)_8%,transparent)]
+              border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]">
+              <span className="font-medium text-[var(--color-text-primary)]">Ye REPEAT hai</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {' '}— Sales Order ki line par likha hua hai. Job usi carton ka agla run banegi
+                (<span className="font-mono">-R2</span>, <span className="font-mono">-R3</span>…), naya number nahi legi.
+              </span>
             </div>
           )}
         </div>

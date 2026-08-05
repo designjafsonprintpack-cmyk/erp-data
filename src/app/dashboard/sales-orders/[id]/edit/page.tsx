@@ -9,7 +9,14 @@ export default async function EditSOPage({ params }: { params: { id: string } })
   const companyId = user ? await getCompanyId(user, supabase) : '00000000-0000-0000-0000-000000000001'
 
   const [soRes, customersRes, boardTypesRes] = await Promise.all([
-    supabase.from('sales_orders' as any).select('*, sales_order_items(*)').eq('id', params.id).single(),
+    // HINT LAZMI HAI. 141 ke baad jobs aur sales_order_items ke darmiyan DO
+    // rishte hain — `jobs.sales_order_item_id` aur `sales_order_items.
+    // repeat_of_job_id` — aur PostgREST bagair hint ke embed hi refuse kar deta
+    // hai: "Could not embed because more than one relationship was found".
+    // Wahi bimari jo 104 ne jobs <-> job_artworks par paida ki thi aur jis se
+    // Artwork ka page chup chaap khali dikhta raha.
+    supabase.from('sales_orders' as any)
+      .select('*, sales_order_items(*, jobs!sales_order_items_repeat_of_job_id_fkey(job_number,job_title))').eq('id', params.id).single(),
     supabase.from('customers' as any).select('id, name, customer_code').eq('company_id', companyId).is('deleted_at', null).order('name'),
     supabase.from('board_types' as any).select('id, name').eq('company_id', companyId).is('deleted_at', null),
   ])

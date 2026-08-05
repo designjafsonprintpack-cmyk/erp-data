@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { MoneyGate } from '@/components/ui/MoneyGate'
+import RepeatPicker, { type RepeatLink } from '@/components/sales/RepeatPicker'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string }
@@ -13,9 +14,11 @@ interface BoardType { id: string; name: string }
 interface LineItem {
   product_desc: string; size_l: string; size_w: string; size_h: string
   quantity: string; no_of_colors: string; unit_price: string; notes: string
+  /** Kaun sa purana carton (141). null = naya carton. */
+  repeat: RepeatLink | null
 }
 
-const EMPTY_LINE: LineItem = { product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '', no_of_colors: '4', unit_price: '', notes: '' }
+const EMPTY_LINE: LineItem = { product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '', no_of_colors: '4', unit_price: '', notes: '', repeat: null }
 
 interface Props {
   mode: 'new' | 'edit'
@@ -40,11 +43,21 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
       size_w: String(i.size_w ?? ''), size_h: String(i.size_h ?? ''),
       quantity: String(i.quantity), no_of_colors: String(i.no_of_colors ?? '4'),
       unit_price: String(i.unit_price), notes: i.notes ?? '',
+      repeat: i.repeat_of_job_id
+        ? { job_id: i.repeat_of_job_id, job_number: i.jobs?.job_number ?? '', job_title: i.jobs?.job_title ?? '' }
+        : null,
     })) ?? [{ ...EMPTY_LINE }]
   )
 
   const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const setItem = (idx: number, k: string, v: string) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [k]: v } : it))
+  const setRepeat = (idx: number, v: RepeatLink | null) =>
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, repeat: v } : it))
+
+  // Sirf wo lines jin par kuch likha hai — khali lines na repeat hain na new.
+  const filled = items.filter(it => it.product_desc.trim())
+  const repeatCount = filled.filter(it => it.repeat).length
+  const newCount = filled.length - repeatCount
   const addLine = () => setItems(prev => [...prev, { ...EMPTY_LINE }])
   const removeLine = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
@@ -64,8 +77,11 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         discount_percent: parseFloat(form.discount_percent || '0'),
         subtotal, discount_amount: discountAmt, total_amount: total, tax_amount: 0,
         status: 'confirmed',
-        items: items.filter(it => it.product_desc).map(it => ({
+        items: items.filter(it => it.product_desc).map(({ repeat, ...it }) => ({
           ...it,
+          // Repeat ki pehchan yahan se job tak jaati hai — Sales ek dafa chunta
+          // hai, phir kisi ko yaad nahi rakhna parta.
+          repeat_of_job_id: repeat?.job_id ?? null,
           size_l: it.size_l ? parseFloat(it.size_l) : null,
           size_w: it.size_w ? parseFloat(it.size_w) : null,
           size_h: it.size_h ? parseFloat(it.size_h) : null,
@@ -136,7 +152,18 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
       {/* Line Items */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Line Items</h2>
+            {/* "5 lines · 3 repeat · 2 new" — wahi sawal jo Mehboob ne poocha
+                tha: SO dekh kar kaise pata chale kitne repeat hain. */}
+            {filled.length > 0 && (
+              <span className="text-xs text-[var(--color-text-muted)]">
+                {filled.length} line{filled.length > 1 ? 's' : ''}
+                {repeatCount > 0 && <> · <span className="text-[var(--color-info)] font-medium">{repeatCount} repeat</span></>}
+                {newCount > 0 && <> · <span className="text-[var(--color-text-secondary)] font-medium">{newCount} new</span></>}
+              </span>
+            )}
+          </div>
           <button onClick={addLine} className="flex items-center gap-1.5 px-3 h-11 md:h-7 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors">
             <Plus size={12} /> Add Line
           </button>
@@ -152,7 +179,19 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
             const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
             return (
               <div key={idx} className="grid gap-2 px-5 py-3 items-center" style={{ gridTemplateColumns: '3fr 1fr 1fr 1fr 1.5fr 1fr 1.5fr 1.5fr auto' }}>
-                <input className={cn(inputCls, 'h-8')} value={item.product_desc} onChange={e => setItem(idx, 'product_desc', e.target.value)} placeholder={`Item ${idx + 1} description`} />
+                {/* Description ka khana ab do satron ka hai: naam, aur us ke
+                    neeche "ye carton pehle chala hai?" ka jawab. Grid ke baqi
+                    columns waise hi rehte hain. */}
+                <div className="min-w-0 self-start">
+                  <input className={cn(inputCls, 'h-8')} value={item.product_desc} onChange={e => setItem(idx, 'product_desc', e.target.value)} placeholder={`Item ${idx + 1} description`} />
+                  <RepeatPicker
+                    query={item.product_desc}
+                    customerId={form.customer_id}
+                    value={item.repeat}
+                    onChange={v => setRepeat(idx, v)}
+                    disabled={!form.customer_id}
+                  />
+                </div>
                 <input type="number" className={cn(inputCls, 'h-8')} value={item.size_l} onChange={e => setItem(idx, 'size_l', e.target.value)} placeholder="Length" />
                 <input type="number" className={cn(inputCls, 'h-8')} value={item.size_w} onChange={e => setItem(idx, 'size_w', e.target.value)} placeholder="Width" />
                 <input type="number" className={cn(inputCls, 'h-8')} value={item.size_h} onChange={e => setItem(idx, 'size_h', e.target.value)} placeholder="Height" />
