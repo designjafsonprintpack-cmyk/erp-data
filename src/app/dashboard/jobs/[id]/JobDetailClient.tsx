@@ -16,7 +16,7 @@ import { toast } from '@/components/ui/Toast'
 import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 import { formatDate, formatDateTime, formatTimeAgo } from '@/lib/utils/format'
 import {
-  JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG,
+  JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, jobStatusChip,
   type Job, type JobStageProgress, type JobEvent, type JobStatus,
   type WastageReason, type JobWastage
 } from '@/modules/jobs/types/job.types'
@@ -169,7 +169,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
   const [inkForm, setInkForm] = useState({ ink_type_id: '', machine_id: '', quantity_kg: '', shift: '', notes: '' })
   const [recordingInk, setRecordingInk] = useState(false)
 
-  const statusCfg = JOB_STATUS_CONFIG[job.status] || JOB_STATUS_CONFIG.new
+  const statusCfg = jobStatusChip(job as any)
   const priorityCfg = JOB_PRIORITY_CONFIG[job.priority] || JOB_PRIORITY_CONFIG.normal
   const urgency = daysUrgency(job.required_date, job.status)
 

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Plus, Briefcase, PauseCircle, RefreshCw, LayoutGrid, List, Download, Rows3, Rows2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
-import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
+import { JOB_STATUS_CONFIG, JOB_PRIORITY_CONFIG, jobStatusChip, type JobStatus, type JobPriority } from '@/modules/jobs/types/job.types'
 import { formatDate } from '@/lib/utils/format'
 import JobsKanban from './JobsKanban'
 import { exportToExcel } from '@/lib/utils/exportToExcel'
@@ -44,6 +44,7 @@ interface Job {
   size_l?: number | null; size_w?: number | null; size_h?: number | null
   sheet_width_in?: number | null; sheet_height_in?: number | null
   order_date: string; is_on_hold: boolean; is_repeat: boolean; created_at: string
+  repeat_kind: string | null; job_kind: string | null
   current_stage_id?: string | null
   /** Live workflow stage name, resolved server-side from current_stage_id. */
   current_stage_name?: string | null
@@ -107,7 +108,13 @@ const jobColumns = (thumbs: Record<string, JobThumbData[]>, density: Density): D
     render: j => (
       <span className="inline-flex items-center gap-1.5">
         <span className="text-xs font-mono font-semibold text-[var(--color-accent)]">{j.job_number}</span>
-        {j.is_repeat && <RefreshCw size={10} className="text-[var(--color-text-muted)] flex-shrink-0" />}
+        {/* Badla hua repeat amber mein: us par purani plates dobara lag sakti
+            hain jo nayi artwork se mel na khayen. */}
+        {j.is_repeat && (
+          <RefreshCw size={10}
+            className={cn('flex-shrink-0', j.repeat_kind === 'changed'
+              ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]')} />
+        )}
       </span>
     ),
   },
@@ -138,7 +145,7 @@ const jobColumns = (thumbs: Record<string, JobThumbData[]>, density: Density): D
   {
     key: 'status', header: 'Status', span: 2, role: 'status',
     render: j => {
-      const cfg = JOB_STATUS_CONFIG[j.status] || JOB_STATUS_CONFIG.new
+      const cfg = jobStatusChip(j)
       return (
         <span className={cn('inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border font-medium', cfg.color)}>
           <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
@@ -259,7 +266,7 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       'Order Date': j.order_date,
       'Due Date': j.required_date ?? '',
       'On Hold': j.is_on_hold ? 'Yes' : 'No',
-      'Repeat': j.is_repeat ? 'Yes' : 'No',
+      'Repeat': j.is_repeat ? (j.repeat_kind === 'changed' ? 'With changes' : 'Exact') : 'No',
     })), 'jobs-export')
   }
 

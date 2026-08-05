@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 import { getIssuedGsm, formatIssuedGsm, hasGsmVariance } from '@/lib/utils/jobIssuedGsm'
 import { changeAspectPrintLabels } from '@/modules/jobs/constants/changeAspects'
+import { jobDisplayState, JOB_DISPLAY_LABEL } from '@/modules/jobs/types/job.types'
 
 /** Same extension set as isPreviewable() in ArtworkThumb.tsx, duplicated
  *  because this page renders plain HTML/CSS (no Tailwind, no client
@@ -83,6 +84,8 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
   // A repeat whose printed content changed (migration 097). The parent's number
   // is looked up so the card can say which job this differs FROM — the operator
   // has almost certainly run that one before.
+  // Badge kya kahega — screen wali chip ke saath ek hi qaida se (job.types).
+  const displayState = jobDisplayState(j as any)
   const isChangedRepeat = j.repeat_kind === 'changed'
   const changedLabels = isChangedRepeat ? changeAspectPrintLabels(j.changed_aspects) : []
   let parentJobNumber: string | null = null
@@ -130,6 +133,20 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
           .badge-in_progress { background: #fff8c5; color: #7d4e00; border-color: #e3b341; }
           .badge-completed { background: #dafbe1; color: #116329; border-color: #56d364; }
           .badge-on_hold { background: #ffebe9; color: #82071e; border-color: #ff818266; }
+          /* Job shuru nahi hui to badge uska KISM batata hai, "NEW" nahi —
+             wahi qaida jo screen par hai (jobDisplayState). Ek repeat par
+             "NEW" chhapna operator ko ye batata hai ke ye pehli dafa ka kaam
+             hai, halanke wo carton pehle bhi chal chuka hai.
+             Rang alag alag rakhe gaye hain taake rangeen print par ek nazar
+             mein farq ho; be-rang print par lafz khud kaafi hai. */
+          .badge-repeat { background: #e7e3ff; color: #4b31c9; border-color: #b7aaff; }
+          .badge-repeat_changed { background: #ffebe9; color: #82071e; border-color: #ff8182; }
+          .badge-proof { background: #f6f8fa; color: #57606a; border-color: #d0d7de; }
+          /* Ye do pehle se ghayab the: badge ka class halat ke naam se banta hai,
+             is liye dispatched aur cancelled job ka badge be-rang chhapta tha.
+             Ab har halat ka apna rule hai. */
+          .badge-dispatched { background: #ddf4ff; color: #0a3069; border-color: #54aeff; }
+          .badge-cancelled { background: #f6f8fa; color: #6e7781; border-color: #d0d7de; }
           .section { margin-bottom: 14px; }
           .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #57606a; border-bottom: 1px solid #d0d7de; padding-bottom: 4px; margin-bottom: 8px; }
           .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
@@ -199,7 +216,7 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
               <div>
                 <div className="job-number">{j.job_number}</div>
                 <div style={{ marginTop: 4 }}>
-                  <span className={`badge badge-${j.status}`}>{j.status?.replace('_', ' ').toUpperCase()}</span>
+                  <span className={`badge badge-${displayState}`}>{JOB_DISPLAY_LABEL[displayState].toUpperCase()}</span>
                   {j.priority !== 'normal' && (
                     <span style={{ marginLeft: 6, fontWeight: 700, color: j.priority === 'urgent' ? '#cf222e' : '#9a6700' }}>
                       {j.priority?.toUpperCase()}

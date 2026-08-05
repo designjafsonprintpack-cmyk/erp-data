@@ -14,6 +14,7 @@ interface Job {
   size_l?: number | null; size_w?: number | null; size_h?: number | null
   sheet_width_in?: number | null; sheet_height_in?: number | null
   order_date: string; is_on_hold: boolean; is_repeat: boolean; created_at: string
+  repeat_kind: string | null; job_kind: string | null
   customers?: { name: string; customer_code: string } | null
   workflow_templates?: { name: string } | null
 }
@@ -94,7 +95,11 @@ export function JobsKanban({ jobs, onStatusChange, thumbnails }: { jobs: Job[]; 
                         {job.job_number}
                       </Link>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {job.is_repeat && <RefreshCw size={10} className="text-[var(--color-text-muted)]" />}
+                        {job.is_repeat && (
+                          <RefreshCw size={10}
+                            className={job.repeat_kind === 'changed'
+                              ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'} />
+                        )}
                         {job.is_on_hold && <PauseCircle size={10} className="text-[var(--color-danger)]" />}
                         <GripVertical size={12} className="text-[var(--color-text-muted)]" />
                       </div>

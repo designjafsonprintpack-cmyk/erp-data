@@ -31,6 +31,86 @@ export const JOB_STATUS_CONFIG: Record<JobStatus, { label: string; color: string
   cancelled:   { label: 'Cancelled',   color: 'text-[var(--color-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]',        dot: 'bg-[var(--color-muted)]' },
 }
 
+/**
+ * Jo job abhi SHURU nahi hui, uski chip us ka KIND batati hai — "New" nahi.
+ *
+ * Mehboob: *"is say confusion ho gi ke yeh New hay — repeat kerny pr Repeat ho
+ * aur repeat with change per Repeat with Changes ho, taake sab ko pata chal
+ * jaye."* Aur wo theek hai: `status = 'new'` ka matlab sirf itna hai ke abhi
+ * tak koi stage shuru nahi hui (workflow route: *"First activity on the job
+ * takes it out of 'new'"*), magar chip par "New" parh kar ye lagta hai ke ye
+ * pehli dafa ka kaam hai — halanke -R2 wali job dobara chal rahi hoti hai.
+ *
+ * Kaam shuru hote hi chip wapas asli status par aa jati hai (In Progress, On
+ * Hold…), kyunke us waqt sab se zaroori sawal ye hota hai ke job KAHAN hai.
+ * Repeat hone ki pehchan phir bhi rehti hai: number ka `-R2` (§4 — ek carton ka
+ * ek hi number), list ka nishaan, aur Job Detail ka "Run 2 of 2".
+ *
+ * `repeat_kind === 'changed'` ko warning ka rang mila hai, mehez rawadari se
+ * nahi: badle hue repeat par purani plates dobara lagti hain aur wo nayi
+ * artwork se mel na khati hon — workflow route wahan alag se tanbeeh karta hai.
+ */
+export interface JobKindFields {
+  status: string
+  is_repeat?: boolean | null
+  repeat_kind?: string | null
+  job_kind?: string | null
+}
+
+export type JobChip = { label: string; color: string; dot: string }
+
+/**
+ * Job par kya likhna hai — ek hi jagah tay hota hai.
+ *
+ * Screen ki chip (`jobStatusChip`) aur chhapi hui Job Card dono yahi qaida
+ * parhte hain, magar rang apna apna rakhte hain: print pages hardcoded hex par
+ * chalte hain aur theme ko follow NAHI karte (§3), kyunke wo kaghaz par jaate
+ * hain. Sirf usool sanjha hai, styling nahi — warna do jagah ek hi job do naam
+ * se pukari jati.
+ */
+export type JobDisplayState = JobStatus | 'repeat' | 'repeat_changed' | 'proof'
+
+export function jobDisplayState(j: JobKindFields): JobDisplayState {
+  if (j.status !== 'new') return (j.status as JobStatus)
+  if (j.job_kind === 'proofing') return 'proof'
+  if (j.is_repeat) return j.repeat_kind === 'changed' ? 'repeat_changed' : 'repeat'
+  return 'new'
+}
+
+/** Wahi lafz jo screen par dikhte hain; Job Card inhein BARE HAROOF mein chhapti hai. */
+export const JOB_DISPLAY_LABEL: Record<JobDisplayState, string> = {
+  new: 'New',
+  in_progress: 'In Progress',
+  on_hold: 'On Hold',
+  completed: 'Completed',
+  dispatched: 'Dispatched',
+  cancelled: 'Cancelled',
+  repeat: 'Repeat',
+  repeat_changed: 'Repeat with Changes',
+  proof: 'Proof',
+}
+
+export function jobStatusChip(j: JobKindFields): JobChip {
+  const base = JOB_STATUS_CONFIG[j.status as JobStatus] || JOB_STATUS_CONFIG.new
+  const state = jobDisplayState(j)
+  if (state === j.status) return base
+
+  if (state === 'proof') {
+    return { label: JOB_DISPLAY_LABEL.proof, color: base.color, dot: base.dot }
+  }
+  return state === 'repeat_changed'
+    ? {
+        label: JOB_DISPLAY_LABEL.repeat_changed,
+        color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)]',
+        dot: 'bg-[var(--color-warning)]',
+      }
+    : {
+        label: JOB_DISPLAY_LABEL.repeat,
+        color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_30%,transparent)]',
+        dot: 'bg-[var(--color-info)]',
+      }
+}
+
 export const JOB_PRIORITY_CONFIG: Record<JobPriority, { label: string; color: string }> = {
   low:    { label: 'Low',    color: 'text-[var(--color-text-muted)]' },
   normal: { label: 'Normal', color: 'text-[var(--color-text-secondary)]' },
