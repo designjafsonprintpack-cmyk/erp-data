@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **141**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **143**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -538,6 +538,7 @@ Rules that govern future work are in §4 and §5, not here.
 | 135 – 139 | **board demands** — har job ka board khud maanga jata hai (see §4); 136 delete guard; 137 backfill; 138 board type ka default vendor; 139 `sync_missing_board_demands()` |
 | 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
 | 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
+| 142 / 143 | repeat search sirf USI customer ke jobs mein, aur `no_of_colors` bhi wapas karta hai |
 
 **No-migration work, same rule — one line each:**
 
@@ -565,6 +566,10 @@ Rules that govern future work are in §4 and §5, not here.
   (200×125×70) and `24 Sp.` (200×130×73) match 1.00 and are different cartons,
   so **size is shown largest** and nothing auto-links. Die number is NOT a
   carton identity either — one die number carries 10 different products on live.
+  The picker is a **table cell in its own column** (after Unit Price), not a chip
+  under the description — hanging it under one column made that column two rows
+  tall and broke the whole grid's rhythm. Picking a carton fills the line's
+  description, L/W/H and colours, but **never overwrites a value already typed**.
 - **Copy specs from an old job** without making it a repeat, plus
   **`L x W x H` size search** shared by the Jobs list and all three New Job
   pickers, and the size shown on the list, the Kanban card and the export.

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/components/ui/Toast'
 import { MoneyGate } from '@/components/ui/MoneyGate'
-import RepeatPicker, { type RepeatLink } from '@/components/sales/RepeatPicker'
+import RepeatPicker, { type RepeatLink, type RepeatCandidate } from '@/components/sales/RepeatPicker'
 
 interface Customer { id: string; name: string; customer_code: string }
 interface BoardType { id: string; name: string }
@@ -17,6 +17,16 @@ interface LineItem {
   /** Kaun sa purana carton (141). null = naya carton. */
   repeat: RepeatLink | null
 }
+
+/**
+ * Line-items ka grid — header aur har row dono isi se bante hain.
+ *
+ * `grid-cols-[…]` ki jagah ye ek CLASS hai kyunke Tailwind source ko text ki
+ * tarah parhta hai; template se banaya hua grid kabhi build hi nahi hota.
+ * `minmax(0,…)` har column par lagta hai warna lamba naam column ko phaila
+ * kar poori row ka toazun bigaar deta hai.
+ */
+const GRID = 'grid gap-2 grid-cols-[1.75rem_minmax(0,3fr)_minmax(0,4rem)_minmax(0,4rem)_minmax(0,4rem)_minmax(0,5.5rem)_minmax(0,4rem)_minmax(0,6.5rem)_minmax(0,9rem)_minmax(0,6rem)_2rem]'
 
 const EMPTY_LINE: LineItem = { product_desc: '', size_l: '', size_w: '', size_h: '', quantity: '', no_of_colors: '4', unit_price: '', notes: '', repeat: null }
 
@@ -51,8 +61,40 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
 
   const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const setItem = (idx: number, k: string, v: string) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [k]: v } : it))
-  const setRepeat = (idx: number, v: RepeatLink | null) =>
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, repeat: v } : it))
+  /**
+   * Purana carton chunte hi line bhar jaati hai — description, L, W, H aur
+   * colours. Mehboob: *"job select kernay per description, L, W, H aur colors
+   * fill ho jaein."*
+   *
+   * Description usi carton ka ASAL naam le leti hai, wo aadha likha hua lafz
+   * nahi jo dhoondne ke liye type kiya tha ("mint" → "Al Safwa Mint 50g Inner
+   * & Outer"). Isi se aage chal kar job ka title banta hai aur Job Card par
+   * chhapta hai.
+   *
+   * Jo khana pehle se BHARA hua ho use haath nahi lagta: koi maqdaar ya rate
+   * likh chuka ho to wo us ka faisla hai. Sirf khali khane bharte hain.
+   */
+  const setRepeat = (idx: number, v: RepeatLink | null, c?: RepeatCandidate) =>
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it
+      if (!v || !c) return { ...it, repeat: null }
+      const keep = (cur: string, next: any) =>
+        cur.trim() !== '' ? cur : (next == null ? cur : String(Number(next)))
+      return {
+        ...it,
+        repeat: v,
+        product_desc: c.job_title || it.product_desc,
+        size_l: keep(it.size_l, c.size_l),
+        size_w: keep(it.size_w, c.size_w),
+        size_h: keep(it.size_h, c.size_h),
+        // Colours ka default '4' hai — us ka matlab "kisi ne socha nahi", is
+        // liye usay purane carton ki asal ginti se badal dena durust hai.
+        // Koi aur number likh chuka ho to wo us ka faisla hai.
+        no_of_colors: (it.no_of_colors === '' || it.no_of_colors === '4') && c.no_of_colors != null
+          ? String(c.no_of_colors)
+          : it.no_of_colors,
+      }
+    }))
 
   // Sirf wo lines jin par kuch likha hai — khali lines na repeat hain na new.
   const filled = items.filter(it => it.product_desc.trim())
@@ -65,6 +107,7 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
   const discountAmt = subtotal * (parseFloat(form.discount_percent || '0') / 100)
   const total = subtotal - discountAmt
 
+  const NUMCELL = 'h-8 text-right tabular-nums'
   const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 
   const save = async () => {
@@ -170,49 +213,72 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         </div>
 
         {/* Column headers */}
-        <div className="grid gap-2 px-5 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider" style={{ gridTemplateColumns: '3fr 1fr 1fr 1fr 1.5fr 1fr 1.5fr 1.5fr auto' }}>
-          <div>Description</div><div>L (mm)</div><div>W (mm)</div><div>H (mm)</div><div>Qty</div><div>Colors</div><div>Unit Price</div><div className="text-right">Subtotal</div><div />
+        {/* Ek hi grid template header aur rows dono chalate hain — do jagah
+            likha jata to pehli tabdeeli par columns khisak jate. Numeric
+            columns dahine, taake adaad ek doosre ke neeche saf-bandi mein rahen. */}
+        <div className="overflow-x-auto">
+        <div className="min-w-[62rem]">
+        <div className={cn(GRID, 'px-5 py-2 bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_50%,transparent)] border-b border-[var(--color-border-subtle)] text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider')}>
+          <div />
+          <div>Description</div>
+          <div className="text-right">L</div>
+          <div className="text-right">W</div>
+          <div className="text-right">H</div>
+          <div className="text-right">Qty</div>
+          <div className="text-right">Colors</div>
+          <div className="text-right">Unit Price</div>
+          <div>Repeat of</div>
+          <div className="text-right">Subtotal</div>
+          <div />
         </div>
 
         <div className="divide-y divide-[var(--color-border-subtle)]">
           {items.map((item, idx) => {
             const lineTotal = parseFloat(item.quantity || '0') * parseFloat(item.unit_price || '0')
             return (
-              <div key={idx} className="grid gap-2 px-5 py-3 items-center" style={{ gridTemplateColumns: '3fr 1fr 1fr 1fr 1.5fr 1fr 1.5fr 1.5fr auto' }}>
-                {/* Description ka khana ab do satron ka hai: naam, aur us ke
-                    neeche "ye carton pehle chala hai?" ka jawab. Grid ke baqi
-                    columns waise hi rehte hain. */}
-                <div className="min-w-0 self-start">
-                  <input className={cn(inputCls, 'h-8')} value={item.product_desc} onChange={e => setItem(idx, 'product_desc', e.target.value)} placeholder={`Item ${idx + 1} description`} />
+              <div key={idx} className={cn(GRID, 'px-5 py-2.5 items-center transition-colors duration-150 hover:bg-[color:color-mix(in_srgb,var(--color-bg-elevated)_35%,transparent)]')}>
+                {/* Line ka number — "teesri line dekho" kehna mumkin ho jata hai. */}
+                <div className="text-xs tabular-nums text-[var(--color-text-muted)] text-right pr-1">{idx + 1}</div>
+                <input className={cn(inputCls, 'h-8')} value={item.product_desc}
+                  onChange={e => setItem(idx, 'product_desc', e.target.value)}
+                  placeholder={form.customer_id ? 'Customer ki PO se naam likhein…' : 'Pehle customer chunein'} />
+                <input type="number" className={cn(inputCls, NUMCELL)} value={item.size_l} onChange={e => setItem(idx, 'size_l', e.target.value)} placeholder="—" />
+                <input type="number" className={cn(inputCls, NUMCELL)} value={item.size_w} onChange={e => setItem(idx, 'size_w', e.target.value)} placeholder="—" />
+                <input type="number" className={cn(inputCls, NUMCELL)} value={item.size_h} onChange={e => setItem(idx, 'size_h', e.target.value)} placeholder="—" />
+                <input type="number" className={cn(inputCls, NUMCELL)} value={item.quantity} onChange={e => setItem(idx, 'quantity', e.target.value)} placeholder="0" />
+                <input type="number" min="1" max="8" className={cn(inputCls, NUMCELL)} value={item.no_of_colors} onChange={e => setItem(idx, 'no_of_colors', e.target.value)} placeholder="4" />
+                {/* Fixed gridTemplateColumns — both cells have to stay, so
+                    these mask rather than disappear. */}
+                <MoneyGate scope="sales">
+                  <input type="number" className={cn(inputCls, NUMCELL)} value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
+                </MoneyGate>
+                {/* "Repeat of" — Unit Price ke theek baad, apne column mein.
+                    Yahin se purana carton chunte hi description, L/W/H aur
+                    colours bhar jate hain. */}
+                <div className="min-w-0">
                   <RepeatPicker
                     query={item.product_desc}
                     customerId={form.customer_id}
                     value={item.repeat}
-                    onChange={v => setRepeat(idx, v)}
+                    onChange={(v, c) => setRepeat(idx, v, c)}
                     disabled={!form.customer_id}
                   />
                 </div>
-                <input type="number" className={cn(inputCls, 'h-8')} value={item.size_l} onChange={e => setItem(idx, 'size_l', e.target.value)} placeholder="Length" />
-                <input type="number" className={cn(inputCls, 'h-8')} value={item.size_w} onChange={e => setItem(idx, 'size_w', e.target.value)} placeholder="Width" />
-                <input type="number" className={cn(inputCls, 'h-8')} value={item.size_h} onChange={e => setItem(idx, 'size_h', e.target.value)} placeholder="Height" />
-                <input type="number" className={cn(inputCls, 'h-8')} value={item.quantity} onChange={e => setItem(idx, 'quantity', e.target.value)} placeholder="0" />
-                <input type="number" min="1" max="8" className={cn(inputCls, 'h-8')} value={item.no_of_colors} onChange={e => setItem(idx, 'no_of_colors', e.target.value)} placeholder="4" />
-                {/* Fixed gridTemplateColumns — both cells have to stay, so
-                    these mask rather than disappear. */}
-                <MoneyGate scope="sales">
-                  <input type="number" className={cn(inputCls, 'h-8')} value={item.unit_price} onChange={e => setItem(idx, 'unit_price', e.target.value)} placeholder="0.00" />
-                </MoneyGate>
                 <div className="h-8 flex items-center justify-end">
                   <MoneyGate scope="sales">
-                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-text-primary)]">{lineTotal.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </MoneyGate>
                 </div>
-                <button onClick={() => removeLine(idx)} disabled={items.length === 1} className="w-11 md:w-7 h-11 md:h-7 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 transition-colors">
+                <button onClick={() => removeLine(idx)} disabled={items.length === 1}
+                  aria-label={`Line ${idx + 1} hatao`}
+                  className="w-8 h-8 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] hover:text-[var(--color-danger)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors duration-150">
                   <Trash2 size={13} />
                 </button>
               </div>
             )
           })}
+        </div>
+        </div>
         </div>
 
         {/* Totals */}
