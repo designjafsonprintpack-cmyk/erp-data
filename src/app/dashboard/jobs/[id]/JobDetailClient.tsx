@@ -1200,12 +1200,28 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         </div>
       </Modal>
 
+      {/* "Kya is se baqi runs bhi mit jayenge?" — ye sawal is paighaam ki wajah se
+          poocha gaya tha, is liye jawab ab paighaam ke andar likha hai. Aur jawab
+          schema se aata hai, umeed se nahi: `jobs.parent_job_id` par ON DELETE
+          kuch nahi hai, aur us ka rukh repeat SE parent ki taraf hai — is liye ek
+          run mitane se parent ko haath tak nahi lagta, jabke parent ko mitane ki
+          koshish us ke apne runs ki wajah se ruk jati hai (409). */}
       <ConfirmDialog
         open={deleteModal}
         onClose={() => setDeleteModal(false)}
         onConfirm={deleteJob}
         title="Delete Job"
-        message={`Permanently delete job ${job.job_number} — "${job.job_title}"? This removes it from the database completely and cannot be undone.`}
+        message={
+          `Permanently delete job ${job.job_number} — "${job.job_title}"? `
+          + `This cannot be undone.\n\n`
+          + (runs.length > 1
+              ? `ONLY THIS RUN is deleted. The other ${runs.length - 1} run${runs.length > 2 ? 's' : ''} of this carton — `
+                + `${runs.filter(r => r.id !== job.id).map(r => r.job_number).join(', ')} — are not touched.\n\n`
+              : '')
+          + `Its own stages, plan entries and board demand go with it, and any board `
+          + `reserved for it returns to free stock. Anything downstream — an MRN, `
+          + `plates, a dispatch or an invoice — will block the delete instead.`
+        }
         confirmLabel="Delete Permanently"
         confirmVariant="danger"
         loading={deleting}

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/format'
 import { getIssuedGsm, formatIssuedGsm, hasGsmVariance } from '@/lib/utils/jobIssuedGsm'
 import { changeAspectPrintLabels } from '@/modules/jobs/constants/changeAspects'
-import { jobDisplayState, JOB_DISPLAY_LABEL } from '@/modules/jobs/types/job.types'
+import { jobDisplayState, jobKindBadge, JOB_DISPLAY_LABEL } from '@/modules/jobs/types/job.types'
 
 /** Same extension set as isPreviewable() in ArtworkThumb.tsx, duplicated
  *  because this page renders plain HTML/CSS (no Tailwind, no client
@@ -86,6 +86,12 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
   // has almost certainly run that one before.
   // Badge kya kahega — screen wali chip ke saath ek hi qaida se (job.types).
   const displayState = jobDisplayState(j as any)
+  // Kism ka apna badge — HAR dafa jab card nikle, chahe job shuru ho chuki ho.
+  // Kaghaz interactive nahi hota: card chhap kar floor par ghoomta rehta hai
+  // aur jo aadmi usay baad mein uthata hai usay bhi ye dikhna chahiye ke ye
+  // carton dobara chal raha hai. Dohrata nahi — jab job shuru nahi hui, upar
+  // wala badge khud kism bata raha hota hai.
+  const kindBadge = displayState === (j.status as string) ? jobKindBadge(j as any) : null
   const isChangedRepeat = j.repeat_kind === 'changed'
   const changedLabels = isChangedRepeat ? changeAspectPrintLabels(j.changed_aspects) : []
   let parentJobNumber: string | null = null
@@ -217,6 +223,11 @@ export default async function PrintJobCard({ params }: { params: { id: string } 
                 <div className="job-number">{j.job_number}</div>
                 <div style={{ marginTop: 4 }}>
                   <span className={`badge badge-${displayState}`}>{JOB_DISPLAY_LABEL[displayState].toUpperCase()}</span>
+                  {kindBadge && (
+                    <span className={`badge badge-${kindBadge}`} style={{ marginLeft: 6 }}>
+                      {JOB_DISPLAY_LABEL[kindBadge].toUpperCase()}
+                    </span>
+                  )}
                   {j.priority !== 'normal' && (
                     <span style={{ marginLeft: 6, fontWeight: 700, color: j.priority === 'urgent' ? '#cf222e' : '#9a6700' }}>
                       {j.priority?.toUpperCase()}

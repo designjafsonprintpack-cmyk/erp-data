@@ -90,6 +90,26 @@ export const JOB_DISPLAY_LABEL: Record<JobDisplayState, string> = {
   proof: 'Proof',
 }
 
+/**
+ * Job ka KISM, us ki halat se bilkul alag — `null` jab wo saada nayi job ho.
+ *
+ * `jobDisplayState` sirf tab kism dikhati hai jab job shuru na hui ho, kyunke
+ * screen par sab se zaroori sawal ye hota hai ke job KAHAN khari hai. Kaghaz par
+ * ye qaida nahi chalta: Job Card ek dafa chhap kar floor par ghoomta rehta hai,
+ * aur jo aadmi use teesre din uthata hai usay ye bhi maloom hona chahiye ke ye
+ * carton DOBARA chal raha hai. Mehboob: *"R2 se pata to lagta hai ke repeat
+ * hai, par likha ho to sab ki nazar mein ho ga … job start hone se pehle aur
+ * baad, jab bhi print card nikle tab bhi ho."*
+ *
+ * Is liye Job Card halat AUR kism dono chhapta hai. Dohrata nahi: jab job abhi
+ * shuru nahi hui, pehla badge khud kism bata raha hota hai.
+ */
+export function jobKindBadge(j: JobKindFields): 'repeat' | 'repeat_changed' | 'proof' | null {
+  if (j.job_kind === 'proofing') return 'proof'
+  if (!j.is_repeat) return null
+  return j.repeat_kind === 'changed' ? 'repeat_changed' : 'repeat'
+}
+
 export function jobStatusChip(j: JobKindFields): JobChip {
   const base = JOB_STATUS_CONFIG[j.status as JobStatus] || JOB_STATUS_CONFIG.new
   const state = jobDisplayState(j)

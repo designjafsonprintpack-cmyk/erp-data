@@ -150,7 +150,10 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
         </>
       }
     >
-      <p className="text-sm text-[var(--color-text-secondary)]">{message}</p>
+      {/* whitespace-pre-line: ek paighaam ab kai paragraph ka ho sakta hai
+          (job delete wala batata hai ke kya jayega aur kya nahi). Mojooda saare
+          paighaam ek hi satr ke hain, is liye kisi ki shakl nahi badalti. */}
+      <p className="text-sm text-[var(--color-text-secondary)] whitespace-pre-line">{message}</p>
     </Modal>
   )
 }
