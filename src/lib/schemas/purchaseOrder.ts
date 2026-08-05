@@ -33,6 +33,12 @@ const poLineItemSchema = z.object({
    * several jobs. Carried onto the stock ledger and the lot at receipt.
    */
   job_id: z.string().uuid().optional().nullable(),
+  /**
+   * Kaunsi board demand ye line poori kar rahi hai (135). Ye set ho to PO bante
+   * hi us demand ka `sheets_ordered` barh jata hai aur maal aane par wo khud
+   * 'ready' ho jati hai. Null = koi demand nahi, saada khareed.
+   */
+  demand_id: z.string().uuid().optional().nullable(),
 })
 
 export const createPurchaseOrderSchema = z.object({

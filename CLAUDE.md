@@ -86,7 +86,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **134**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **139**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -160,6 +160,24 @@ broke, why this fixes it, and how to undo it.
   that existed unread since day one) now drives the shape, so INV/PO/QT/SO/
   DISP/MRN/CUST/VND/GANG are byte-identical to before. JOB's counter is a
   single row keyed `year = 0`.
+- **Board stock ek TARGET nahi, bacha hua maal hai.** Mehboob: *"hum board alag
+  store nhi kerty, job k hisab sy board oder kerty hain … stock main wo board
+  hota hy jo rah jaey … lakin ager client forcast dy dy to hum us board stock
+  main mangwa ker rakh b lyty hain."* So the default is that EVERY job's board
+  must be bought; stock is only checked to buy LESS. `board_demands` (135) is
+  created automatically on job create / repeat / proof / QC reprint, matches
+  **gsm + sheet size** (board type is a preference, not a filter — 24 of 51
+  stock rows carry no `board_type_id`), reserves what it finds in
+  `reserved_stock`, and sends the rest to Purchase → **To Buy**.
+  Four numbers, one sum: `required = from_stock + ordered + to_purchase`.
+  Status `open → partially_ordered → ordered → ready`; **there is no 'received'**
+  — received board lands in stock and is immediately reserved, i.e. `ready`.
+  Job cancelled → reservation returns to free stock. Gang → the demand belongs
+  to the LEAD job for the whole run, exactly like the MRN.
+  Vendor is a property of the board TYPE, not the size
+  (`board_types.default_vendor_id`, 138) — and it is only a default, because
+  *"ager nhi mil raha to bleach waly sy b board ka dosera brand mangwa sakty
+  hain."*
 - Doc prefixes: `JOB- DISP- PO- INV- QT- SO- CUST- VND- MRN-`
 - Roles: superadmin, admin, owner, ceo, gm, sales, artwork, planning, store,
   printing, dispatch, **plates, qc, purchase, accounts** (last four added in 105).
@@ -359,6 +377,26 @@ deliberately left empty. Never read from it.
   stage's auto-start fired on `waiting_customer_approval`; once uploads landed on
   `approved` that status could never occur, so nothing started the stage and nothing
   errored. Same for its "Move to…" menu, which then offered no route to `approved`.
+- **A backfill only covers the rows that existed when it ran.** 137 gave the 10
+  open jobs a board demand; a job raised on live an hour later — before the code
+  was deployed — had none, and nothing said so. Same class as the artwork
+  statuses 128 had to clean up. The permanent answer is
+  `sync_missing_board_demands()` (139), which the Purchase page and its API run
+  on every open, so a job with no demand is caught at the next look rather than
+  at the press. It skips gang members on purpose — their board is the lead's.
+- **A PO's quantity is PACKETS; every board number elsewhere is SHEETS.** The old
+  MRP page's "Create PO" sent the shortfall in sheets straight into a packet
+  column — a 100× order — and never set `board_item_id`, so its goods could
+  never credit stock. That page is deleted (135). The conversion now lives in
+  exactly one place, `decorateDemands()`.
+- **`purchase_order_items.quantity_received` used to be SET, not added**, while
+  the stock credit beside it treated the same number as a delta. The receive
+  modal pre-fills the REMAINING quantity, so a PO received in two goes ended up
+  recording less than arrived and stuck on "Partially Received" forever. Both
+  are deltas now.
+- **Cancelling or deleting a PO must release its demand's `sheets_ordered`**, or
+  that board reads as "on order" forever and never returns to the To Buy list.
+  `releaseDemandsOfPo()` in `purchase-orders/[id]`.
 - JWT: the claim is `app_role`, never `role` (reserved). The hook needs
   `SECURITY DEFINER`.
 - Sidebar width 170px is set in **two** places — `src/styles/themes/index.css`
@@ -476,6 +514,7 @@ Rules that govern future work are in §4 and §5, not here.
 | 132 | `get_job_family()` — every RUN of one carton, from any member; feeds Job Detail's Runs tab |
 | 133 | renumbered the 5 repeats to `PARENT-R2` and dropped " (Repeat 2)" from their titles |
 | 134 | **the year left the job number** — 488 jobs renumbered to one series `JOB-00001…00483`; only JOB, via `prefix_format` |
+| 135 – 139 | **board demands** — har job ka board khud maanga jata hai (see §4); 136 delete guard; 137 backfill; 138 board type ka default vendor; 139 `sync_missing_board_demands()` |
 
 **No-migration work, same rule — one line each:**
 
@@ -505,12 +544,28 @@ Rules that govern future work are in §4 and §5, not here.
   The ERP's July report will not match the Excel; July happened outside the
   system. The load user is kept, renamed "Opening Stock Load (system)", because
   the ledger references it.
+- **Store & Purchase rebuilt around board demands** — Purchase is now two tabs,
+  **To Buy** (every job's outstanding board, ticked → one PO per vendor, stock
+  item created if missing, sheets→packets converted, rate pre-filled from the
+  last purchase) and **Purchase Orders**. Job Detail carries a board line.
+  Board Stock shows reserved / free. **MRP is deleted** — its page, its API and
+  its nav entry; see §5 for the three separate ways its Create PO was wrong.
 - **The whole workflow has been walked end to end through the real routes** more
   than once — creation → artwork gate → auto-MRN → plate block → printing → QC
   gate → dispatch → close, gang runs, plans, POs and receipts. §8 is how.
 
 
 ### Open threads
+- **`board_types.default_vendor_id` has no Settings UI.** 138 filled the three
+  types that hold stock, and `create-po` writes it back the first time a type is
+  actually bought — so it fills itself. But a type nobody has bought yet cannot
+  be given a vendor by hand; `settings/materials`' TypeManager only renders text
+  and number inputs, and a vendor `<select>` needs a new field type there.
+- **`board_inventory.reorder_level` and `/api/v1/board-inventory/reorder-suggestions`
+  now contradict §4.** Reorder levels assume you restock to a target; this shop
+  buys per job. The column still drives `checkLowStock`'s notification and the
+  Board Stock colour, and the suggestions route has no UI at all. Left alone —
+  retiring them is its own decision.
 - **The other three cron routes stand open when `CRON_SECRET` is unset.** They
   compare the header against `` `Bearer ${process.env.CRON_SECRET}` `` directly,
   so on a deployment missing the variable the literal string

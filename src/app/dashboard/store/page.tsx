@@ -27,7 +27,10 @@ export default async function StorePage() {
     supabase.from('units' as any).select('id,name,symbol')
       .eq('company_id', companyId).is('deleted_at', null).eq('is_active', true).order('name'),
     supabase.from('board_inventory' as any)
-      .select('id,description,current_stock,unit_id,gsm,board_type_id').eq('company_id', companyId)
+      // reserved_stock (135) — issue karte waqt yehi asal sawal hai: kitna
+      // KHALI hai. Sirf current_stock dikhana ek job ka reserve kiya hua board
+      // doosri job ko issue kar dene ka seedha raasta hai.
+      .select('id,description,current_stock,reserved_stock,unit_id,gsm,board_type_id').eq('company_id', companyId)
       .is('deleted_at', null).eq('is_active', true).order('description'),
   ])
 

@@ -17,6 +17,7 @@ import { gangSchema } from '@/lib/schemas/gang'
 import { gangScenario, type GangMemberInput } from '@/lib/utils/gangCalc'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
+import { syncGangBoardDemands } from '@/lib/utils/boardDemand'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -247,6 +248,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
       actor_id: userTableId,
     }, supabase)
   }
+
+  // Gang ban gaya: board ab poori run ke liye ek hi dafa nikalta hai (126), lead
+  // job ke naam — bilkul MRN ki tarah. Har member ki apni demand, jo job banate
+  // waqt bani thi, ab ghalat hai: do members alag alag maangte to 4,000 sheets
+  // 8,000 ho jatin. syncBoardDemand khud lead pehchan kar members ki demand
+  // cancel kar deta hai aur unki reservation stock ko wapas.
+  // Har member ki quantity bhi abhi badli hai (SO ke sath), is liye ye qatar
+  // gang banne ke baad chalti hai, pehle nahi.
+  await syncGangBoardDemands(supabase, companyId, jobIds, userTableId)
 
   return NextResponse.json({ data: gang, scenario, warnings })
 })

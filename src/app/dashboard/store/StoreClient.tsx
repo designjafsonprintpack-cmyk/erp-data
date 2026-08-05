@@ -16,7 +16,7 @@ interface MRNItem { id: string; material_name: string; material_type: string | n
 interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string; gsm?: number | null } | null; material_requisition_items?: MRNItem[] }
 interface Job { id: string; job_number: string; job_title: string }
 interface Unit { id: string; name: string; symbol: string }
-interface BoardInventoryItem { id: string; description: string; current_stock: number; unit_id: string | null; gsm?: number | null; board_type_id?: string | null }
+interface BoardInventoryItem { id: string; description: string; current_stock: number; reserved_stock?: number; unit_id: string | null; gsm?: number | null; board_type_id?: string | null }
 
 const STATUS_CFG = {
   pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
@@ -470,11 +470,18 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
                   value={selectedBoardId}
                   onChange={e => setIssueBoardLinks(prev => ({ ...prev, [item.id]: e.target.value }))}>
                   <option value="">Not tracked in inventory</option>
-                  {boardInventory.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.description}{b.gsm ? ` — ${b.gsm} gsm` : ''} ({b.current_stock} in stock)
-                    </option>
-                  ))}
+                  {boardInventory.map(b => {
+                    // KHALI stock, kul stock nahi. Har job ka board ab uske naam
+                    // reserve hota hai (135), is liye "1,79,500 pari hain" aur
+                    // "79,500 le sakte ho" do alag baaten hain — aur pehli wali
+                    // dikhana doosri job ka board issue karwa deta hai.
+                    const free = Math.max(0, Number(b.current_stock) - Number(b.reserved_stock ?? 0))
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.description}{b.gsm ? ` — ${b.gsm} gsm` : ''} ({free.toLocaleString()} free)
+                      </option>
+                    )
+                  })}
                 </select>
                 <input type="number"
                   className="w-full md:w-24 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"

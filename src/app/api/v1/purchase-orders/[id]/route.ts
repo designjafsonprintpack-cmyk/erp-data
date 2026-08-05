@@ -58,7 +58,7 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     // what the vendor charged is a recorded fact, and letting a receive call
     // restate the price would make the cost forgeable (118).
     const { data: lineRows, error: lineErr } = await supabase.from('purchase_order_items' as any)
-      .select('id, job_id, board_item_id, rate_basis, unit_price')
+      .select('id, job_id, board_item_id, rate_basis, unit_price, quantity_received, demand_id')
       .eq('po_id', params.id)
       .eq('company_id', companyId)
     if (lineErr) return NextResponse.json({ error: lineErr.message }, { status: 500 })
@@ -74,11 +74,18 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
       // PACKETS — the PO document's unit, and what the store counts. A
       // fractional value is real: 44.68 = 44 packets + 68 loose sheets.
       const packetsReceived = parseFloat(String(item.quantity_received ?? '0'))
-      await supabase.from('purchase_order_items' as any)
-        .update({ quantity_received: packetsReceived }).eq('id', item.id).eq('company_id', companyId)
-
       const line = lineById.get(item.id)
       const boardItemId = line?.board_item_id ?? null
+
+      // JAMA, na ke barabar. Modal baqi maanda maqdaar bharta hai ("Ordered 30,
+      // previously received 10" → 20), aur stock ka credit neeche pehle se isay
+      // DELTA hi samajhta hai. Ye line usay ABSOLUTE likh rahi thi, is liye 30
+      // ki PO do qiston mein aane par quantity_received 30 ke bajaye 20 par ruk
+      // jati — stock durust, PO hamesha ke liye "Partially Received", aur
+      // three-way match uska peecha karta rehta. Dono ab delta hain.
+      await supabase.from('purchase_order_items' as any)
+        .update({ quantity_received: Number(line?.quantity_received ?? 0) + packetsReceived })
+        .eq('id', item.id).eq('company_id', companyId)
 
       // If the line is linked to a board stock item, credit stock — in SHEETS.
       if (boardItemId && packetsReceived > 0) {
@@ -173,6 +180,25 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             console.error('[PO receive] lot insert failed', lotErr)
             warnings.push(`Lot record for ${poNumber} failed: ${lotErr.message}`)
           }
+
+          // Maal aa gaya: demand ka 'ordered' utna kam, 'received' utna zyada,
+          // aur wapas resolve — jo sheets abhi abhi current_stock mein aayi hain
+          // wo isi job ke naam reserve ho jati hain, warna doosri koi demand
+          // unhein utha le jati. Isi liye 'received' koi alag status nahi:
+          // maal aana matlab demand 'ready'.
+          if (line?.demand_id) {
+            const { error: demErr } = await (supabase as any).rpc('apply_po_to_demand', {
+              p_company_id:     companyId,
+              p_demand_id:      line.demand_id,
+              p_ordered_delta:  0,
+              p_received_delta: sheetsReceived,
+              p_board_item_id:  boardItemId,
+            })
+            if (demErr) {
+              console.error('[PO receive] apply_po_to_demand failed', demErr)
+              warnings.push(`Stock received, but the board demand for ${poNumber} was not updated: ${demErr.message}`)
+            }
+          }
         }
       }
     }
@@ -194,6 +220,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const { data, error } = await supabase.from('purchase_orders' as any)
     .update(body).eq('id', params.id).eq('company_id', companyId).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // PO cancel hui to jo board is par "on order" tha wo demand par wapas
+  // "khareedna baqi" ban jana chahiye — warna demand hamesha ke liye 'ordered'
+  // par atki rehti hai aur To Buy list mein kabhi laut kar nahi aati, yani wo
+  // board kabhi khareeda hi nahi jata aur kisi ko pata bhi nahi chalta.
+  if (body.status === 'cancelled') await releaseDemandsOfPo(supabase, companyId, params.id)
+
   return NextResponse.json({ data })
 })
 
@@ -206,5 +239,37 @@ export const DELETE = withErrorHandling(async function DELETE(_: NextRequest, { 
   const { error } = await supabase.from('purchase_orders' as any)
     .update({ deleted_at: new Date().toISOString(), is_active: false }).eq('id', params.id).eq('company_id', companyId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Cancel ki tarah — mita hua PO bhi demand ko "on order" par nahi chhor sakta.
+  await releaseDemandsOfPo(supabase, companyId, params.id)
+
   return NextResponse.json({ success: true })
 })
+
+/**
+ * Is PO ki har line ka "on order" hissa uski demand se wapas le lo.
+ *
+ * Jo maal PEHLE HI AA CHUKA hai wo chhera nahi jata: `sheets_ordered` receive ke
+ * waqt hi ghata diya jata hai aur wo sheets ab `sheets_from_stock` mein reserve
+ * hain. Yani sirf wo hissa wapas jata hai jo abhi raaste mein tha.
+ */
+async function releaseDemandsOfPo(supabase: any, companyId: string, poId: string) {
+  const { data: lines } = await supabase.from('purchase_order_items' as any)
+    .select('demand_id, quantity, quantity_received, board_inventory(sheets_per_packet)')
+    .eq('po_id', poId).eq('company_id', companyId)
+
+  for (const l of ((lines ?? []) as any[])) {
+    if (!l.demand_id) continue
+    const perPacket = Number(l.board_inventory?.sheets_per_packet ?? 100) || 100
+    const outstanding = (Number(l.quantity ?? 0) - Number(l.quantity_received ?? 0)) * perPacket
+    if (!(outstanding > 0)) continue
+    const { error } = await supabase.rpc('apply_po_to_demand', {
+      p_company_id:     companyId,
+      p_demand_id:      l.demand_id,
+      p_ordered_delta:  -outstanding,
+      p_received_delta: 0,
+      p_board_item_id:  null,
+    })
+    if (error) console.error('[PO cancel] apply_po_to_demand failed', error)
+  }
+}

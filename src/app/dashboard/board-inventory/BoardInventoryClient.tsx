@@ -180,6 +180,17 @@ const INV_COLUMNS = (
             {isLow && !isOut && <AlertTriangle size={11} className="text-[var(--color-warning)] inline ml-1" />}
           </span>
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{i.current_stock.toLocaleString()} sht</span>
+          {/* Reserved (135) — ye sheets kisi job ke naam lag chuki hain. Iske
+              bagair ye page jhoot bolta hai: 1,79,500 pari hain magar khali
+              79,500 hain, aur doosri job ka board issue kar dena aasan hai. */}
+          {Number(i.reserved_stock) > 0 && (
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              <span className="text-[var(--color-warning)]">{Number(i.reserved_stock).toLocaleString()}</span> reserved ·{' '}
+              <span className="text-[var(--color-text-secondary)] font-medium">
+                {Math.max(0, i.current_stock - Number(i.reserved_stock)).toLocaleString()}
+              </span> free
+            </span>
+          )}
           {isOut && <span className="text-xs text-[var(--color-danger)]">OUT</span>}
         </span>
       )

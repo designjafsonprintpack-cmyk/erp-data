@@ -7,6 +7,7 @@ import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/j
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { proofCreateSchema, proofVerdictSchema } from '@/lib/schemas/jobActions'
+import { syncBoardDemand } from '@/lib/utils/boardDemand'
 
 /**
  * Press proofing — migration 104.
@@ -154,6 +155,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   // Board Issue → Printing only. A proof never goes to die cutting, packing,
   // QC or dispatch, so it must not carry the parent's full template.
   await initializeJobWorkflow(proof.id, (tpl as any).id, companyId, supabase)
+
+  // Ek proof bhi asli press par asli board khaata hai — 100/200/500 sheets. Uska
+  // apna demand banta hai (uska sheet_qty hi sheet count hai, quantity 0), warna
+  // wo board kisi khate mein aata hi nahi aur Store ko iska pata Board Issue par
+  // chalta.
+  await syncBoardDemand(supabase, companyId, proof.id, userTableId)
 
   await recordJobEvent({
     company_id: companyId, job_id: proof.id,

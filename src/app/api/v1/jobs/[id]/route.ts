@@ -6,6 +6,8 @@ import { recordJobEvent, applyWorkflowTemplateOnEdit } from '@/modules/jobs/serv
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobUpdateSchema } from '@/lib/schemas/job'
+import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { syncBoardDemand, releaseBoardDemand, touchesBoardSpec } from '@/lib/utils/boardDemand'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -86,6 +88,19 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
     .update(updateData).eq('id', params.id).eq('company_id', companyId).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Board demand ko job ke sath rakho. Sirf tab chalti hai jab wo cheez badli
+  // ho jis se board ki zaroorat badalti hai — board type / paper type / gsm /
+  // sheet size / sheet_qty — ya job cancel hui ho ya cancel se wapas aayi ho.
+  // Baqi har edit (title, priority, tareekh) demand ko chhuti hi nahi.
+  const wasCancelled = (current as any)?.status === 'cancelled'
+  const nowCancelled = ((data as any)?.status ?? (current as any)?.status) === 'cancelled'
+  if (nowCancelled && !wasCancelled) {
+    // Mehboob: "job cancel ho gaya to us ka board stock mein aa gaya."
+    await releaseBoardDemand(supabase, companyId, params.id, await getUserTableId(user, supabase))
+  } else if (!nowCancelled && (touchesBoardSpec(updateData) || wasCancelled)) {
+    await syncBoardDemand(supabase, companyId, params.id, await getUserTableId(user, supabase))
+  }
 
   // Record status change
   if (body.status && current && body.status !== (current as any).status) {

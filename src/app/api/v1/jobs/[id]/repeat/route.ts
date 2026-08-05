@@ -10,6 +10,7 @@ import { nextRunNumber } from '@/lib/utils/jobRunNumber'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { jobRepeatSchema } from '@/lib/schemas/jobActions'
+import { syncBoardDemand } from '@/lib/utils/boardDemand'
 
 export const POST = withErrorHandling(async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -118,6 +119,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
   if (repeatTemplateId) {
     await initializeJobWorkflow(newJobData.id, repeatTemplateId, companyId, supabase)
   }
+
+  // Ek repeat naya RUN hai (§4) — plate aur artwork bhale purane ho, board naya
+  // chahiye. Demand yahin ban jati hai, warna repeat ka board Board Issue tak
+  // kisi ko nazar hi nahi aata.
+  await syncBoardDemand(supabase, companyId, newJobData.id, userTableId)
 
   // ─── Carry the original's artwork onto the repeat ───────────────────────────
   // The checkbox says "same artwork, no new artwork needed" and it used to write

@@ -13,6 +13,7 @@ import { getUserTableId } from '@/lib/utils/getUserTableId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { recordJobEvent } from '@/modules/jobs/services/jobEventService'
+import { syncGangBoardDemands } from '@/lib/utils/boardDemand'
 
 export const GET = withErrorHandling(async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -133,6 +134,12 @@ export const DELETE = withErrorHandling(async function DELETE(req: NextRequest, 
     .update({ deleted_at: now, is_active: false, status: 'cancelled', updated_by: userTableId })
     .eq('id', params.id).eq('company_id', companyId)
   if (dErr) return NextResponse.json({ error: dErr.message }, { status: 500 })
+
+  // Gang toot gaya: har job wapas apna apna board maangti hai. Membership rows
+  // upar soft-delete ho chuki hain, is liye loadGangContext ab null deta hai aur
+  // har member ki apni demand dobara ban jati hai — lead ki run-bhar wali demand
+  // apne aap uski akeli job ke sheet_qty par aa jati hai.
+  await syncGangBoardDemands(supabase, companyId, jobIds, userTableId)
 
   return NextResponse.json({ success: true, restored: members.length, warnings })
 })

@@ -68,6 +68,20 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
         await checkLowStockAndNotify(supabase, companyId, boardItemId, stockAfter)
 
+        // Board ab floor par ja chuka hai, is liye jo is job ke naam RESERVE tha
+        // wo bhi khatam. current_stock upar ghata; reserved_stock yahan. Ye na
+        // hota to sheets stock se nikal jatin magar reserve mein baithi rehtin
+        // aur available dheere dheere har row par jhoota kam hota chala jata.
+        // Gang ki MRN lead job ke naam hai (126) aur demand bhi lead ke naam —
+        // dono ek hi job par milte hain, is liye alag se kuch nahi karna parta.
+        const { error: resErr } = await (supabase as any).rpc('consume_board_reservation', {
+          p_company_id:    companyId,
+          p_board_item_id: boardItemId,
+          p_job_id:        jobId,
+          p_sheets:        delta,
+        })
+        if (resErr) console.error('[Store issue] consume_board_reservation failed', resErr)
+
         await supabase.from('board_inventory_movements' as any).insert({
           company_id:     companyId,
           board_item_id:  boardItemId,

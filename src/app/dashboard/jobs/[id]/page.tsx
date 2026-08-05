@@ -3,6 +3,7 @@ import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { notFound } from 'next/navigation'
 import JobDetailClient from './JobDetailClient'
 import { getIssuedGsm } from '@/lib/utils/jobIssuedGsm'
+import { loadJobBoardDemand } from '@/lib/utils/loadJobBoardDemand'
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient()
@@ -71,6 +72,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     .rpc('get_job_family', { p_company_id: companyId, p_job_id: params.id })
   if (familyErr) console.error('[job detail] family lookup failed:', familyErr.message)
 
+  // Is job ka board (135) — kitna chahiye, kitna stock se mil gaya, kitna PO par
+  // hai aur kitna abhi khareedna baqi hai. Gang mein board lead job ke naam
+  // nikalta hai, is liye ye khud wahan tak jata hai.
+  const boardDemand = await loadJobBoardDemand(supabase, companyId, params.id)
+
   return (
     <JobDetailClient
       job={jobRes.data as any}
@@ -86,6 +92,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       inkEntries={(inkRes.data ?? []) as any[]}
       issuedGsm={issuedGsm}
       runs={(familyRows ?? []) as any[]}
+      boardDemand={boardDemand}
     />
   )
 }

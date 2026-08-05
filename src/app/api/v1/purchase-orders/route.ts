@@ -7,8 +7,9 @@ import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { createPurchaseOrderSchema } from '@/lib/schemas/purchaseOrder'
-// Board is bought by the kilo — the same weight formula the estimator uses.
-import { sheetWeightKg } from '@/lib/costing/sheetWeight'
+// PO banane ka poora amal ab yahan hai — Demands se banne wala PO bhi wahi
+// chalata hai, taake rate-basis, supplier ledger aur demand link kabhi alag na hon.
+import { createPurchaseOrder } from '@/lib/services/purchaseOrderCreate'
 import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
@@ -61,127 +62,8 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if ('error' in parsed) return parsed.error
   const { items, ...body } = parsed.data
 
-  const { data: poNumber } = await (supabase as any).rpc('get_next_sequence_number', {
-    p_company_id: companyId, p_document_type: 'PO',
-  })
+  const result = await createPurchaseOrder(supabase as any, companyId, userTableId, body, items as any)
+  if (result.error) return NextResponse.json({ error: result.error }, { status: result.status ?? 500 })
 
-  // A per-kg line is priced on WEIGHT, and weight comes from the linked stock
-  // item's sheet size and GSM — so those have to be read from the database.
-  // Pricing stays server-side: the client shows the same figure, but what gets
-  // stored is never taken from the request.
-  const kgBoardIds = Array.from(new Set(((items || []) as any[])
-    .filter(i => i.rate_basis === 'kg' && i.board_item_id)
-    .map(i => i.board_item_id as string)))
-  const boardById = new Map<string, any>()
-  if (kgBoardIds.length) {
-    const { data: boards, error: boardErr } = await supabase.from('board_inventory' as any)
-      .select('id, description, sheet_width_in, sheet_height_in, gsm, sheets_per_packet')
-      .eq('company_id', companyId).in('id', kgBoardIds)
-    if (boardErr) return NextResponse.json({ error: boardErr.message }, { status: 500 })
-    for (const b of (boards ?? []) as any[]) boardById.set(b.id, b)
-  }
-
-  // Compute totals from items
-  const lineItems = (items || []).map((item: any, idx: number) => {
-    const qtyPackets = parseFloat(String(item.quantity ?? '0'))
-    const rate = parseFloat(String(item.unit_price ?? '0'))
-    let subtotal: number
-    if (item.rate_basis === 'kg') {
-      const b = item.board_item_id ? boardById.get(item.board_item_id) : null
-      // Same formula the estimator costs board with (118), so a PO total and a
-      // quotation's board cost are comparable on the same board.
-      const kgPerSheet = b ? sheetWeightKg(Number(b.sheet_width_in ?? 0), Number(b.sheet_height_in ?? 0), Number(b.gsm ?? 0)) : 0
-      subtotal = kgPerSheet * qtyPackets * Number(b?.sheets_per_packet ?? 100) * rate
-    } else {
-      subtotal = qtyPackets * rate
-    }
-    return { ...item, line_no: idx + 1, sort_order: idx + 1, subtotal }
-  })
-
-  // A per-kg line whose board can't be weighed would silently total zero, and
-  // a purchase order that understates what is owed is worse than a refusal.
-  const unweighable = lineItems.find((l: any) =>
-    l.rate_basis === 'kg' && parseFloat(String(l.unit_price ?? '0')) > 0 && l.subtotal <= 0)
-  if (unweighable) {
-    return NextResponse.json({
-      error: `"${unweighable.description || 'A line'}" is priced per kg, but its weight cannot be worked out — link it to a board stock item that has a sheet size and a GSM, or price the line per packet.`,
-    }, { status: 400 })
-  }
-  const subtotal = lineItems.reduce((s: number, i: any) => s + i.subtotal, 0)
-  const taxRate  = parseFloat(String(body.tax_rate ?? '0')) / 100
-  const taxAmt   = subtotal * taxRate
-
-  const { data: po, error } = await supabase.from('purchase_orders' as any).insert({
-    company_id:    companyId,
-    po_number:     poNumber,
-    vendor_id:     body.vendor_id,
-    order_date:    body.order_date || new Date().toISOString().slice(0, 10),
-    expected_date: body.expected_date || null,
-    notes:         body.notes || null,
-    terms:         body.terms || null,
-    subtotal,
-    tax_amount:    taxAmt,
-    total_amount:  subtotal + taxAmt,
-    status:        'draft',
-  }).select().single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const poRow = po as any
-
-  // Post the corresponding credit to the supplier ledger (PO increases AP).
-  //
-  // NOT `.catch()`. A Supabase query/rpc builder only `implements PromiseLike` —
-  // it has `then()` and NOTHING else, so `.rpc(…).catch(…)` throws
-  // "catch is not a function" SYNCHRONOUSLY, before the request is even sent,
-  // and withErrorHandling turns that into a 500. Creating a purchase order
-  // therefore failed 100% of the time, which is why purchase_orders sat at 0
-  // rows — not because nobody tried. Found by walking the real route.
-  // Errors are reported the way the builder actually reports them: in `error`.
-  const { error: ledgerErr } = await (supabase as any).rpc('record_supplier_ledger_entry', {
-    p_company_id: companyId,
-    p_vendor_id: body.vendor_id,
-    p_entry_type: 'purchase_order',
-    p_description: `PO ${poRow.po_number}`,
-    p_debit: 0,
-    p_credit: poRow.total_amount,
-    p_reference_type: 'purchase_order',
-    p_reference_id: poRow.id,
-    p_entry_date: poRow.order_date,
-    p_created_by: userTableId,
-  })
-  // Still non-blocking — a PO must not fail because the ledger hiccuped — but
-  // no longer silent, so a real failure is findable (108's precedent).
-  if (ledgerErr) console.error('[PO create] supplier ledger entry failed', ledgerErr)
-
-  if (lineItems.length) {
-    // The error IS checked now. It was not, so when the zod schema silently
-    // stripped `description` (a NOT NULL column) this insert failed and the
-    // route still returned 200 with a header-only PO. A purchase order with no
-    // lines is not a success.
-    const { error: itemsErr } = await supabase.from('purchase_order_items' as any).insert(
-      lineItems.map((item: any) => ({
-        company_id:  companyId,
-        po_id:       (po as any).id,
-        line_no:     item.line_no,
-        description: item.description,
-        specification: item.specification || null,
-        quantity:    parseFloat(item.quantity || '1'),
-        unit_id:     item.unit_id || null,
-        unit_price:  parseFloat(item.unit_price || '0'),
-        // What that rate is PER (118). Board comes per kg; 'packet' is the
-        // fallback because it reproduces the old quantity x rate arithmetic.
-        rate_basis:  item.rate_basis || 'packet',
-        subtotal:    item.subtotal,
-        board_item_id: item.board_item_id || null,
-        // Which job this line is being bought for (113). Blank means general
-        // stock, which is a legitimate purchase — not a missing field.
-        job_id:      item.job_id || null,
-        notes:       item.notes || null,
-        sort_order:  item.sort_order,
-      }))
-    )
-    if (itemsErr) return NextResponse.json({ error: `Purchase order lines could not be saved: ${itemsErr.message}` }, { status: 500 })
-  }
-
-  return NextResponse.json({ data: po })
+  return NextResponse.json({ data: result.po })
 })

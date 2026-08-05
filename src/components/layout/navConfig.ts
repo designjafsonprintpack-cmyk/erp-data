@@ -61,8 +61,6 @@ export function isNavLink(item: NavItem): item is NavLink {
  *
  * Module-key notes (verified against the migrations, not assumed):
  *  - `plates`  seeded by migration 042
- *  - `mrp`     has no permission module of its own; gated on `board_inventory`
- *              since it reads board demand vs stock
  *  - `scan`    has no permission module of its own; gated on `jobs` since every
  *              scan resolves to a job or dispatch record
  */
@@ -79,8 +77,15 @@ export const NAV_ITEMS: NavItem[] = [
   // a planning decision, and it sits beside Planning for the same reason.
   { label: 'Gang Runs',       shortLabel: 'Gangs',   href: '/dashboard/gangs',                    icon: Combine,         color: '#06b6d4', module: 'planning' },
   { label: 'Store (MRN)',     shortLabel: 'Store',   href: '/dashboard/store',                    icon: Warehouse,       color: '#84cc16', module: 'store' },
-  { label: 'Board Inventory', shortLabel: 'Board',   href: '/dashboard/board-inventory',          icon: Building2,       color: '#f97316', module: 'board_inventory' },
-  { label: 'MRP',                                    href: '/dashboard/mrp',                      icon: ClipboardList,   color: '#8b5cf6', module: 'board_inventory' },
+  { label: 'Board Stock',     shortLabel: 'Board',   href: '/dashboard/board-inventory',          icon: Building2,       color: '#f97316', module: 'board_inventory' },
+  // MRP hata diya gaya (135). Wo page board TYPE par demand jorta tha — GSM aur
+  // sheet size ke bagair — is liye "Bleach Board 40,000 short" se ye pata hi
+  // nahi chalta tha ke KYA khareedna hai; uska GSM column hamesha khali rehta
+  // tha kyunke wo `board_types.gsm` parhta tha jo jaan bujh ke khali hai; aur
+  // uska "Create PO" button PO line ko kisi stock item se jorta hi nahi tha, is
+  // liye us ka maal receive hone par stock mein KABHI add nahi hota tha — aur
+  // sheets ko packets ki jagah bhejta tha, yani 100 guna. Uski jagah Purchase
+  // ka "To Buy" tab hai, jo har job ki apni demand se banta hai.
   { label: 'Purchase',                               href: '/dashboard/purchase',                 icon: ShoppingCart,    color: '#eab308', module: 'purchase' },
   { label: 'Vendors',                                href: '/dashboard/vendors',                  icon: Users,           color: '#ef4444', module: 'vendors' },
   { label: 'Finance',                                href: '/dashboard/finance',                  icon: CreditCard,      color: '#ca8a04', module: 'finance' },
@@ -130,8 +135,7 @@ export function isNavLinkVisible(link: NavLink, canView: (module: string) => boo
  * sees ten rows instead of twenty-nine.
  *
  * Membership is keyed by HREF, not by module, because two links can share a
- * module (Board Inventory and MRP are both `board_inventory`; Jobs, My Queue
- * and Scan are all `jobs`) and they belong in different groups.
+ * module (Jobs, My Queue and Scan are all `jobs`) and they belong in different groups.
  */
 export interface NavSection {
   key: string
@@ -176,7 +180,6 @@ export const NAV_SECTIONS: NavSection[] = [
   { key: 'materials', label: 'Store & Purchase', hrefs: [
     '/dashboard/store',
     '/dashboard/board-inventory',
-    '/dashboard/mrp',
     '/dashboard/purchase',
     '/dashboard/vendors',
   ] },

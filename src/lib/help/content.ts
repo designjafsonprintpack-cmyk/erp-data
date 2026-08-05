@@ -821,8 +821,9 @@ export const ROLE_GUIDES: RoleGuide[] = [
     oneLiner: 'Kharidari — vendor, PO, aur maal aane par stock.',
     keyModules: ['purchase', 'vendors', 'board_inventory', 'store'],
     dailyFlow: [
-      { do: 'MRP ya Board Inventory se dekhein kis cheez ki kami hai.' },
-      { do: 'PO banayein — har line par board stock item aur job zaroor chunein.', why: 'Stock item ke baghair receive karne par stock mein kuch nahi barhega.' },
+      { do: 'Purchase → To Buy tab kholein — har job ka board khud yahan aa jaata hai.', why: 'Job banate hi demand khud banti hai: jo board stock mein para hai wo apne aap us job ke naam reserve ho jaata hai aur sirf baqi hissa yahan aata hai.' },
+      { do: 'Jo lein hain unhein tick karke Create PO dabayein.', why: 'Vendor board type se khud chun jaata hai, sheets khud packets mein badalte hain, aur stock item na ho to khud ban jaata hai — is liye maal aane par stock zaroor barhta hai.' },
+      { do: 'Rate dekh lein — pichhli khareed se pehle se bhara hota hai — aur PO draft se aage bhejein.' },
       { do: 'Rate ka basis theek chunein — board /kg, paper ream /pkt, service /unit.' },
       { do: 'Maal aane par Receive karein.' },
     ],
@@ -870,7 +871,7 @@ export const ROLE_GUIDES: RoleGuide[] = [
       { do: 'Board Inventory → Stock In se aaya hua maal chadhayein.', why: 'Quantity PACKETS mein likhein. Rate PER KG poocha jaata hai — form khud per-sheet cost bana kar item ka weighted average update karta hai, aur wahi cost job par lagti hai.' },
       { do: 'Store (MRN) se job ke liye board issue karein.', why: 'Board Issue stage shuru hote hi draft MRN khud ban jaata hai — naya banane ki zaroorat nahi. Issue kiye baghair wo stage complete nahi hoti.' },
       { do: 'Wapas aaya hua board Return to Store se chadhayein.', why: 'Wo alag column mein report hota hai, aur uska apna lot banta hai — warna FIFO ka hisaab bigad jaata hai.' },
-      { do: 'MRP dekhein — kis board ki kami hai.' },
+      { do: 'Purchase → To Buy dekhein — kis job ka kitna board khareedna baqi hai.', why: 'Yeh har job ki apni demand se banta hai, is liye ismein GSM aur sheet size dono hote hain — sirf board ka naam nahi.' },
       { do: 'Reports → Board Stock se mahine ka Opening / Received / Issued / Balance nikalein.', why: 'Purana mahina bhi jab chahein dobara nikal sakte hain — ledger 015 se mehfooz hai.' },
     ],
     cannot: [

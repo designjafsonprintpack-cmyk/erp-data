@@ -14,6 +14,7 @@ import { isPageOutOfRange, outOfRangeResponse } from '@/lib/utils/pagedResponse'
 import { findDuplicateJobs, duplicateJobResponse } from '@/lib/utils/duplicateJob'
 import { parseSizeQuery, applySizeFilter } from '@/lib/utils/parseSizeQuery'
 import { nextRunNumber } from '@/lib/utils/jobRunNumber'
+import { syncBoardDemand } from '@/lib/utils/boardDemand'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
@@ -215,6 +216,12 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
   if (workflowTemplateId) {
     await initializeJobWorkflow(jobData.id, workflowTemplateId, companyId, supabase)
   }
+
+  // Board ka faisla yahin ho jata hai, Printing par nahi. Demand khud banti
+  // hai, khud dekhti hai ke us exact board (gsm + sheet size) ka koi leftover
+  // para hai, utna reserve kar leti hai aur baqi Purchase ko bhej deti hai.
+  // Kabhi throw nahi karti — job ka save is par nahi ruk sakta.
+  await syncBoardDemand(supabase, companyId, jobData.id, await getUserTableId(user, supabase))
 
   // Record creation event
   await recordJobEvent({

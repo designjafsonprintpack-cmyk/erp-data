@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { recordJobEvent, initializeJobWorkflow } from '@/modules/jobs/services/jobEventService'
 import { resolveWorkflowTemplateId } from '@/lib/utils/resolveWorkflowTemplate'
 import { checkLowStockAndNotify } from '@/lib/utils/checkLowStock'
+import { syncBoardDemand } from '@/lib/utils/boardDemand'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
 import { parseBody } from '@/lib/utils/validate'
 import { reprintRequestUpdateSchema } from '@/lib/schemas/qc'
@@ -91,6 +92,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
 
     if (newJob && reprintTemplateId) {
       await initializeJobWorkflow((newJob as any).id, reprintTemplateId, companyId, supabase)
+    }
+
+    // Reprint ka board asli job ke board se alag nahi — magar wo board kharch
+    // ho chuka hai. Reprint ki apni demand banti hai, warna dobara chhapne ka
+    // board kisi khate mein aata hi nahi.
+    if (newJob) {
+      await syncBoardDemand(supabase, companyId, (newJob as any).id, userTableId)
     }
 
     const { data, error } = await supabase.from('reprint_requests' as any).update({

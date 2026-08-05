@@ -33,6 +33,7 @@ interface ArtworkVersion {
   status: string; is_production_ready: boolean; approved_at: string | null; created_at: string
 }
 import JobRunsPanel, { type JobRun } from './JobRunsPanel'
+import JobBoardLine, { type JobBoardDemand } from '@/components/jobs/JobBoardLine'
 
 interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
@@ -43,6 +44,8 @@ interface Props {
   /** Every run of this carton — this job plus its repeats (migration 132).
    *  Always at least one row: a job with no repeats is a family of itself. */
   runs: JobRun[]
+  /** Is job ka board — kitna chahiye, kahan se aa raha hai (135). */
+  boardDemand: JobBoardDemand | null
 }
 
 interface InkType { id: string; name: string; color_code: string | null }
@@ -89,7 +92,7 @@ function daysUrgency(required_date: string | null, status: JobStatus) {
   return null
 }
 
-export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, inkTypes, inkEntries, issuedGsm, runs }: Props) {
+export default function JobDetailClient({ job: initialJob, stages: initialStages, events: initialEvents, delayReasons, wastageReasons, machines, wastageEntries: initialWastage, companyId, artworks, inkTypes, inkEntries, issuedGsm, runs, boardDemand }: Props) {
   const gsmVariance = hasGsmVariance((initialJob as any).gsm, issuedGsm)
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
@@ -559,6 +562,11 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
       {/* ─── Tab: Overview ───────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:gap-5">
+          {/* Board (135) — sab se oopar, kyunke shop ka pehla sawal yahi hai:
+              "is job ka board hai ya nahi". Pehle iska jawab sirf Printing shuru
+              karte waqt milta tha, ek narm warning ki soorat mein. */}
+          <JobBoardLine demand={boardDemand} />
+
           {/* Gang run (126) — shown ABOVE the specs, because a ganged job's ups
               and quantity only make sense once you know it is sharing a sheet.
               Whoever opens this job otherwise sees 3 ups on an 8-up die and no
