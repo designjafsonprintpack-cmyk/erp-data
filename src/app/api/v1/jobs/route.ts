@@ -66,14 +66,18 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   // aur sirf tab jab wo run KHATAM ho chuka ho aur usi carton ka naya run
   // mojood ho. Chalta hua kaam kabhi nahi chhupta.
   //
-  // Do soorton mein sab kuch dikhta hai:
-  //   `runs=all`  — list ka apna toggle
-  //   koi bhi SEARCH — "JOB-00408" likh kar khali list milna ghalti lagti hai,
-  //                    halanke wo job maujood hoti hai. Dhoondo to har run mile.
+  // Saare run SIRF `runs=all` par — list ka apna "All runs" toggle.
+  //
+  // Pehle SEARCH ko bhi chhoot di gayi thi, is dalil par ke "JOB-00408" likh kar
+  // khali list milna ghalat lagega. Wo dalil ghalat thi: search `ilike` hai, to
+  // "JOB-00408" khud "JOB-00408-R2" se mel kha jata hai — khali list ka masla
+  // tha hi nahi. Us chhoot ka asal nateeja ye nikla ke jaise hi Mehboob ne
+  // carton ka naam dhoonda, wohi do rows wapas aa gaye jinhein hatane ke liye
+  // ye poora kaam hua tha. Ab dhoondne par bhi aik carton ka aik hi row.
+  //
   // §6 ka usool: filter query param hai, browser mein nahi — warna wo sirf
   // haath mein aaye page ko filter karta aur paging jhooti ho jati.
-  const showAllRuns = searchParams.get('runs') === 'all' || !!search
-  if (!showAllRuns) q = q.eq('is_superseded', false)
+  if (searchParams.get('runs') !== 'all') q = q.eq('is_superseded', false)
 
   const { data, error, count } = await q
     .order('created_at', { ascending: false })

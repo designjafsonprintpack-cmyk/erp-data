@@ -669,8 +669,12 @@ Rules that govern future work are in §4 and §5, not here.
   which showed `JOB-00408` and `JOB-00408-R2` as two jobs — Mehboob's own
   complaint twice over. Rows still stay separate (dispatch, invoice, MRN and
   costing all hang off a run), but a finished run with a newer run behind it
-  drops out of the list. Search and the **All runs** toggle show everything;
-  `runNoFromJobNumber()` prints the "Run 2" chip from the number alone.
+  drops out of the list — **including under search**, which was let through once
+  and immediately put the two rows back the moment he searched the carton by
+  name. Only the **All runs** toggle (`?runs=all`) shows every run; searching a
+  stem still finds the carton, because `ilike` matches `JOB-00408` inside
+  `JOB-00408-R2`. `runNoFromJobNumber()` prints the "Run 2" chip from the number
+  alone.
 - **Signatures sit on the bottom margin of every print page** — `.page` is a flex
   column and the signature/footer block takes `margin-top: auto`. Never
   `position: absolute; bottom`: that is out of flow, so a long invoice printed

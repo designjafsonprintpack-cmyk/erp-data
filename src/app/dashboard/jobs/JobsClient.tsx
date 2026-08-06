@@ -264,8 +264,8 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   // engine, and a blind bulk status write would bypass its gating.
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Aik carton ka aik row (144) — ye toggle purane, khatam-shuda run wapas
-  // list par le aata hai. Sirf browsing par lagta hai: search khud hi saare
-  // run dikha deta hai, warna poora number likh kar khali list milti.
+  // list par le aata hai. Search par bhi collapse lagta hai: carton ka naam
+  // dhoond kar dono rows dekh lena theek wohi shikayat thi jo hatani thi.
   const [allRuns, setAllRuns] = useState(false)
   const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSelected = jobs.length > 0 && jobs.every(j => selected.has(j.id))
