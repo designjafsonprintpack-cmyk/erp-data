@@ -16,7 +16,10 @@ const PAGE_SIZE = 50
 
 interface SO { id: string; so_number: string; status: string; total_amount: number; required_date: string | null; order_date: string; customers: { name: string; customer_code: string } | null }
 
-const STATUS_FILTERS = ['all', 'confirmed', 'in_production', 'completed', 'dispatched', 'cancelled']
+// 'draft' pehle yahan tha hi nahi, kyunki SO seedha confirmed paida hoti thi.
+// Ab wo draft mein banti hai (145), to us ka apna tab zaroori hai — warna
+// adhoori likhi hui SO sirf "all" mein milti aur bhoolna asaan rehta.
+const STATUS_FILTERS = ['all', 'draft', 'confirmed', 'in_production', 'completed', 'dispatched', 'cancelled']
 
 function isUrgent(so: SO): boolean {
   return Boolean(

@@ -16,6 +16,9 @@ export interface SalesOrder {
 }
 export type SOStatus = 'confirmed' | 'in_production' | 'completed' | 'dispatched' | 'cancelled'
 export const SO_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  // Draft = abhi likhi ja rahi hai (145). Jitni dafa chaho badlo — koi job nahi
+  // banti. Confirm dabate hi repeat lines ki jobs khud ban jati hain.
+  draft:         { label: 'Draft',         color: 'text-[var(--color-text-muted)] bg-[var(--color-bg-elevated)] border-[var(--color-border)]' },
   confirmed:     { label: 'Confirmed',     color: 'text-[var(--color-info)] bg-[color:color-mix(in_srgb,var(--color-info)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-info)_20%,transparent)]' },
   in_production: { label: 'In Production', color: 'text-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-warning)_20%,transparent)]' },
   completed:     { label: 'Completed',     color: 'text-[var(--color-success)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-success)_20%,transparent)]' },

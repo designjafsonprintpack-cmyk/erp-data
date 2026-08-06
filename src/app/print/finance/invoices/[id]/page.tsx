@@ -38,7 +38,9 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 11px; color: #1f2328; background: white; }
-          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; }
+          /* Flex column: pehle .footer position:absolute; bottom:14mm tha, jo
+             lambi invoice par content ke UPAR chha jata tha. Ab margin-top:auto. */
+          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; display: flex; flex-direction: column; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
           .logo { font-size: 22px; font-weight: 800; color: #0969da; }
           .logo-sub { font-size: 10px; color: #57606a; margin-top: 2px; }
@@ -68,9 +70,9 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           .pay-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
           .balance-box { margin-top: 8px; padding-top: 6px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
           .balance-due { color: ${inv.balance_due > 0 ? '#cf222e' : '#1a7f37'}; }
-          .footer { position: absolute; bottom: 14mm; left: 16mm; right: 16mm; border-top: 1px solid #d0d7de; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #57606a; }
+          .footer { margin-top: auto; padding-top: 8px; border-top: 1px solid #d0d7de; display: flex; justify-content: space-between; font-size: 9px; color: #57606a; }
           .terms-box { font-size: 9px; color: #57606a; margin-top: 14px; border-top: 1px solid #d0d7de; padding-top: 8px; }
-          @media print { .page { position: relative; } @page { size: A4; margin: 0; } }
+          @media print { @page { size: A4; margin: 0; } }
           /* On a phone screen the A4 sheet (210mm ≈ 794px) forces pinch-zoom.
              Reflow it to the screen for READING only — the printed output above
              is untouched. Tables keep their shape and scroll sideways. */
@@ -81,7 +83,7 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
         `}</style>
       </head>
       <body>
-        <div className="page" style={{ position: 'relative' }}>
+        <div className="page">
           {/* Header */}
           <div className="header">
             <div>
@@ -179,6 +181,14 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
             <span>Printed: {new Date().toLocaleString('en-PK')}</span>
           </div>
         </div>
+        {/* Print dialog khud khul jaye — Mehboob: *"jahan par bhi print ho,
+            print dialog open hona chahiye, dobara Ctrl+P na karna pare."*
+            Job Card aur Sales Order par ye pehle se tha; ye chaar page reh gaye
+            the.
+            window.onload, DOMContentLoaded nahi: dialog tab khule jab tasveerein
+            aur styles aa chuki hon, warna preview — aur kaghaz — adhoora chhap
+            sakta hai. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </body>
     </html>
   )

@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
-import { canSeeMoneyServer } from '@/lib/utils/canSeeMoneyServer'
 
 export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -12,14 +11,22 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
-  // Same priced document as the /print/sales-orders page, so the same gate.
-  // Migration 119; fails closed.
-  if (!(await canSeeMoneyServer(supabase, 'sales'))) return new NextResponse('Forbidden', { status: 403 })
+  // `money::view` ka gate JAAN BUJH KAR hataya gaya hai (119). Is kaghaz par ab
+  // koi rate, koi subtotal aur koi total nahi chhapta, is liye ye priced
+  // document raha nahi — ye order ki tasdeeq hai jo production, store aur
+  // dispatch sab ko chahiye. Company ka hisar phir bhi qaim hai: neeche query
+  // JWT se aaye `company_id` par filter karti hai, aur bagair login 401.
+  // **Agar kabhi rate wapas is page par aaye to gate dobara lagana hai** —
+  // yahan aur SODetailClient ke print button par, dono jagah.
   const companyId = await getCompanyId(user, supabase)
 
+  // `jobs` ka embed HINT ke bagair nahi chalta — 141 ne dosri FK laga di thi
+  // (`sales_order_items.repeat_of_job_id`), aur `jobs.sales_order_item_id`
+  // pehle se maujood thi. Bagair hint ke poora query fail hota hai.
   const { data, error } = await supabase
     .from('sales_orders' as any)
-    .select('*, customers(name,customer_code,phone,mobile,email), sales_order_items(*)')
+    .select('*, customers(name,customer_code,phone,mobile,email), '
+      + 'sales_order_items(*, jobs!sales_order_items_repeat_of_job_id_fkey(job_number))')
     .eq('id', id)
     .eq('company_id', companyId)
     .maybeSingle()
@@ -33,9 +40,6 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   const companyAddress = (companyRow as any)?.address || ''
   const items = [...(so.sales_order_items || [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
   const cust = so.customers || {}
-  const subtotal = items.reduce((s: number, i: any) => s + (i.subtotal || 0), 0)
-  const discount = so.discount_pct > 0 ? subtotal * so.discount_pct / 100 : 0
-  const total = subtotal - discount
 
   const fmt = (d: string) => d ? new Date(d).toLocaleDateString('en-PK', { day:'2-digit', month:'short', year:'numeric' }) : '—'
 
@@ -47,7 +51,9 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; }
-.page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 12mm 14mm; }
+/* Flex column taake dastkhat ki qatar kaghaz ke NEECHE ja kar bethe, chahe
+   order ki sirf ek line ho. Neeche .sig-section par margin-top:auto. */
+.page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 12mm 14mm; display: flex; flex-direction: column; }
 .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 3px solid #1a56db; }
 .company-name { font-size: 22px; font-weight: 800; color: #1a56db; }
 .company-sub { font-size: 9px; color: #666; margin-top: 2px; }
@@ -70,11 +76,11 @@ thead th { padding: 7px 8px; text-align: left; font-size: 9px; font-weight: 700;
 tbody td { padding: 7px 8px; border-bottom: 1px solid #f3f4f6; font-size: 10px; }
 .tdr { text-align: right; }
 tr:nth-child(even) td { background: #f9fafb; }
-.totals { display: flex; justify-content: flex-end; margin-top: 8px; }
-.totals-box { width: 220px; }
-.tot-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 10px; }
-.tot-total { font-size: 13px; font-weight: 800; color: #1a56db; border-top: 2px solid #1a56db; padding-top: 6px; margin-top: 4px; }
-.sig-section { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+/* Repeat ki nishani — bold border, koi rang ki bharai nahi, taake black &
+   white printer par bhi utni hi saaf rahe. Purana job number saath likha hai:
+   operator usay pehchanta hai, "repeat" akela lafz kuch nahi batata. */
+.repeat-tag { display: inline-block; margin-top: 3px; border: 1.5px solid #1a56db; border-radius: 3px; padding: 1px 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; color: #1a56db; text-transform: uppercase; }
+.sig-section { margin-top: auto; padding-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .sig-box { text-align: center; }
 .sig-line { border-bottom: 1px solid #1a1a1a; height: 36px; margin-bottom: 4px; }
 .sig-label { font-size: 9px; color: #6b7280; text-transform: uppercase; }
@@ -121,36 +127,26 @@ tr:nth-child(even) td { background: #f9fafb; }
     <tr>
       <th style="width:28px">#</th>
       <th>Description</th>
-      <th style="width:90px">Size (mm)</th>
-      <th class="tr" style="width:60px">Qty</th>
-      <th class="tr" style="width:45px">Colors</th>
-      <th class="tr" style="width:90px">Unit Price</th>
-      <th class="tr" style="width:100px">Subtotal</th>
+      <th style="width:110px">Size (mm)</th>
+      <th class="tr" style="width:80px">Qty</th>
+      <th class="tr" style="width:60px">Colors</th>
     </tr>
   </thead>
   <tbody>
     ${items.map((item: any, idx: number) => {
       const size = [item.size_l, item.size_w, item.size_h].filter(Boolean).join(' × ')
+      // 141: line par purani job ka link. Hai to ye carton pehle chal chuka hai.
+      const repeatOf = item.jobs?.job_number
       return `<tr>
         <td style="color:#9ca3af">${idx + 1}</td>
-        <td><div style="font-weight:600">${item.product_desc || ''}</div>${item.notes ? `<div style="font-size:9px;color:#9ca3af">${item.notes}</div>` : ''}</td>
+        <td><div style="font-weight:600">${item.product_desc || ''}</div>${item.notes ? `<div style="font-size:9px;color:#9ca3af">${item.notes}</div>` : ''}${repeatOf ? `<div><span class="repeat-tag">Repeat · ${repeatOf}</span></div>` : ''}</td>
         <td style="font-family:monospace">${size || '—'}</td>
         <td class="tdr" style="font-weight:600">${(item.quantity || 0).toLocaleString()}</td>
         <td class="tdr">${item.no_of_colors || '—'}</td>
-        <td class="tdr">PKR ${(item.unit_price || 0).toLocaleString()}</td>
-        <td class="tdr" style="font-weight:700">PKR ${(item.subtotal || 0).toLocaleString()}</td>
       </tr>`
     }).join('')}
   </tbody>
 </table>
-
-<div class="totals">
-  <div class="totals-box">
-    <div class="tot-row"><span style="color:#6b7280">Subtotal</span><span>PKR ${subtotal.toLocaleString()}</span></div>
-    ${discount > 0 ? `<div class="tot-row"><span style="color:#6b7280">Discount (${so.discount_pct}%)</span><span style="color:#dc2626">− PKR ${discount.toLocaleString()}</span></div>` : ''}
-    <div class="tot-row tot-total"><span>TOTAL</span><span>PKR ${total.toLocaleString()}</span></div>
-  </div>
-</div>
 
 ${so.notes || so.terms ? `
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
@@ -161,7 +157,6 @@ ${so.notes || so.terms ? `
 <div class="sig-section">
   <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Prepared By</div><div style="font-size:8px;color:#9ca3af">${companyName}</div></div>
   <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Authorized By</div><div style="font-size:8px;color:#9ca3af">Management</div></div>
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Customer Acceptance</div><div style="font-size:8px;color:#9ca3af">${cust.name || ''}</div></div>
 </div>
 
 <div class="footer">

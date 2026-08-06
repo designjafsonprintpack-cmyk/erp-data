@@ -219,6 +219,14 @@ export default async function PrintPurchaseOrder({ params }: { params: { id: str
             <div className="sign">Supplier acknowledgement &amp; date</div>
           </div>
         </div>
+        {/* Print dialog khud khul jaye — Mehboob: *"jahan par bhi print ho,
+            print dialog open hona chahiye, dobara Ctrl+P na karna pare."*
+            Job Card aur Sales Order par ye pehle se tha; ye chaar page reh gaye
+            the.
+            window.onload, DOMContentLoaded nahi: dialog tab khule jab tasveerein
+            aur styles aa chuki hon, warna preview — aur kaghaz — adhoora chhap
+            sakta hai. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </body>
     </html>
   )

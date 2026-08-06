@@ -79,6 +79,10 @@ order.** Code deployed before its migration means a 500 on save.
   interactive ones.
 - Print pages live in `src/app/print/` — plain HTML/CSS, no Tailwind, and
   **hardcoded hex, never CSS variables** (paper output must not follow the theme).
+  **Every one of them opens the print dialog itself** — `window.onload` (not
+  DOMContentLoaded, so images and styles have landed) firing `window.print()`.
+  Four of the seven were missing it and nobody could tell without opening each
+  one; a new print page must carry it too.
 - Customer-facing links (quotation approval, customer portal, artwork approval)
   use the token-link pattern: crypto-random token + expiry column on the row,
   service-role client, validated server-side. No separate auth.
@@ -136,8 +140,9 @@ broke, why this fixes it, and how to undo it.
   SO is what dispatch and invoicing read; always the same customer.
   The identity that makes a split valid is §4's own rule — `ceil(quantity/ups)`
   must equal the run's sheet count for **every** member.
-  `is_gang_shared` is a **column, not an inference** (`stage_type` is NULL on
-  most stages, so it cannot be derived). `original_ups` on the membership keeps
+  `is_gang_shared` is a **column on `workflow_stages`, not an inference**
+  (`stage_type` is NULL on most stages, so it cannot be derived) — 22 stages
+  carry it on live. `original_ups` on the membership keeps
   the job's own die layout, or a Repeat of a ganged job would plan three times
   the board. One MRN for the run, hung off the derived lead job; the plate gate
   accepts the **run's** plates; a shared stage moves every member; board cost
@@ -186,8 +191,10 @@ broke, why this fixes it, and how to undo it.
   `users.role` is free text, more can be added via UI.
   The `printing` role already covers lamination → die cutting → hot foil →
   folder gluing → packing, so its label is **"Production Operator"**; the slug
-  stays `printing`. A separate production role would be a duplicate — 105
-  considered and rejected one.
+  stays `printing`. 105 rejected a second OPERATOR role as a duplicate — but
+  **119 added `production_manager`**, the man who runs the floor and therefore
+  has to see cost. Two live holders. `manager` (121) and `store_manager` (122)
+  came later; 18 roles on live, seven of them with nobody on them.
   **Only superadmin / owner / ceo / gm get `delete`, `settings`, `admin`.**
   Purchase and Accounts deliberately get **no `approve`** — whoever raises a PO
   or an invoice must not also approve it. QC is the exception: approve/reject
@@ -338,9 +345,15 @@ deliberately left empty. Never read from it.
   Detail and the Job Card never selected `box_types` / `board_types` /
   `lamination_types` / `foil_types` for two years. Check the page's `.select()`
   before blaming the data.
-- **A migration that "was run" may only be PARTLY run.** 072 had left
-  `job_plates.operator_id` behind but no `plate_sets` and no RPCs. Probe for its
-  actual objects — table, columns, functions, policies, triggers — one by one.
+- **A migration that "was run" may only be PARTLY run — or never have run at
+  all, in the middle of a range this file swore was applied.** 072 had left
+  `job_plates.operator_id` behind but no `plate_sets` and no RPCs. Worse, §7
+  said "everything up to 128 is on live" and **122 had never run** — the
+  `store_manager` role simply did not exist, with 121 and 123 both present
+  either side of it. Probe for its actual objects — table, columns, functions,
+  roles, policies, triggers — one by one, and probe the WHOLE range, not the
+  newest one. Get the object's real name from the migration first: `job_gangs`
+  read as "126 never ran" for a minute because the probe guessed `gang_runs`.
 - **Soft-deleting a workflow template in the UI does not soft-delete its stages**,
   and the orphans stay live. 107 cleaned up 16 of them.
 - **Adding a `job_stage_events` event type means editing its CHECK too.** 104 added
@@ -499,12 +512,18 @@ line-item table (fixed grid, no breakpoints, inside `overflow-hidden`).
 
 ## 7. Current state
 
-**Live counts, 2026-08-04** (read from the database, not remembered): 485 jobs —
-478 of them the completed `JOB-2025-…` legacy import, 7 real `JOB-2026-…` ones —
-48 customers, 15 users, 51 board items, 7 workflow instances, **0 plates**.
-Take fresh counts before treating any of this as evidence.
+**Live counts, 2026-08-05** (read from the database, not remembered): 492 jobs —
+478 of them the legacy import, 14 real ones — 48 customers, 5 vendors, 15 users
+(13 staff + `Admin` + the stock-load system user), 53 board items, 15 board
+demands (10 open, 5 ready), **0 POs, 0 plates**.
+The `JOB` counter is at 485; the 7 extra jobs are repeats, which append `-R2`
+rather than take a number. Take fresh counts before treating any of this as
+evidence.
 
-**Everything up to migration 128 has been run on live and verified.** The rest of
+**Everything up to migration 145 has been run on live and verified** — probed
+object by object on 2026-08-05, not assumed. 122 was found MISSING by that
+probe while this line claimed everything to 128 was on live, and was run the
+same day. The rest of
 this section is one line per change, newest last. **The reasoning lives in each
 migration's own header comment** — read that before touching its area, not this.
 Rules that govern future work are in §4 and §5, not here.
@@ -523,7 +542,7 @@ Rules that govern future work are in §4 and §5, not here.
 | 112 / 113 | `job_plans.day_order` (read order is **`planned_date, day_order, id`** everywhere); board → job traceability, and **`current_stock` is SHEETS — packets are display only** |
 | 114 | `get_board_stock_report()` — any past month reproducible forever; **sign convention written down: positive magnitude, direction in `movement_type`** |
 | 117 | `board_inventory.unit_cost` is a weighted average |
-| 119 / 120 / 122 | sidebar groups; **money split into three scopes** — `money` (everything), `money_sales` (quotation/SO rates + the estimator), `money_purchase` (PO rates, board cost). `money::view` satisfies all three. Scope defaults to `cost`, the strictest. `store_manager` = `store` + `money_purchase`. |
+| 119 / 120 / 122 | sidebar groups and the **`production_manager`** role; **money split into three scopes** — `money` (everything), `money_sales` (quotation/SO rates + the estimator), `money_purchase` (PO rates, board cost). `money::view` satisfies all three. Scope defaults to `cost`, the strictest. `store_manager` = `store` + `money_purchase`. |
 | 121 / 123 | the `manager` role (one department, no money, no approve) + real staff loaded; the 17-role permission audit — **123 only ever ADDS** |
 | 124 / 125 | a job can carry more than one **DESIGN** (`design_no`); 125 dropped 015's old unique key that made 124 fail on the very first two-design upload |
 | 126 | **gang runs** — two jobs on one sheet (see §4) |
@@ -539,6 +558,8 @@ Rules that govern future work are in §4 and §5, not here.
 | 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
 | 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
 | 142 / 143 | repeat search sirf USI customer ke jobs mein, aur `no_of_colors` bhi wapas karta hai |
+| 145 | `sales_orders.status` CHECK mein **`draft`** — SO ab draft mein paida hoti hai; Confirm par hi jobs banti hain |
+| 144 | **`jobs.is_superseded`** — jobs list par aik carton ka AIK row. Run khatam + naya run mojood = list se chhupa (row poori maujood). Zinda kaam kabhi nahi chhupta; proof naya run nahi ginta. Trigger `UPDATE OF` ki column list se chakkar rokta hai — `WHEN (pg_trigger_depth() = 1)` mat lagana, WHEN top-level par 0 dekhta hai aur trigger khamoshi se kabhi nahi chalta |
 
 **No-migration work, same rule — one line each:**
 
@@ -560,8 +581,10 @@ Rules that govern future work are in §4 and §5, not here.
   names are a hard block, phone/NTN a warning, delete guarded by dependent count.
   Only Customers has this — vendors, machines and the master lists do not.
 - **"Is carton ka pichhla job"** — the SO/quotation line carries
-  `repeat_of_job_id` (141), so "5 lines · 3 repeat · 2 new" is answerable at the
-  SO, and the job born from that line is automatically `-R2`. The picker only
+  `repeat_of_job_id` (141), so "5 lines · 3 repeat · 2 new" is answerable while
+  the SO is being written, and the job born from that line is automatically
+  `-R2`. That count lives on the FORM only — a `3R / 2N` column on the SO list
+  was built and then removed on request. The picker only
   SUGGESTS: name similarity is not identity — `Aktive Chocolate 24 SP`
   (200×125×70) and `24 Sp.` (200×130×73) match 1.00 and are different cartons,
   so **size is shown largest** and nothing auto-links. Die number is NOT a
@@ -574,6 +597,13 @@ Rules that govern future work are in §4 and §5, not here.
   under the description — hanging it under one column made that column two rows
   tall and broke the whole grid's rhythm. Picking a carton fills the line's
   description, L/W/H and colours, but **never overwrites a value already typed**.
+- **"New / Repeat / Repeat with Changes" is printed on the Job Card**, not only
+  shown on screen — `jobKindBadge()`, the same rule the list chip uses, so the
+  two can't drift. It prints **every time the card comes out**, not just while
+  the job is new: paper isn't interactive, and whoever picks the card up off the
+  floor later has to see it too. `-R2` in the number implies a repeat but only to
+  someone who knows the scheme. It doesn't repeat itself — once a job has
+  started, the status badge above it already carries the kind.
 - **Copy specs from an old job** without making it a repeat, plus
   **`L x W x H` size search** shared by the Jobs list and all three New Job
   pickers, and the size shown on the list, the Kanban card and the export.
@@ -593,8 +623,11 @@ Rules that govern future work are in §4 and §5, not here.
 - **A Purchase Order is a document the VENDOR receives** — `print/purchase-orders/[id]`.
   Money columns appear only when a line actually carries a rate: Mehboob quotes
   the rate sometimes and asks for it other times, and a column of zeroes reads
-  as "free". The Excel export exports one row PER LINE now; it used to export
-  one row per PO with "Items: 6" and nothing about the board.
+  as "free". Board type + gsm + sheet size are **one bold line**, because that is
+  what the vendor is being asked for; the job appears under it by NAME, small —
+  "for JOB-00483" meant nothing to him and was printed twice. The Excel export
+  exports one row PER LINE now; it used to export one row per PO with
+  "Items: 6" and nothing about the board.
 - **Make-ready is already in the job quantity** — 3–5%, added by hand when the
   job is raised. Do NOT add a wastage % to the board demand: it would be counted
   twice. The estimator's `costing_default_wastage_percent` (3%) is a COSTING
@@ -605,6 +638,43 @@ Rules that govern future work are in §4 and §5, not here.
   last purchase) and **Purchase Orders**. Job Detail carries a board line.
   Board Stock shows reserved / free. **MRP is deleted** — its page, its API and
   its nav entry; see §5 for the three separate ways its Create PO was wrong.
+- **The printed Sales Order carries no money** — no unit price, no line subtotal,
+  no totals block. A repeat line prints **`Repeat · JOB-00215`** instead (141's
+  `repeat_of_job_id`, embedded with the FK hint). Customer Acceptance is off the
+  signature strip — the customer approves on the quotation / artwork link. It is
+  therefore **no longer money-gated**: the `money::view` check came off the route
+  AND off the print button, because production, store and dispatch all need this
+  sheet. Put both back the day a rate returns to it. The one and only SO print is
+  **`/api/v1/print/so`**; `src/app/print/sales-orders/` is deleted — two
+  identical unreferenced copies that had 404'd on every request for ages, since
+  they selected `customers.address`, a column that does not exist.
+- **SO confirm karta hai, save nahi** (145) — Mehboob: *"SO save hoty nhi conform
+  hoty hi kero, save k bad ager koi changes yad aa gai to."* A new SO is born
+  `draft`; **Confirm** (`POST /api/v1/sales-orders/[id]/confirm`, gated on
+  `sales_orders::approve`) flips it and **auto-creates a job for every REPEAT
+  line** — specs, artwork and board demand from the parent, quantity from the
+  line. A NEW-carton line deliberately gets none: `ups` is §4's locked manual
+  estimator input, so the line shows a "Job banao" link instead. Idempotent —
+  a line that already has a job is skipped, so the button doubles as "create the
+  jobs still pending". Editing an SO never pushes it back to draft.
+- **`createRepeatRun()` is the only place a run's specs are copied** — the
+  `/repeat` route and SO confirm both call it, so §5's "FIVE paths copy a job's
+  specs" did not become six. A new spec column goes here, not in two files.
+- **A `jobs` embed from `sales_order_items` now needs a hint BOTH ways** —
+  `jobs!sales_order_items_repeat_of_job_id_fkey` is the carton this repeats,
+  `jobs!jobs_sales_order_item_id_fkey` is the job this line PRODUCED. The SO
+  detail page reads both; only the first existed before.
+- **Aik carton = aik row on the jobs list** (144). §4's "a carton is one thing;
+  each order of it is a RUN" was modelled right and then never kept on the LIST,
+  which showed `JOB-00408` and `JOB-00408-R2` as two jobs — Mehboob's own
+  complaint twice over. Rows still stay separate (dispatch, invoice, MRN and
+  costing all hang off a run), but a finished run with a newer run behind it
+  drops out of the list. Search and the **All runs** toggle show everything;
+  `runNoFromJobNumber()` prints the "Run 2" chip from the number alone.
+- **Signatures sit on the bottom margin of every print page** — `.page` is a flex
+  column and the signature/footer block takes `margin-top: auto`. Never
+  `position: absolute; bottom`: that is out of flow, so a long invoice printed
+  its content straight through the signatures. Both finance pages had it.
 - **The whole workflow has been walked end to end through the real routes** more
   than once — creation → artwork gate → auto-MRN → plate block → printing → QC
   gate → dispatch → close, gang runs, plans, POs and receipts. §8 is how.
@@ -646,8 +716,10 @@ Rules that govern future work are in §4 and §5, not here.
   scheduling work does not need to edit stage progress. This is the single
   biggest reduction available; offered twice and not picked, because removals
   break people mid-shift. **Do not do it unasked.** See 123's footer for four more.
-- **Aqib Ali (Store Manager) is still not created** — 122 shipped the
-  `store_manager` role but nobody holds it. 15 users are live; he is the 16th.
+- **Aqib Ali (Store Manager) is still not created** — 122 finally ran on live
+  (2026-08-05) so the `store_manager` role now exists, `store` + the three
+  `money_purchase` actions, 27 permissions against `store`'s 24. Nobody holds
+  it. 15 users are live; he is the 16th.
 - **Zahid Mahmood's address was `r&d@`** (invalid — `&` fails zod's `.email()`)
   and he was created on `rd@jafsonprintpack.pk`. **The CSV at
   `D:\Packaging\Jafson\Business Card\` still says `r&d@`**, so fix it there too
@@ -712,6 +784,14 @@ Rules that govern future work are in §4 and §5, not here.
   every created id in a state file, and reset the `JOB` / `MRN` counters at the
   end. `@supabase/ssr` rotates refresh tokens server-side, so a static cookie
   will 401 at some point — re-sign-in on 401 rather than treating it as a bug.
+  **Then check the temp user is actually GONE.** Two live `superadmin` accounts
+  from earlier walks were still active and signable-in when the roles were
+  audited on 2026-08-05. Soft-deleting the `users` row does not help: nothing
+  on the session path reads `users.is_active` or `deleted_at` — middleware
+  gates on `auth.getUser()` alone — so **only deleting the AUTH user revokes
+  access**. Delete its `notifications` first or the `users` row won't go
+  (`notifications_user_id_fkey`), and check `created_by` across the real tables
+  before deleting, not just the ones the walk touched.
 - **Never probe the live database with a function that writes.** Calling
   `get_next_sequence_number` "just to see if it exists" consumed a real job
   number. Read `pg_proc` / `information_schema` instead. And when probing, pass

@@ -50,6 +50,19 @@ export function isRunNumber(jobNumber: string | null | undefined): boolean {
   return RUN_SUFFIX.test(jobNumber ?? '')
 }
 
+/**
+ * Which run this number IS, read from the number alone — no join, no query.
+ * `JOB-00408-R3` → 3, a plain number → 1. A proof (`-P1`) is not a run of the
+ * carton, so it reads as 1 like its parent.
+ *
+ * Migration 144's `job_run_no()` is the SQL twin of this. Both must keep the
+ * same rule, or the list will hide a row the app thinks is the newest.
+ */
+export function runNoFromJobNumber(jobNumber: string | null | undefined): number {
+  const m = /-R(\d+)$/.exec(jobNumber ?? '')
+  return m ? parseInt(m[1], 10) : 1
+}
+
 export interface NextRunNumber {
   /** The full number for the new run, e.g. `JOB-00408-R3`. */
   jobNumber: string

@@ -61,6 +61,20 @@ export const GET = withErrorHandling(async function GET(req: NextRequest) {
   if (sizeSearch)   q = applySizeFilter(q, sizeSearch)
   else if (search)  q = q.or(`job_number.ilike."%${escapeFilterValue(search)}%",job_title.ilike."%${escapeFilterValue(search)}%"`)
 
+  // AIK CARTON = AIK ROW (migration 144). Mehboob: *"do job nhi banany
+  // chahiyay."* Row database mein poori rehti hai — sirf list se hat jati hai,
+  // aur sirf tab jab wo run KHATAM ho chuka ho aur usi carton ka naya run
+  // mojood ho. Chalta hua kaam kabhi nahi chhupta.
+  //
+  // Do soorton mein sab kuch dikhta hai:
+  //   `runs=all`  — list ka apna toggle
+  //   koi bhi SEARCH — "JOB-00408" likh kar khali list milna ghalti lagti hai,
+  //                    halanke wo job maujood hoti hai. Dhoondo to har run mile.
+  // §6 ka usool: filter query param hai, browser mein nahi — warna wo sirf
+  // haath mein aaye page ko filter karta aur paging jhooti ho jati.
+  const showAllRuns = searchParams.get('runs') === 'all' || !!search
+  if (!showAllRuns) q = q.eq('is_superseded', false)
+
   const { data, error, count } = await q
     .order('created_at', { ascending: false })
     // Tiebreaker — the legacy jobs all share one backdated created_at, and an

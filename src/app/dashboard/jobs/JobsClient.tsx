@@ -15,6 +15,7 @@ import { JobThumbStrip, useJobThumbnails, type JobThumbData } from '@/components
 import { Pagination } from '@/components/ui/Pagination'
 import { useListPageSize } from '@/lib/hooks/usePageSize'
 import { formatBoxSize, formatSheetSize } from '@/lib/utils/formatJobSize'
+import { runNoFromJobNumber } from '@/lib/utils/jobRunNumber'
 
 // Rows per page is the shared preference now (10/20/30/40/50, picked from the
 // pager itself) rather than a constant living here. page.tsx renders its first
@@ -113,6 +114,16 @@ const jobColumns = (thumbs: Record<string, JobThumbData[]>, density: Density): D
     render: j => (
       <span className="inline-flex items-center gap-1.5">
         <span className="text-xs font-mono font-semibold text-[var(--color-accent)]">{j.job_number}</span>
+        {/* Kaunsa RUN hai — number se hi parh liya jata hai, koi query nahi.
+            List ab aik carton ka aik row dikhati hai (144), to ye chip us row
+            par likha hota hai ke ye us carton ka doosra/teesra chakkar hai.
+            Bagair is ke "-R2" sirf usay samajh aata hai jo scheme jaanta ho. */}
+        {runNoFromJobNumber(j.job_number) > 1 && (
+          <span className="flex-shrink-0 text-[10px] leading-none font-semibold px-1.5 py-0.5 rounded
+            text-[var(--color-text-secondary)] bg-[var(--color-bg-secondary)] border border-[var(--color-border)]">
+            Run {runNoFromJobNumber(j.job_number)}
+          </span>
+        )}
         {/* Badla hua repeat amber mein: us par purani plates dobara lag sakti
             hain jo nayi artwork se mel na khayen. */}
         {j.is_repeat && (
@@ -252,6 +263,10 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   // status mutation on Jobs on purpose: status moves through the stage
   // engine, and a blind bulk status write would bypass its gating.
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Aik carton ka aik row (144) — ye toggle purane, khatam-shuda run wapas
+  // list par le aata hai. Sirf browsing par lagta hai: search khud hi saare
+  // run dikha deta hai, warna poora number likh kar khali list milti.
+  const [allRuns, setAllRuns] = useState(false)
   const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSelected = jobs.length > 0 && jobs.every(j => selected.has(j.id))
   const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(jobs.map(j => j.id)))
@@ -294,12 +309,15 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
   // Each page REPLACES the list now rather than appending to it — that is the
   // difference between Load More and numbered pages, and it also means the DOM
   // never holds more than PAGE_SIZE rows however deep you go.
-  const fetchJobs = useCallback(async (q: string, status: string, pageNo: number) => {
+  const fetchJobs = useCallback(async (q: string, status: string, pageNo: number, runsAll = allRuns) => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ limit: String(pageSize), page: String(pageNo) })
       if (q) params.set('search', q)
       if (status) params.set('status', status)
+      // Server par filter, browser par nahi — §6. Warna toggle sirf us page ko
+      // filter karta jo haath mein hai aur ginti jhooti ho jati.
+      if (runsAll) params.set('runs', 'all')
       const res = await fetch(`/api/v1/jobs?${params}`)
       const json = await res.json()
       setJobs((json.data ?? []) as Job[])
@@ -310,7 +328,15 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
       setSelected(new Set())
     } catch { toast.error('Failed to load jobs') }
     finally { setLoading(false) }
-  }, [pageSize])
+  }, [pageSize, allRuns])
+
+  // Purane run dikhao / chhupao. Hamesha page 1 se, warna 485 rows wale page 3
+  // par ja kar 492 rows wali list ka page 3 alag cheez dikhata hai.
+  const toggleAllRuns = () => {
+    const next = !allRuns
+    setAllRuns(next)
+    fetchJobs(search, activeStatus, 1, next)
+  }
 
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -342,6 +368,18 @@ export default function JobsClient({ initialJobs, initialTotal }: { initialJobs:
         search={{ value: search, onChange: handleSearch, placeholder: 'Search by job number, title, or size (190x100x45)…' }}
         actions={
           <>
+            {/* Aik carton = aik row. Purane run yahan se wapas aate hain. */}
+            <button onClick={toggleAllRuns}
+              aria-pressed={allRuns}
+              title={allRuns
+                ? 'Showing every run of every carton'
+                : 'Showing the current run of each carton — earlier finished runs are hidden'}
+              className={cn('flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border text-sm transition-colors',
+                allRuns
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
+                  : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+              <RefreshCw size={14} /> All runs
+            </button>
             <button onClick={() => exportJobs(selected.size ? jobs.filter(j => selected.has(j.id)) : jobs)}
               title={selected.size ? `Export ${selected.size} selected` : 'Export current list'}
               className="flex items-center justify-center gap-1.5 px-3 h-11 md:h-9 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">

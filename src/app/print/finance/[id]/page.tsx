@@ -41,7 +41,11 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 11px; color: #1f2328; background: white; }
-          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; position: relative; }
+          /* Flex column: pehle .footer position:absolute; bottom:14mm tha, jo
+             lambi invoice par content ke UPAR chha jata tha (absolute cheez
+             flow se bahar hoti hai). Ab dastkhat margin-top:auto se neeche
+             jaate hain aur content bardhe to khud aage khisak jaate hain. */
+          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; display: flex; flex-direction: column; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
           .company-name { font-size: 22px; font-weight: 800; color: #0969da; letter-spacing: -0.5px; }
           .company-sub  { font-size: 10px; color: #57606a; margin-top: 2px; }
@@ -75,8 +79,8 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
           .pmt-table { width: 100%; border-collapse: collapse; }
           .pmt-table td, .pmt-table th { padding: 5px 8px; font-size: 10px; border-bottom: 1px solid #f0f0f0; }
           .pmt-table th { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #57606a; }
-          .footer { position: absolute; bottom: 14mm; left: 16mm; right: 16mm; }
-          .sig-row { display: flex; gap: 20px; margin-top: 24px; }
+          .footer { margin-top: auto; }
+          .sig-row { display: flex; gap: 20px; padding-top: 28px; }
           .sig-box { flex: 1; text-align: center; }
           .sig-line { border-bottom: 1px solid #1f2328; height: 36px; margin-bottom: 4px; }
           .sig-label { font-size: 9px; color: #57606a; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -258,6 +262,14 @@ export default async function PrintInvoice({ params }: { params: { id: string } 
             </div>
           </div>
         </div>
+        {/* Print dialog khud khul jaye — Mehboob: *"jahan par bhi print ho,
+            print dialog open hona chahiye, dobara Ctrl+P na karna pare."*
+            Job Card aur Sales Order par ye pehle se tha; ye chaar page reh gaye
+            the.
+            window.onload, DOMContentLoaded nahi: dialog tab khule jab tasveerein
+            aur styles aa chuki hon, warna preview — aur kaghaz — adhoora chhap
+            sakta hai. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </body>
     </html>
   )

@@ -119,7 +119,16 @@ export default function SOFormClient({ mode, customers, boardTypes, initialData 
         ...form,
         discount_percent: parseFloat(form.discount_percent || '0'),
         subtotal, discount_amount: discountAmt, total_amount: total, tax_amount: 0,
-        status: 'confirmed',
+        // NAYI SO DRAFT MEIN PAIDA HOTI HAI (145). Mehboob: *"SO save hoty nhi
+        // conform hoty hi kero, save k bad ager koi changes yad aa gai to."*
+        // Confirm ka button SO detail par hai, aur wohi repeat lines ki jobs
+        // banata hai. Pehle SO seedha confirmed paida hoti thi, is liye badalne
+        // ka koi mauqa hi nahi bachta tha.
+        //
+        // EDIT par status ko haath nahi lagaya jata: ek confirmed SO ko sirf
+        // "Update" dabane se draft mein wapas dhakelna uski ban chuki jobs se
+        // mel nahi khata.
+        ...(mode === 'new' ? { status: 'draft' } : {}),
         items: items.filter(it => it.product_desc).map(({ repeat, ...it }) => ({
           ...it,
           // Repeat ki pehchan yahan se job tak jaati hai — Sales ek dafa chunta

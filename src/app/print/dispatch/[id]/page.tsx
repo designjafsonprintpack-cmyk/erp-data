@@ -34,7 +34,9 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 11px; color: #1f2328; background: white; }
-          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; }
+          /* Flex column taake dastkhat kaghaz ke NEECHE jaayen — challan par
+             aksar do hi line hoti hain aur dastkhat beech mein latak jaate the. */
+          .page { width: 210mm; min-height: 297mm; padding: 14mm 16mm; margin: 0 auto; display: flex; flex-direction: column; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0969da; padding-bottom: 10px; margin-bottom: 14px; }
           .logo { font-size: 20px; font-weight: 800; color: #0969da; }
           .doc-title { font-size: 16px; font-weight: 700; color: #1f2328; text-align: right; }
@@ -50,7 +52,9 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
           td { padding: 7px 8px; border: 1px solid #d0d7de; font-size: 10px; vertical-align: top; }
           tr:nth-child(even) td { background: #f6f8fa; }
           .totals-row td { font-weight: 700; background: #eaf5ff !important; }
-          .footer { margin-top: 24px; border-top: 1px solid #d0d7de; padding-top: 14px; }
+          /* margin-top:auto bachi hui saari height kha jata hai, is liye dastkhat
+             kaghaz ki neechli hashiye par bethte hain, table ke foran neeche nahi. */
+          .footer { margin-top: auto; border-top: 1px solid #d0d7de; padding-top: 14px; }
           .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
           .sig-box { text-align: center; }
           .sig-line { border-bottom: 1px solid #1f2328; height: 40px; margin-bottom: 4px; }
@@ -178,6 +182,14 @@ export default async function PrintDispatchChallan({ params }: { params: { id: s
             </div>
           </div>
         </div>
+        {/* Print dialog khud khul jaye — Mehboob: *"jahan par bhi print ho,
+            print dialog open hona chahiye, dobara Ctrl+P na karna pare."*
+            Job Card aur Sales Order par ye pehle se tha; ye chaar page reh gaye
+            the.
+            window.onload, DOMContentLoaded nahi: dialog tab khule jab tasveerein
+            aur styles aa chuki hon, warna preview — aur kaghaz — adhoora chhap
+            sakta hai. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.onload = function() { window.print(); }` }} />
       </body>
     </html>
   )

@@ -13,7 +13,9 @@ import { useRouter } from 'next/navigation'
 interface SOItem { id: string; line_no: number; product_desc: string; size_l: number | null; size_w: number | null; size_h: number | null; quantity: number; no_of_colors: number | null; unit_price: number; subtotal: number; notes: string | null
   /** 141 — bhara hua = REPEAT. Embed HINTED aata hai, warna query hi nakaam. */
   repeat_of_job_id?: string | null
-  jobs?: { job_number: string; job_title: string } | null }
+  jobs?: { job_number: string; job_title: string } | null
+  /** Is line se jo job BANI. Confirm par khud banti hai (repeat lines par). */
+  created_jobs?: { id: string; job_number: string; status: string; deleted_at: string | null }[] | null }
 interface FulfillmentRow { sales_order_item_id: string; ordered_qty: number; dispatched_qty: number; invoiced_qty: number }
 interface SO {
   id: string; so_number: string; status: string; order_date: string; required_date: string | null
@@ -26,6 +28,7 @@ interface SO {
 export default function SODetailClient({ so }: { so: SO }) {
   const router = useRouter()
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fulfillment, setFulfillment] = useState<Record<string, FulfillmentRow>>({})
 
@@ -42,6 +45,39 @@ export default function SODetailClient({ so }: { so: SO }) {
   const cfg = SO_STATUS_CONFIG[so.status] || SO_STATUS_CONFIG.confirmed
 
   const isUrgent = so.required_date && new Date(so.required_date) <= new Date(Date.now() + 3 * 86400000) && !['completed', 'dispatched', 'cancelled'].includes(so.status)
+
+  // Jis line ki job ban chuki hai. Soft-delete hui job ginti mein nahi — warna
+  // ek delete ki hui job us line ko hamesha ke liye "ho chuki" dikhati rehti.
+  const jobOf = (item: SOItem) => (item.created_jobs ?? []).find(j => !j.deleted_at) || null
+  const pendingLines = so.sales_order_items.filter(i => !jobOf(i))
+  const repeatPending = pendingLines.filter(i => i.repeat_of_job_id).length
+  const newPending    = pendingLines.filter(i => !i.repeat_of_job_id).length
+
+  /**
+   * Confirm — aur isi par repeat lines ki jobs ban jati hain.
+   * Confirmed SO par bhi chalaya ja sakta hai: route sirf wohi lines banata hai
+   * jinki job abhi nahi bani, is liye baad mein joRi gayi line bhi pakri jati
+   * hai aur dobara dabane se kuch dohra nahi hota.
+   */
+  const confirmSO = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/sales-orders/${so.id}/confirm`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to confirm')
+      const d = json.data
+      // Ginti ke saath batao — "ho gaya" se ye pata nahi chalta ke kitni jobs
+      // bani aur kitni ab bhi haath se banani hain.
+      const bits: string[] = []
+      if (d.created.length) bits.push(`${d.created.length} job ban gayi (${d.created.map((c: any) => c.job_number).join(', ')})`)
+      if (d.pending.length) bits.push(`${d.pending.length} nayi carton line ki job haath se banani hai`)
+      if (d.failed.length)  bits.push(`${d.failed.length} line par job nahi ban saki`)
+      if (d.failed.length) toast.error(bits.join(' · '))
+      else toast.success(bits.length ? bits.join(' · ') : 'Sales Order confirmed')
+      router.refresh()
+    } catch (e: any) { toast.error(e.message || 'Failed to confirm') }
+    finally { setLoading(false); setConfirmOpen(false) }
+  }
 
   const cancelSO = async () => {
     setLoading(true)
@@ -75,14 +111,24 @@ export default function SODetailClient({ so }: { so: SO }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* The printed SO is a priced document and the route now refuses it
-              (403) without `money::view`, so the button goes too rather than
-              leaving a dead end. */}
-          <MoneyGate scope="sales" hide>
-            <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
-              <Printer size={14} /> Print
+          {/* CONFIRM — draft ka asal maqsad yehi hai. Dabate hi har repeat line
+              ki job khud ban jati hai. Confirmed SO par button tab bhi rehta
+              hai jab kisi line ki job baqi ho (line baad mein joRi gayi, ya
+              pehli dafa kuch nakaam hua) — route dohra kuch nahi banata. */}
+          {so.status !== 'cancelled' && (so.status === 'draft' || repeatPending > 0) && (
+            <button onClick={() => setConfirmOpen(true)} disabled={loading}
+              className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-60 transition-colors">
+              <CheckCircle size={14} /> {so.status === 'draft' ? 'Confirm' : `Create ${repeatPending} job${repeatPending === 1 ? '' : 's'}`}
             </button>
-          </MoneyGate>
+          )}
+          {/* Chhapa hua SO ab priced document nahi raha — us par koi rate, koi
+              subtotal, koi total nahi. Is liye MoneyGate hata diya gaya: ye
+              kaghaz production aur customer ke liye order ki tasdeeq hai, aur
+              planning, store aur dispatch ko bhi ye nikalna parta hai. Rate
+              wapas aaya to gate yahan AUR route par, dono jagah lagta hai. */}
+          <button onClick={() => window.open(`/api/v1/print/so?id=${so.id}`, '_blank')} className="flex items-center gap-1.5 px-3 h-11 md:h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
+            <Printer size={14} /> Print
+          </button>
           {!['cancelled', 'dispatched'].includes(so.status) && (
             <Link href={`/dashboard/sales-orders/${so.id}/edit`} className="flex items-center gap-1.5 px-3 h-8 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] transition-colors">
               <Pencil size={14} /> Edit
@@ -218,6 +264,29 @@ export default function SODetailClient({ so }: { so: SO }) {
                         New
                       </span>
                     )}
+                    {/* IS line ki job ban chuki ya nahi. Pehle SO se ye dekhne
+                        ka koi tareeqa hi nahi tha — saat line wali SO par ek
+                        line ki job bhool jana bohot asaan tha.
+                        Nayi carton line par job khud nahi banti: us par `ups`
+                        chahiye, jo §4 ke mutabiq hamesha estimator ka apna
+                        faisla hai. Is liye yahan seedha New Job ka raasta. */}
+                    {jobOf(item) ? (
+                      <Link href={`/dashboard/jobs/${jobOf(item)!.id}`}
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium font-mono
+                          text-[var(--color-success)]
+                          bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]
+                          border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] hover:underline">
+                        <CheckCircle size={9} /> {jobOf(item)!.job_number}
+                      </Link>
+                    ) : so.status !== 'cancelled' && !item.repeat_of_job_id ? (
+                      <Link href="/dashboard/jobs/new"
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium
+                          text-[var(--color-warning)]
+                          bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)]
+                          border-[color:color-mix(in_srgb,var(--color-warning)_30%,transparent)] hover:underline">
+                        Job banao
+                      </Link>
+                    ) : null}
                   </p>
                   {item.notes && <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{item.notes}</p>}
                 </div>
@@ -272,6 +341,25 @@ export default function SODetailClient({ so }: { so: SO }) {
         </div>
       </div>
 
+      {/* Confirm ke nateeje ginn kar dikhaye jate hain — "confirm karein?"
+          poochna kaafi nahi jab us par jobs ban rahi hon. Nayi carton wali
+          lines ka bhi zikr hai, warna wo khamoshi se reh jati hain. */}
+      <ConfirmDialog
+        open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmSO}
+        title={so.status === 'draft' ? `Confirm ${so.so_number}?` : 'Create the pending jobs?'}
+        message={[
+          so.status === 'draft'
+            ? 'Confirm hone ke baad ye order production ka hukm ban jata hai.'
+            : 'Is order ki jin lines ki job abhi nahi bani, sirf wohi banengi.',
+          repeatPending > 0
+            ? `${repeatPending} repeat line ki job KHUD ban jayegi — purani job se saare specs, artwork aur board demand ke saath.`
+            : 'Koi repeat line baqi nahi — is order par khud koi job nahi banegi.',
+          newPending > 0
+            ? `${newPending} nayi carton line ki job haath se banani hogi (ups aur die number chahiye).`
+            : '',
+        ].filter(Boolean).join('\n\n')}
+        confirmLabel={so.status === 'draft' ? 'Confirm' : 'Create jobs'} loading={loading}
+      />
       <ConfirmDialog
         open={cancelOpen} onClose={() => setCancelOpen(false)} onConfirm={cancelSO}
         title="Cancel Sales Order"
