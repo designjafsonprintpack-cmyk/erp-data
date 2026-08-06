@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, ExternalLink, Scissors, Trash2, RotateCcw, History, Lock, AlertTriangle } from 'lucide-react'
+import { Plus, Search, ExternalLink, Scissors, Trash2, RotateCcw, History, Lock, AlertTriangle, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 import { Toolbar } from '@/components/ui/Toolbar'
@@ -48,6 +48,7 @@ export default function PlatesClient({ initialPlates, initialTotal, jobs, jobsNe
   // Local copy so a job disappears from "Plates Needed" the moment its plates
   // are added, without waiting for a server render.
   const [needPlates, setNeedPlates] = useState(jobsNeedingPlates)
+  const [reusingJob, setReusingJob] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -141,6 +142,30 @@ export default function PlatesClient({ initialPlates, initialTotal, jobs, jobsNe
   // "Add Plates" straight off a job card — the job is already the answer, so
   // the form opens with it selected and one colour row per colour the job
   // actually prints.
+  /**
+   * Is carton ke pichle run ki saari plates aik saath is run par.
+   * Ginti ke saath jawab dikhaya jata hai — "ho gaya" se ye pata nahi chalta
+   * ke chaar mein se chaar lagin ya do, aur baqi do kyun reh gayin.
+   */
+  const reuseFamilyPlates = async (job: JobNeedingPlates) => {
+    setReusingJob(job.job_id)
+    try {
+      const res = await fetch(`/api/v1/jobs/${job.job_id}/plates/reuse-family`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed')
+      const { assigned, skipped, from } = json.data
+      if (assigned.length) {
+        toast.success(`${assigned.length} plate ${from} se lag gayi${skipped.length ? ` · ${skipped.length} reh gayi` : ''}`)
+        // Plates lag gayin to ye job ab intezar mein nahi — list se khud hat
+        // jati hai, bilkul waise jaise plate haath se lagane par hoti hai.
+        setNeedPlates(prev => prev.filter(j => j.job_id !== job.job_id))
+      } else {
+        toast.error(skipped.map((s: any) => `${s.plate}: ${s.reason}`).join(' · ') || 'Koi plate nahi lagi')
+      }
+    } catch (e: any) { toast.error(e.message || 'Failed') }
+    finally { setReusingJob(null) }
+  }
+
   const openAddForJob = (job: JobNeedingPlates) => {
     setAddJobId(job.job_id)
     setAddSize(SIZES[0])
@@ -316,6 +341,25 @@ export default function PlatesClient({ initialPlates, initialTotal, jobs, jobsNe
                       {job.planned_date && <span className="text-[var(--color-accent)]">· {planLabel(job.planned_date)}</span>}
                     </div>
                   </div>
+                  {/* Repeat par is carton ki purani plates pehle se maujood
+                      hain — wohi die, wohi plates. Poora set aik click mein
+                      chaRh jata hai; pehle CMYK ke liye chaar dafa alag alag
+                      dhoondna aur chunna parta tha. Naye carton par ye button
+                      hota hi nahi: uski koi purani plate ho hi nahi sakti. */}
+                  {(job.reusable_plates?.length ?? 0) > 0 && (
+                    <button onClick={() => reuseFamilyPlates(job)} disabled={reusingJob === job.job_id}
+                      title={`${job.reusable_plates!.map(p => p.color || p.plate_code).filter(Boolean).join(', ')} — ${job.reusable_plates![0].origin_job_number} se`}
+                      className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md border text-sm md:text-xs font-medium flex-shrink-0 transition-colors disabled:opacity-60
+                        border-[color:color-mix(in_srgb,var(--color-success)_40%,transparent)]
+                        text-[var(--color-success)]
+                        bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)]
+                        hover:bg-[color:color-mix(in_srgb,var(--color-success)_18%,transparent)]">
+                      <RefreshCw size={14} />
+                      {reusingJob === job.job_id
+                        ? 'Lag rahi hain…'
+                        : `${job.reusable_plates!.length} purani plates lagao`}
+                    </button>
+                  )}
                   <button onClick={() => openAddForJob(job)}
                     className="flex items-center justify-center gap-1.5 px-4 h-11 md:h-8 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm md:text-xs font-medium hover:bg-[var(--color-accent-hover)] transition-colors flex-shrink-0">
                     <Plus size={14} /> Add Plates

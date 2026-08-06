@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getUserTableId } from '@/lib/utils/getUserTableId'
+import { getCompanyId } from '@/lib/utils/getCompanyId'
 import { requirePermission } from '@/lib/utils/requirePermission'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { syncUserDepartments } from '@/lib/utils/syncUserDepartments'
 import { parseBody } from '@/lib/utils/validate'
 import { updateUserSchema } from '@/lib/schemas/adminUser'
 
@@ -40,6 +42,17 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
   const { data, error } = await supabase.from('users' as any)
     .update(updateData).eq('id', params.id).select(USER_SELECT).single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Department ki poori fehrist (146). `department_ids` bheji gayi ho tab hi
+  // chhua jata hai — warna sirf naam badalne wali PATCH us aadmi ke saare
+  // department uRa deti.
+  if (body.department_ids !== undefined) {
+    const companyId = await getCompanyId(user, supabase)
+    const { error: depErr } = await syncUserDepartments(
+      supabase, companyId, params.id, body.department_ids,
+      body.department_id !== undefined ? body.department_id : (data as any).department_id)
+    if (depErr) return NextResponse.json({ error: depErr }, { status: 500 })
+  }
 
   return NextResponse.json({ data })
 })

@@ -41,6 +41,11 @@ export interface StageQueueFilter {
   /** Only stages owned by this department. Omit for every department. */
   departmentId?: string | null
   /**
+   * Kai department ek saath (146) — ek aadmi 2-3 department dekhta hai, to
+   * uski queue teenon ka kaam dikhati hai. `departmentId` par foqiyat.
+   */
+  departmentIds?: string[] | null
+  /**
    * Only stages whose name passes this test. Applied in JS rather than SQL
    * because a stage page covers several stage names that don't share a
    * stage_type (Lamination + UV Coating + Varnish), and PostgREST can't OR
@@ -73,7 +78,11 @@ export async function loadStageQueue(
     .eq('is_active', true)
     .order('sequence_order')
 
-  if (filter.departmentId) query = query.eq('workflow_stages.department_id', filter.departmentId)
+  if (filter.departmentIds?.length) {
+    query = query.in('workflow_stages.department_id', filter.departmentIds)
+  } else if (filter.departmentId) {
+    query = query.eq('workflow_stages.department_id', filter.departmentId)
+  }
 
   const { data, error } = await query
   if (error) throw new Error(error.message)

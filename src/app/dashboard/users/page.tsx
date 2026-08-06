@@ -24,7 +24,9 @@ export default async function UsersPage() {
 
   const [usersRes, depsRes, rolesRes] = await Promise.all([
     supabase.from('users' as any)
-      .select('id,full_name,email,employee_code,app_role:role,is_active,mobile:phone,created_at,department_id,departments(name)', { count: 'exact' })
+      // `user_departments` bhi — ek aadmi 2-3 department dekhta hai (146), aur
+      // edit ka form uske saare department tick karke kholna chahiye.
+      .select('id,full_name,email,employee_code,app_role:role,is_active,mobile:phone,created_at,department_id,departments(name),user_departments(department_id)', { count: 'exact' })
       .eq('company_id', companyId).is('deleted_at', null).order('full_name'),
     supabase.from('departments' as any)
       .select('id,name').eq('company_id', companyId).eq('is_active', true).order('name'),

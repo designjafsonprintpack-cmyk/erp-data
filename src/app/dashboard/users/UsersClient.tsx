@@ -12,8 +12,51 @@ interface User {
   app_role: string; is_active: boolean; mobile: string | null; created_at: string
   department_id: string | null
   departments?: { name: string } | null
+  /** 146 — ek aadmi ke saare department. Pehla `department_id` hi hota hai. */
+  user_departments?: { department_id: string }[] | null
 }
 interface Department { id: string; name: string }
+
+/**
+ * "Ye aadmi aur kaun kaun se department dekhta hai" (146).
+ *
+ * Mehboob: *"aik shaks 2 ya 3 depart ko dakh raha hay is liyay wo apny account
+ * say hi kam kery gy."* Pehle department ek hi chun sakte the, is liye teen
+ * department dekhne wale aadmi ko sirf ek ka kaam aur ek ki ittila milti thi —
+ * baqi do ke stage mukammal hote aur kisi ko khabar tak na hoti.
+ *
+ * Main department upar `<select>` mein rehta hai (Department Queue wahin
+ * khulti hai) aur yahan se ghayab rehta hai — wo pehle se shamil hai, usay
+ * dobara tick karwana sirf uljhan paida karta.
+ */
+function DepartmentPicker({ departments, primaryId, selected, onToggle }: {
+  departments: Department[]; primaryId: string; selected: string[]; onToggle: (id: string) => void
+}) {
+  const rest = departments.filter(d => d.id !== primaryId)
+  if (!rest.length) return null
+  return (
+    <div className="space-y-1.5">
+      <div className="text-sm font-medium text-[var(--color-text-primary)]">Aur kaunse department dekhta hai?</div>
+      <p className="text-xs text-[var(--color-text-muted)]">
+        Jo tick honge, unka kaam bhi isi account par aayega aur unki ittila bhi isay milegi.
+      </p>
+      <div className="flex flex-wrap gap-1.5 pt-0.5">
+        {rest.map(d => {
+          const on = selected.includes(d.id)
+          return (
+            <button key={d.id} type="button" onClick={() => onToggle(d.id)} aria-pressed={on}
+              className={cn('px-2.5 h-8 rounded-md border text-xs font-medium transition-colors',
+                on
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)]'
+                  : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]')}>
+              {d.name}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 interface Role { id: string; name: string; slug: string; description: string | null }
 
 const ROLE_CFG: Record<string, { label: string; color: string }> = {
@@ -187,6 +230,12 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
   // Edit modal
   const [editModal, setEditModal] = useState<User | null>(null)
   const [editForm, setEditForm] = useState({ full_name: '', employee_code: '', app_role: '', department_id: '', mobile: '' })
+  // Saath ke department (146). Main department alag `department_id` mein rehta
+  // hai — Department Queue wahin khulti hai — aur ye uske ilawa wale hain.
+  const [newExtraDepts, setNewExtraDepts] = useState<string[]>([])
+  const [editExtraDepts, setEditExtraDepts] = useState<string[]>([])
+  const toggleDept = (list: string[], set: (v: string[]) => void, id: string) =>
+    set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
 
   // Reset password modal. `issued` holds the password the server actually set —
   // this is the one and only moment it is readable, so it stays on screen until
@@ -221,13 +270,15 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
         // types department_id as a UUID — so an empty string failed validation
         // with a 400 instead of meaning "none". Send null, per the blankToNull
         // convention in src/lib/schemas/job.ts.
-        body: JSON.stringify({ ...newForm, department_id: newForm.department_id || null }),
+        body: JSON.stringify({ ...newForm, department_id: newForm.department_id || null,
+          department_ids: newExtraDepts }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       const { data } = await res.json()
       setUsers(prev => [...prev, { ...data, departments: departments.find(d => d.id === newForm.department_id) || null }].sort((a, b) => a.full_name.localeCompare(b.full_name)))
       setNewModal(false)
       setNewForm({ full_name: '', email: '', password: '', employee_code: '', app_role: roleOptions[0]?.value ?? 'staff', department_id: '', mobile: '' })
+      setNewExtraDepts([])
       toast.success(`User ${data.full_name} created`)
     } catch (e: any) { toast.error(e.message || 'Failed to create user') }
     finally { setLoading(false) }
@@ -240,7 +291,8 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
       const res = await fetch(`/api/v1/admin/users/${editModal.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         // Same blank-vs-UUID trap as createUser above.
-        body: JSON.stringify({ ...editForm, department_id: editForm.department_id || null }),
+        body: JSON.stringify({ ...editForm, department_id: editForm.department_id || null,
+          department_ids: editExtraDepts }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
       setUsers(prev => prev.map(u => u.id === editModal.id ? {
@@ -354,6 +406,7 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
             // Was hardcoded to '' — so every save silently cleared the user's
             // department. Prefill from the row instead.
             setEditForm({ full_name: u.full_name, employee_code: u.employee_code || '', app_role: u.app_role, department_id: u.department_id || '', mobile: u.mobile || '' })
+            setEditExtraDepts((u.user_departments ?? []).map(d => d.department_id).filter(d => d !== u.department_id))
           },
           toggleActive,
           isSuperadmin ? openReset : null,
@@ -413,13 +466,16 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
               </select>
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="usersclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
+              <label htmlFor="usersclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Main department</label>
               <select id="usersclient-7" className={inputCls} value={newForm.department_id} onChange={e => setNewForm(p => ({ ...p, department_id: e.target.value }))}>
                 <option value="">No department</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
           </div>
+          <DepartmentPicker
+            departments={departments} primaryId={newForm.department_id}
+            selected={newExtraDepts} onToggle={id => toggleDept(newExtraDepts, setNewExtraDepts, id)} />
           <div className="rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-3 text-xs text-[var(--color-text-muted)]">
             The user will be able to log in immediately with the email and password you set.
           </div>
@@ -458,13 +514,16 @@ export default function UsersClient({ initialUsers, departments, roles, isSupera
               </select>
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="usersclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Department</label>
+              <label htmlFor="usersclient-12" className="text-sm font-medium text-[var(--color-text-primary)]">Main department</label>
               <select id="usersclient-12" className={inputCls} value={editForm.department_id} onChange={e => setEditForm(p => ({ ...p, department_id: e.target.value }))}>
                 <option value="">No department</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
           </div>
+          <DepartmentPicker
+            departments={departments} primaryId={editForm.department_id}
+            selected={editExtraDepts} onToggle={id => toggleDept(editExtraDepts, setEditExtraDepts, id)} />
         </Modal>
       )}
 

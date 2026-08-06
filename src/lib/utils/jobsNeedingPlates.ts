@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getPlannedDates } from './plannedDates'
 import { getProductionStage, stageMatchesSlug } from './productionStages'
+import { loadFamilyPlates, type ReusablePlate } from './familyPlates'
 
 export interface JobNeedingPlates {
   job_id: string
@@ -13,6 +14,11 @@ export interface JobNeedingPlates {
   required_date: string | null
   /** 'pending' — printing hasn't started; 'in_progress' — it's already running. */
   printing_status: string
+  /**
+   * Isi carton ke pichle run ki plates jo dobara lag sakti hain. Repeat par
+   * hi bhari hoti hai — naye carton ki koi purani plate hoti hi nahi.
+   */
+  reusable_plates?: ReusablePlate[]
 }
 
 /**
@@ -77,6 +83,16 @@ export async function loadJobsNeedingPlates(
     required_date: r.jobs.required_date ?? null,
     printing_status: r.status,
   }))
+
+  // Repeat par is carton ki purani plates — ek query poori list ke liye, har
+  // row par alag nahi. Nakaam ho to list phir bhi aati hai, bas reuse ka button
+  // nahi dikhta: plate room ka kaam ki fehrist is se zyada ahem hai.
+  const family = await loadFamilyPlates(supabase, companyId,
+    rows.map(r => ({ job_id: r.job_id, job_number: r.job_number })))
+  for (const r of rows) {
+    const list = family[r.job_id]
+    if (list?.length) r.reusable_plates = list
+  }
 
   // Most urgent first: printing already running (the press is waiting), then
   // by planned date, then by required date. Undated jobs sort last.

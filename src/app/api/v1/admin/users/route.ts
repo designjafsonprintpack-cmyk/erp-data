@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/utils/requirePermission'
 import { escapeFilterValue } from '@/lib/utils/escapeFilterValue'
 import { createClient } from '@supabase/supabase-js'
 import { withErrorHandling } from '@/lib/utils/apiHandler'
+import { syncUserDepartments } from '@/lib/utils/syncUserDepartments'
 import { parseBody } from '@/lib/utils/validate'
 import { createUserSchema } from '@/lib/schemas/adminUser'
 
@@ -91,6 +92,15 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
     // that combination is exactly what blocked login earlier in this project.
     await adminClient.auth.admin.deleteUser(authUser.user.id)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Baqi department (146). Nakaam ho to user phir bhi ban chuka hai — usay
+  // wapas mitana is se bura hota; masla log mein jata hai aur department
+  // Settings se dobara diye ja sakte hain.
+  if (body.department_ids?.length || body.department_id) {
+    const { error: depErr } = await syncUserDepartments(
+      supabase, companyId, (data as any).id, body.department_ids ?? [], body.department_id || null)
+    if (depErr) console.error('[admin/users] department sync failed:', depErr)
   }
   return NextResponse.json({ data })
 })

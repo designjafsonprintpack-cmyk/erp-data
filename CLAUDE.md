@@ -55,9 +55,11 @@ npx tsc --noEmit       # type check
 
 Company seed UUID: `00000000-0000-0000-0000-000000000001`
 
-Deployment is Mehboob's job: `npm run dev` → `npm run build` → GitHub Desktop →
-Vercel. **Always tell him which SQL migrations must run first, and in what
-order.** Code deployed before its migration means a 500 on save.
+Deployment is Mehboob's job: `npm run dev` → `npm run build` → **VS Code's Source
+Control panel** (Ctrl+Shift+G → stage → commit → Sync) → Vercel builds on push.
+He does **not** use GitHub Desktop — this line used to say he did. **Always tell
+him which SQL migrations must run first, and in what order.** Code deployed
+before its migration means a 500 on save.
 
 ---
 
@@ -90,7 +92,7 @@ order.** Code deployed before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **143**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **146**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -520,7 +522,7 @@ The `JOB` counter is at 485; the 7 extra jobs are repeats, which append `-R2`
 rather than take a number. Take fresh counts before treating any of this as
 evidence.
 
-**Everything up to migration 145 has been run on live and verified** — probed
+**Everything up to migration 146 has been run on live and verified** — probed
 object by object on 2026-08-05, not assumed. 122 was found MISSING by that
 probe while this line claimed everything to 128 was on live, and was run the
 same day. The rest of
@@ -558,6 +560,7 @@ Rules that govern future work are in §4 and §5, not here.
 | 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
 | 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
 | 142 / 143 | repeat search sirf USI customer ke jobs mein, aur `no_of_colors` bhi wapas karta hai |
+| 146 | **`user_departments`** — ek aadmi ke kai department; `users.department_id` ab sirf PRIMARY. Queue aur notifications isi table se |
 | 145 | `sales_orders.status` CHECK mein **`draft`** — SO ab draft mein paida hoti hai; Confirm par hi jobs banti hain |
 | 144 | **`jobs.is_superseded`** — jobs list par aik carton ka AIK row. Run khatam + naya run mojood = list se chhupa (row poori maujood). Zinda kaam kabhi nahi chhupta; proof naya run nahi ginta. Trigger `UPDATE OF` ki column list se chakkar rokta hai — `WHEN (pg_trigger_depth() = 1)` mat lagana, WHEN top-level par 0 dekhta hai aur trigger khamoshi se kabhi nahi chalta |
 
@@ -648,6 +651,32 @@ Rules that govern future work are in §4 and §5, not here.
   **`/api/v1/print/so`**; `src/app/print/sales-orders/` is deleted — two
   identical unreferenced copies that had 404'd on every request for ages, since
   they selected `customers.address`, a column that does not exist.
+- **One person covers 2–3 departments and works from their own account** (146).
+  Mehboob: *"yaha is company main aik shaks 2 ya 3 depart ko dakh raha hay is
+  liyay wo apny account say hi kam kery gy."* Do not model this as one account
+  per department. `users.department_id` is now only the PRIMARY department;
+  `user_departments` holds the full list and always includes the primary.
+  Membership — the Department Queue, `notifyDepartment()` — reads the join
+  table. That is also why 8 departments looked "empty": their person was filed
+  under a different one.
+- **A department with nobody in it no longer swallows its notification.**
+  `notifyDepartment()` used to return 0 silently, and on live **8 of 14
+  departments are empty** (Planning, Printing, Packing, Dispatch, Plates,
+  Lamination, Hot Foil, Folder Gluing) — so "auto-notify the next department"
+  had been telling nobody, which is why 9 jobs sat unstarted at Planning. It now
+  falls back to `production_manager` (then gm/ceo/owner) and prefixes the
+  message with which department is empty. It is a safety net, not a substitute
+  for assigning people.
+- **A repeat's plates are one click** — `loadFamilyPlates()` finds the carton
+  family's reusable plates by number STEM (not `parent_job_id`: R3's parent may
+  be the root or R2), and `POST /api/v1/jobs/[id]/plates/reuse-family` mounts the
+  whole set with `is_reused = true`. It is a BUTTON, never automatic: a
+  `job_plates` row is what opens the printing gate, so auto-assigning would make
+  that gate lie about plates still sitting in the store.
+  **`plates.status` values are `created · mounted · printing · removed ·
+  in_storage · damaged · remade · reused · archived · disposed · lost`** — there
+  is no `available` and no `in_use`, so `POST /api/v1/jobs/[id]/plates`'s
+  `status === 'in_use'` check has never once fired. Flagged, not fixed.
 - **SO confirm karta hai, save nahi** (145) — Mehboob: *"SO save hoty nhi conform
   hoty hi kero, save k bad ager koi changes yad aa gai to."* A new SO is born
   `draft`; **Confirm** (`POST /api/v1/sales-orders/[id]/confirm`, gated on

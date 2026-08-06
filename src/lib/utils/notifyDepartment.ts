@@ -34,30 +34,85 @@ interface NotifyDepartmentParams {
 export async function notifyDepartment(
   supabase: SupabaseClient,
   params: NotifyDepartmentParams
-): Promise<{ notified: number }> {
-  if (!params.departmentId) return { notified: 0 }
+): Promise<{ notified: number; fallback: boolean }> {
+  if (!params.departmentId) return { notified: 0, fallback: false }
 
-  const { data: users } = await supabase.from('users' as any)
-    .select('id, phone')
-    .eq('company_id', params.companyId)
-    .eq('department_id', params.departmentId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
+  // EK AADMI KAI DEPARTMENT DEKHTA HAI (146). Mehboob: *"aik shaks 2 ya 3
+  // depart ko dakh raha hay."* Is liye rukniyat `user_departments` se parhi
+  // jati hai, `users.department_id` se nahi — wo sirf uska ASAL department hai.
+  // Dono ka MILAP liya jata hai: 146 ne purane primary department backfill kar
+  // diye the, magar koi purana raasta sirf `department_id` likh de to us aadmi
+  // ki ittila gum nahi honi chahiye.
+  const [{ data: linked }, { data: primary }] = await Promise.all([
+    supabase.from('user_departments' as any)
+      .select('users!inner(id, phone, is_active, deleted_at, company_id)')
+      .eq('company_id', params.companyId)
+      .eq('department_id', params.departmentId)
+      .is('deleted_at', null),
+    supabase.from('users' as any)
+      .select('id, phone')
+      .eq('company_id', params.companyId)
+      .eq('department_id', params.departmentId)
+      .is('deleted_at', null)
+      .eq('is_active', true),
+  ])
 
-  const recipients = (users ?? []) as any[]
+  const byId = new Map<string, any>()
+  for (const row of ((linked ?? []) as any[])) {
+    const u = row.users
+    if (u && u.is_active && !u.deleted_at) byId.set(u.id, { id: u.id, phone: u.phone })
+  }
+  for (const u of ((primary ?? []) as any[])) byId.set(u.id, u)
+
+  let recipients = Array.from(byId.values())
+  let fallback = false
+  let prefix = ''
+
+  // ─── KHALI DEPARTMENT ki ittila zaya nahi honi chahiye ────────────────────
+  // Live par 14 mein se 8 department bilkul khali hain — Planning, Printing,
+  // Packing, Dispatch, Plates, Lamination, Hot Foil, Folder Gluing. Pehle ye
+  // function aise mein khamoshi se 0 wapas kar deta tha, yani "agle department
+  // ko khud ittila" wala poora feature un tamam stages par kuch bhejta hi nahi
+  // tha aur kisi ko pata bhi nahi chalta tha. Yehi wajah hai ke 9 jobs Planning
+  // par khaRi reh gayin.
+  //
+  // Ab ittila FLOOR CHALANE WALON tak jati hai — `production_manager` (CLAUDE.md
+  // §4: "the man who runs the floor"), aur wo bhi na ho to GM / CEO / owner tak.
+  // Ye department bharne ka mutabadil NAHI hai: paighaam mein saaf likha jata
+  // hai ke ye kis khali department ka kaam hai, taake wo aadmi wahan koi lagaye.
+  if (recipients.length === 0) {
+    const { data: dept } = await supabase.from('departments' as any)
+      .select('name').eq('id', params.departmentId).maybeSingle()
+    const deptName = (dept as any)?.name || 'department'
+
+    for (const roles of [['production_manager'], ['gm', 'ceo', 'owner']]) {
+      const { data: standIn } = await supabase.from('users' as any)
+        .select('id, phone')
+        .eq('company_id', params.companyId)
+        .in('role', roles)
+        .is('deleted_at', null)
+        .eq('is_active', true)
+      if ((standIn ?? []).length > 0) {
+        recipients = standIn as any[]
+        fallback = true
+        prefix = `[${deptName} department mein koi nahi] `
+        break
+      }
+    }
+  }
 
   for (const u of recipients) {
     await notify({
       user_id: u.id, company_id: params.companyId,
-      title: params.title, message: params.message,
+      title: params.title, message: `${prefix}${params.message}`,
       type: 'info', link_url: params.linkUrl,
       group_key: params.groupKey, digest_window_minutes: 60,
     }, supabase).catch(() => null)
 
     if (u.phone) {
-      await sendWhatsApp(u.phone, `${params.title}\n${params.message}`).catch(() => null)
+      await sendWhatsApp(u.phone, `${params.title}\n${prefix}${params.message}`).catch(() => null)
     }
   }
 
-  return { notified: recipients.length }
+  return { notified: recipients.length, fallback }
 }

@@ -7,6 +7,9 @@ export const createUserSchema = z.object({
   employee_code: z.string().optional().nullable(),
   app_role: z.string().optional(),
   department_id: z.string().uuid().optional().nullable(),
+  // 146 — ek aadmi 2-3 department dekhta hai. Pehla department `department_id`
+  // (uska ASAL department, queue wahin khulti hai), poori fehrist yahan.
+  department_ids: z.array(z.string().uuid()).optional(),
   mobile: z.string().optional().nullable(),
 })
 
@@ -17,6 +20,7 @@ export const updateUserSchema = z.object({
   employee_code: z.string().optional().nullable(),
   app_role: z.string().optional(),
   department_id: z.string().uuid().optional().nullable(),
+  department_ids: z.array(z.string().uuid()).optional(),
   mobile: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
 })
