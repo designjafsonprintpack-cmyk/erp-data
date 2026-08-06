@@ -38,8 +38,33 @@ const THUMB_QUALITY = 0.82
  *  format the shop also uploads. */
 const RASTER_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'BMP', 'AVIF'])
 
+/** MIME → extension, sirf unhi ke liye jo canvas draw kar sakta hai. */
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': 'JPG', 'image/jpg': 'JPG', 'image/pjpeg': 'JPG',
+  'image/png': 'PNG', 'image/webp': 'WEBP',
+  'image/bmp': 'BMP', 'image/x-ms-bmp': 'BMP', 'image/avif': 'AVIF',
+}
+
+/**
+ * `fileType` YAHAN DO SHAKLON MEIN aata hai — aur yehi wo bug tha.
+ *
+ *   · Upload karte waqt: browser ke `File.type` se, yani MIME — `image/jpeg`.
+ *   · Database se: `job_artworks.file_type`, jahan ye extension hai — `JPG`.
+ *
+ * Pehle sirf doosri shakal maani gayi thi: `(fileType || …).toUpperCase()`.
+ * MIME us mein se `"IMAGE/JPEG"` banta hai, jo kisi fehrist mein nahi — to har
+ * asli upload par ye `false` deta tha aur thumbnail kabhi banta hi nahi tha.
+ * Live par 31 artwork the aur unke saare thumbnail aik purane backfill se
+ * bane hue the; 5 August ke baad ki 9 uploads par aik bhi nahi. Aur ye khamoshi
+ * se hota tha, kyunki nakaami sirf `console.error` mein jati hai.
+ *
+ * Browser mein asli file par chala kar pakra gaya, parh kar nahi.
+ */
 export function canMakeThumb(fileName: string, fileType?: string | null): boolean {
-  const ext = (fileType || fileName.split('.').pop() || '').toUpperCase()
+  const raw = (fileType || '').trim()
+  // MIME hai to usi par faisla — naam ka extension jhoot bol sakta hai.
+  if (raw.includes('/')) return RASTER_EXT.has(MIME_TO_EXT[raw.toLowerCase()] ?? '')
+  const ext = (raw || fileName.split('.').pop() || '').toUpperCase()
   return RASTER_EXT.has(ext)
 }
 

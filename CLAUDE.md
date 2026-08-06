@@ -651,6 +651,17 @@ Rules that govern future work are in §4 and §5, not here.
   **`/api/v1/print/so`**; `src/app/print/sales-orders/` is deleted — two
   identical unreferenced copies that had 404'd on every request for ages, since
   they selected `customers.address`, a column that does not exist.
+- **`File.type` is a MIME type, not an extension** — and reading one as the
+  other is why **no upload had ever produced an artwork thumbnail**.
+  `canMakeThumb(file.name, file.type)` uppercased `image/jpeg` into
+  `"IMAGE/JPEG"`, matched no list, and returned false every single time; the
+  failure only ever reached `console.error`, so the tiles quietly went on
+  downloading the 0.3–1 MB original. All 22 thumbnails that existed were named
+  `backfill-` — a one-off script, never the app. Found by running the real
+  function's steps on a real live file in a browser, not by reading it. Both
+  `canMakeThumb()` and `isPreviewable()` now accept either shape.
+  **`job_artworks.file_type` stores the EXTENSION (`JPG`)** while a browser
+  `File` hands you `image/jpeg` — any helper taking `fileType` gets both.
 - **One person covers 2–3 departments and works from their own account** (146).
   Mehboob: *"yaha is company main aik shaks 2 ya 3 depart ko dakh raha hay is
   liyay wo apny account say hi kam kery gy."* Do not model this as one account

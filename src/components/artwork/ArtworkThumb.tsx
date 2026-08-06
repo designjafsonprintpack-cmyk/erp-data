@@ -44,8 +44,16 @@ const SIZE_BOX: Record<ThumbSize, string> = { lg: THUMB_BOX, sm: THUMB_SM_BOX, x
 const IMAGE_EXT = new Set(['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'SVG', 'AVIF'])
 
 export function isPreviewable(fileName: string, fileType?: string | null): boolean {
-  const ext = (fileType || fileName.split('.').pop() || '').toUpperCase()
-  return IMAGE_EXT.has(ext)
+  // Aaj ye sirf DB ke `file_type` ke saath bulaya jata hai, jahan extension
+  // hota hai ("JPG"). Lekin MIME ("image/jpeg") bhi is shakal ka lagta hai aur
+  // `.toUpperCase()` usay "IMAGE/JPEG" bana kar har fehrist se bahar kar deta
+  // hai — bilkul wohi ghalti jis ne makeArtworkThumb ko chup-chaap band rakha
+  // tha. Yahan pehle se rok di gayi hai.
+  const raw = (fileType || '').trim()
+  const ext = raw.includes('/')
+    ? (raw.toLowerCase().split('/').pop() || '').replace('jpeg', 'JPG').toUpperCase()
+    : (raw || fileName.split('.').pop() || '').toUpperCase()
+  return IMAGE_EXT.has(ext) || IMAGE_EXT.has((fileName.split('.').pop() || '').toUpperCase())
 }
 
 export function extLabel(fileName: string, fileType?: string | null): string {
