@@ -396,9 +396,25 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
         }).select('id').single()
 
         if (newMrn) {
+          // Jis stock row par is job (gang ho to LEAD job) ka board pehle se
+          // reserve hai. Ye baat system ko pehle se maloom hai, phir bhi MRN
+          // par kabhi nahi likhi jati thi — aur Store ko issue karte waqt wohi
+          // row 54 rows mein se haath se dhoondni parti thi. Bina iske stock
+          // ki katauti bhi nahi hoti: live par har MRN line board_item_id ke
+          // baghair hi bani hui hai.
+          const { data: demand } = await supabase.from('board_demands' as any)
+            .select('board_item_id, sheets_from_stock')
+            .eq('job_id', mrnJobId).eq('company_id', companyId)
+            .is('deleted_at', null).neq('status', 'cancelled')
+            .maybeSingle()
+          const reservedItem = (demand as any)?.board_item_id
+            && Number((demand as any).sheets_from_stock ?? 0) > 0
+            ? (demand as any).board_item_id : null
+
           await supabase.from('material_requisition_items' as any).insert({
             company_id: companyId, requisition_id: (newMrn as any).id,
             material_name: boardTypeName, material_type: 'board',
+            board_item_id: reservedItem,
             // GSM + sheet size. Board ka naam akela Store ke kisi kaam ka nahi:
             // "Bleach Board" naam ki 23 stock rows hain, alag alag GSM aur size
             // ki. Ye khana pehle din se maujood tha aur khali ja raha tha.

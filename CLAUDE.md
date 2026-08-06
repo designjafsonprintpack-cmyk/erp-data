@@ -567,6 +567,16 @@ Rules that govern future work are in §4 and §5, not here.
 
 **No-migration work, same rule — one line each:**
 
+- **MRN ki line par stock ki row MRN BANTE waqt likhi jati hai, issue par nahi.**
+  `board_item_id` sirf Issue window mein poochha jata tha, is liye jo baat system
+  ko pehle se maloom thi — job ka board kis item par reserve hai (135) — phenk di
+  jati thi aur storekeeper wohi row 54 rows mein se haath se dhoondta tha. Live
+  par **koi bhi line kabhi link nahi hui**, yani stock ki katauti aur reservation
+  dono us raaste par chal hi nahi sakte the. Ab teenon jagah: New MRN modal par
+  per-line stock `<select>` (khali stock ke sath), `openNewMRNForJob()` aur
+  auto-MRN dono demand se pre-select karte hain — sirf tab jab `sheets_from_stock
+  > 0`, warna board khareedna hai aur chunne ko kuch nahi. Chunna phir bhi khula
+  hai; Issue window use default banati hai.
 - **Artwork approval is WhatsApp.** Upload IS the approval: the row lands
   `approved`, **starts** the Artwork stage and deliberately never **completes**
   it (a job can have two designs and nothing says how many are coming). AI

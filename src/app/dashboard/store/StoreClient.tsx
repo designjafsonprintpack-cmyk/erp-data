@@ -29,7 +29,15 @@ const STATUS_CFG = {
 
 const MATERIAL_TYPES = ['board','paper','ink','lamination','foil','glue','chemical','other']
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
-const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', quantity_required: '1', unit_id: '', notes: '' }
+const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', quantity_required: '1', unit_id: '', board_item_id: '', notes: '' }
+
+/** Stock ki row ka wahi label jo Issue window par likha hai — free stock ke
+ *  sath, kul stock ke sath nahi. Dono jagah ek hi shakal, warna Store do
+ *  alag fehristein parhta hai. */
+function stockLabel(b: { description: string; gsm?: number | null; current_stock: number; reserved_stock?: number }) {
+  const free = Math.max(0, Number(b.current_stock) - Number(b.reserved_stock ?? 0))
+  return `${b.description}${b.gsm ? ` — ${b.gsm} gsm` : ''} (${free.toLocaleString()} free)`
+}
 
 export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs, jobs, units, boardInventory }: { initialMRNs: MRN[]; initialTotal: number; boardIssueJobs: BoardIssueJob[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
   // Local copy so a row's button follows what just happened (MRN created,
@@ -72,6 +80,20 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
   const removeLine = (idx: number) => setLineItems(p => p.filter((_, i) => i !== idx))
   const setLine = (idx: number, key: string, val: string) => setLineItems(p => p.map((l, i) => i === idx ? { ...l, [key]: val } : l))
 
+  // Stock chunte hi line khud bhar jati hai. Jo khaana pehle se likha hai use
+  // haath nahi lagata — wohi usool jo Repeat picker par hai: chunna madad hai,
+  // jo type ho chuka usay mitana nahi.
+  const pickBoard = (idx: number, boardId: string) => {
+    const b = boardInventory.find(x => x.id === boardId)
+    setLineItems(p => p.map((l, i) => i !== idx ? l : {
+      ...l,
+      board_item_id: boardId,
+      material_name: l.material_name || (b?.description ?? ''),
+      material_type: l.material_type || (b ? 'board' : ''),
+      specification: l.specification || (b?.gsm ? `${Number(b.gsm)} gsm` : ''),
+    }))
+  }
+
   const createMRN = async () => {
     if (!lineItems.some(l => l.material_name)) { toast.error('Add at least one material'); return }
     setLoading(true)
@@ -84,6 +106,9 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
           items: lineItems.filter(l => l.material_name).map(l => ({
             ...l, quantity_required: parseFloat(l.quantity_required || '1'),
             unit_id: l.unit_id || null,
+            // Khali string ko null banao — zod ka .uuid() usay reject karta hai
+            // aur poori MRN 400 par gir jati.
+            board_item_id: l.board_item_id || null,
           })),
         }),
       })
@@ -150,6 +175,10 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
       // Wahi spec jo auto-MRN likhti hai, taake dono raaste ek jaisi MRN banayen.
       specification: boardSpecText(job),
       quantity_required: job.sheet_qty != null ? String(job.sheet_qty) : '1',
+      // Jis stock row par is job ka board pehle se reserve hai. Chunna phir
+      // bhi mumkin hai — Store bara board ya doosra weight jaan bujh kar
+      // uthata hai — bas ab shuruaat sahi jagah se hoti hai.
+      board_item_id: job.board_item_id ?? '',
     }])
     setNewMRNModal(true)
   }
@@ -410,7 +439,8 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
             </div>
             <div className="space-y-2">
               {lineItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0">
+                <div key={idx} className="rounded-lg border border-[var(--color-border-subtle)] md:border-0 p-2.5 md:p-0 space-y-2 md:space-y-1.5">
+                <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
                   <div className="col-span-2 md:col-span-4">
                     <input className={inputCls} value={item.material_name} onChange={e => setLine(idx, 'material_name', e.target.value)} placeholder="Material name *" />
                   </div>
@@ -431,6 +461,22 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
                       <button onClick={() => removeLine(idx)} aria-label="Remove line" className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors"><Trash2 size={14} /></button>
                     )}
                   </div>
+                </div>
+                {/* Kaunsi stock row. Ye sawal pehle sirf ISSUE ke waqt poochha
+                    jata tha — yani jo baat MRN banate waqt maloom thi wo do
+                    din baad dobara dhoondni parti thi. Yahan chunne ka matlab
+                    hai ke issue karne wale ko kuch chunna hi nahi parta. */}
+                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+                  <label htmlFor={`mrn-stock-${idx}`} className="text-xs text-[var(--color-text-muted)] md:w-24 flex-shrink-0">Stock item</label>
+                  <select id={`mrn-stock-${idx}`} className={cn(inputCls, 'h-11 md:h-8 text-xs md:flex-1')}
+                    value={item.board_item_id}
+                    onChange={e => pickBoard(idx, e.target.value)}>
+                    <option value="">Not tracked in inventory (ink, glue, etc.)</option>
+                    {boardInventory.map(b => (
+                      <option key={b.id} value={b.id}>{stockLabel(b)}</option>
+                    ))}
+                  </select>
+                </div>
                 </div>
               ))}
             </div>

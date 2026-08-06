@@ -82,6 +82,10 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         specification:    item.specification || null,
         quantity_required: parseFloat(String(item.quantity_required ?? '0')),
         unit_id:          item.unit_id || null,
+        // Stock row ab MRN banate waqt hi likhi jati hai. Issue ki window use
+        // default bana leti hai, to board issue karne wale ko kuch chunna hi
+        // nahi parta — aur stock ki katauti ka raasta khula rehta hai.
+        board_item_id:    item.board_item_id || null,
         notes:            item.notes || null,
       }))
     )

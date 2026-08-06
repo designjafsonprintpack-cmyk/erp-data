@@ -63,6 +63,11 @@ const materialRequisitionItemSchema = z.object({
   specification: z.string().optional().nullable(),
   quantity_required: z.union([z.string(), z.number()]).optional(),
   unit_id: z.string().uuid().optional().nullable(),
+  // Kaunsi stock row. Pehle sirf ISSUE ke waqt poochha jata tha, is liye MRN
+  // banate waqt jo baat pehle se maloom hoti thi (job ka board usi item par
+  // reserve hai) wo phenk di jati thi aur storekeeper ko 54 rows mein se haath
+  // se dhoondni parti thi — live par ek bhi line kabhi link nahi hui.
+  board_item_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
