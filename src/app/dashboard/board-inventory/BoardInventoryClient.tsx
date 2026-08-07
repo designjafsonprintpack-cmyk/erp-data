@@ -166,7 +166,14 @@ const INV_COLUMNS = (
     ),
   },
   {
-    key: 'stock', header: 'Stock (pkt)', span: 1, role: 'status', align: 'right',
+    // span 2, 1 nahi. DataList har cell ko `truncate` (overflow:hidden +
+    // nowrap) mein lapetta hai, aur is khane ki sab se lambi satr —
+    // "100,000 reserved · 79,500 free" — ko 159px chahiyen. span 1 par cell
+    // 1456px screen par sirf 118px ki thi (1280px par 102px), is liye packets
+    // ka number, "sht" aur "free" teenon beech se kat jate the. Baqi columns
+    // 11 units le rahe the, yani barhwan unit khali para tha — ye usi mein
+    // jata hai, kisi doosre column se cheena nahi gaya.
+    key: 'stock', header: 'Stock (pkt)', span: 2, role: 'status', align: 'right',
     render: i => {
       // `reorder_level` yahan se nikal gaya. Wo "stock ko ek target tak wapas
       // le jao" wala tasawwur hai, aur ye shop us tarah kaam nahi karti — §4:

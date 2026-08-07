@@ -568,6 +568,7 @@ Rules that govern future work are in §4 and §5, not here.
 
 **No-migration work, same rule — one line each:**
 
+- **Board Stock ka "Stock (pkt)" khana `span: 1` par kat raha tha** — `DataList` har cell ko `truncate` (overflow:hidden + nowrap) mein lapetta hai, aur "100,000 reserved · 79,500 free" ko 159px chahiyen jab ke cell 1456px par 118px thi. `span: 2` (baqi columns 11 units le rahe the, barhwan khali para tha). Naya column banate waqt cell ki chaurai NAAPO — `truncate` khamoshi se kaat deta hai, error kahin nahi aata.
 - **MRN ki line par IKAI (unit)** — khana pehle din se tha, control kabhi nahi (live ki har line par NULL): board `Sht`, ink `KG`, glue/chemical `L` type se khud bhar jate hain, aur auto-MRN bhi ab `Sht` likhti hai. Saath: **board ki stock fehrist sirf board/paper lines par** (ink par board ka stock kat sakta tha aur board ke rate se ink ka kharcha job par chadh sakta tha), aur MRN create ki lines ka `error` ab parha jata hai — girne par adhoori MRN uthaa di jati hai (dono raaston par).
 - **Stock `<select>` par SHEET SIZE bhi** — gsm akela pehchan nahi (135 gsm+size se match karti hai); Issue window apna label alag banata tha, ab dono `stockLabel()` → `boardSpecText()` bulate hain, aur New MRN ki line ki `specification` bhi ab dono likhti hai.
 
