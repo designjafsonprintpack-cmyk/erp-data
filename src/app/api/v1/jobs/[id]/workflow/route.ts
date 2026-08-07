@@ -411,7 +411,13 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             && Number((demand as any).sheets_from_stock ?? 0) > 0
             ? (demand as any).board_item_id : null
 
-          await supabase.from('material_requisition_items' as any).insert({
+          // Board hamesha SHEETS mein. Manual MRN ab ikai poochhti hai, is liye
+          // auto wali bhi likhe warna dono raaston ki MRN alag dikhti.
+          const { data: sheetUnit } = await supabase.from('units' as any)
+            .select('id').eq('company_id', companyId).eq('symbol', 'Sht')
+            .is('deleted_at', null).eq('is_active', true).maybeSingle()
+
+          const { error: itemErr } = await supabase.from('material_requisition_items' as any).insert({
             company_id: companyId, requisition_id: (newMrn as any).id,
             material_name: boardTypeName, material_type: 'board',
             board_item_id: reservedItem,
@@ -419,8 +425,19 @@ export const PATCH = withErrorHandling(async function PATCH(req: NextRequest, { 
             // "Bleach Board" naam ki 23 stock rows hain, alag alag GSM aur size
             // ki. Ye khana pehle din se maujood tha aur khali ja raha tha.
             specification: boardSpecText(jobRow as any) || null,
+            unit_id: (sheetUnit as any)?.id ?? null,
             quantity_required: sheetQty,
           })
+
+          // Line na bani to MRN ko bhi utha do. Khali MRN sab se bura nateeja
+          // hai: upar wali `if (!existingMrn)` dobara kabhi nahi chalegi, aur
+          // Board Issue complete hone ka gate `status = 'issued'` maangta hai
+          // jo bina line ke kabhi nahi aata — stage hamesha ke liye phans jati.
+          if (itemErr) {
+            console.error('[Auto-MRN] line insert failed, rolling back the MRN', itemErr)
+            await supabase.from('material_requisitions' as any)
+              .delete().eq('id', (newMrn as any).id).eq('company_id', companyId)
+          }
         }
       }
       // No board_type_id/sheet_qty on the job — nothing to auto-fill; Store

@@ -72,8 +72,13 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Lines ka error kabhi parha hi nahi jata tha: agar ye insert girti to MRN
+  // BAN CHUKI hoti, number kharch ho chuka hota, aur route phir bhi 200 aur
+  // "MRN created" wapas karta — Store ko khali MRN milti aur wajah kahin
+  // likhi na hoti. Ab error par wo adhoori MRN uthaa kar 500 diya jata hai.
+  let createdItems: any[] = []
   if (items?.length) {
-    await supabase.from('material_requisition_items' as any).insert(
+    const { data: itemRows, error: itemsError } = await supabase.from('material_requisition_items' as any).insert(
       items.map((item: any) => ({
         company_id:       companyId,
         requisition_id:   (mrn as any).id,
@@ -88,8 +93,18 @@ export const POST = withErrorHandling(async function POST(req: NextRequest) {
         board_item_id:    item.board_item_id || null,
         notes:            item.notes || null,
       }))
-    )
+    ).select()
+
+    if (itemsError) {
+      await supabase.from('material_requisitions' as any)
+        .delete().eq('id', (mrn as any).id).eq('company_id', companyId)
+      return NextResponse.json({ error: itemsError.message }, { status: 500 })
+    }
+    createdItems = (itemRows ?? []) as any[]
   }
 
-  return NextResponse.json({ data: mrn })
+  // Lines bhi wapas — list mein nayi MRN "0 materials" dikhati thi jab tak
+  // page dobara load na ho, kyunke client ke paas bhejne ke baad kuch tha hi
+  // nahi.
+  return NextResponse.json({ data: mrn, items: createdItems })
 })

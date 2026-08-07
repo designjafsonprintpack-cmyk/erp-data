@@ -568,6 +568,7 @@ Rules that govern future work are in §4 and §5, not here.
 
 **No-migration work, same rule — one line each:**
 
+- **MRN ki line par IKAI (unit)** — khana pehle din se tha, control kabhi nahi (live ki har line par NULL): board `Sht`, ink `KG`, glue/chemical `L` type se khud bhar jate hain, aur auto-MRN bhi ab `Sht` likhti hai. Saath: **board ki stock fehrist sirf board/paper lines par** (ink par board ka stock kat sakta tha aur board ke rate se ink ka kharcha job par chadh sakta tha), aur MRN create ki lines ka `error` ab parha jata hai — girne par adhoori MRN uthaa di jati hai (dono raaston par).
 - **Stock `<select>` par SHEET SIZE bhi** — gsm akela pehchan nahi (135 gsm+size se match karti hai); Issue window apna label alag banata tha, ab dono `stockLabel()` → `boardSpecText()` bulate hain, aur New MRN ki line ki `specification` bhi ab dono likhti hai.
 
 - **MRN ki line par stock ki row MRN BANTE waqt likhi jati hai, issue par nahi.**
