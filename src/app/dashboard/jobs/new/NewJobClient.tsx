@@ -11,6 +11,7 @@ import { EMPTY_JOB_FORM, type JobFormData } from '@/modules/jobs/types/job.types
 import { CHANGE_ASPECTS } from '@/modules/jobs/constants/changeAspects'
 import { useDraftAutosave } from '@/lib/utils/useDraftAutosave'
 import { formatTimeAgo } from '@/lib/utils/format'
+import RepeatLayoutFields from '@/components/jobs/RepeatLayoutFields'
 
 interface Props {
   customers: any[]; boardTypes: any[]; boxTypes: any[]; paperTypes: any[]
@@ -20,7 +21,13 @@ interface Props {
 
 type JobMode = 'new' | 'repeat' | 'changed'
 
-const EMPTY_REPEAT = { parent_job_id: '', quantity: '', required_date: '', notes: '', same_artwork: true }
+// ups / sheet size is RUN ke apne hain — die wohi purani rehti hai. Pehle ye
+// chup chaap parent se naqal ho jate the, is liye ek istisna (spot UV ke liye
+// kam ups) agle run ka default ban jata tha.
+const EMPTY_REPEAT = {
+  parent_job_id: '', quantity: '', required_date: '', notes: '', same_artwork: true,
+  ups: '', sheet_width_in: '', sheet_height_in: '',
+}
 
 const inputCls = 'w-full h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors'
 const labelCls = 'text-sm font-medium text-[var(--color-text-primary)]'
@@ -221,6 +228,33 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
   // the summary card and the spec prefill silently empty.
   const parentJob = filteredJobs.find((j: any) => j.id === repeat.parent_job_id)
 
+  // ── Repeat ka layout ───────────────────────────────────────────────────────
+  // Parent chunte hi uska layout khanon mein aa jata hai, aur us carton ke
+  // saare run apne apne layout ke sath neeche list ho jate hain — taake "is bar
+  // 12 ups par chalana hai" chunna ek click ka kaam ho, yaad rakhne ka nahi.
+  const [repeatFamily, setRepeatFamily] = useState<any[]>([])
+  useEffect(() => {
+    if (!repeat.parent_job_id) { setRepeatFamily([]); return }
+    let cancelled = false
+    // Layout parent BADALNE par dobara bharta hai — doosra carton, doosra
+    // layout. Yahan "jo type ho chuka usay na chhero" wala usool nahi lagta.
+    if (parentJob) {
+      setRepeat(p => ({
+        ...p,
+        ups: parentJob.ups != null ? String(parentJob.ups) : '',
+        sheet_width_in: parentJob.sheet_width_in != null ? String(parentJob.sheet_width_in) : '',
+        sheet_height_in: parentJob.sheet_height_in != null ? String(parentJob.sheet_height_in) : '',
+      }))
+    }
+    fetch(`/api/v1/jobs/${repeat.parent_job_id}/family`)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('family')))
+      .then(({ data }) => { if (!cancelled) setRepeatFamily(data ?? []) })
+      // Khandaan na mile to form phir bhi chalta hai — sirf warning nahi dikhegi.
+      .catch(() => { if (!cancelled) setRepeatFamily([]) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repeat.parent_job_id, parentJob?.id])
+
   const { draftAvailable, draftSavedAt, restoreDraft, discardDraft, clearDraft } = useDraftAutosave({
     key: 'jafson_draft_new_job',
     value: form,
@@ -385,6 +419,11 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
           required_date: repeat.required_date || null,
           notes: repeat.notes || null,
           same_artwork: repeat.same_artwork,
+          // Is run ka layout. Khali bheja jaye to server parent wala hi rakhta
+          // hai, is liye purana behaviour kahin nahi toota.
+          ups: repeat.ups || null,
+          sheet_width_in: repeat.sheet_width_in || null,
+          sheet_height_in: repeat.sheet_height_in || null,
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
@@ -490,8 +529,23 @@ export default function NewJobClient({ customers, boardTypes, boxTypes, paperTyp
                   <div><span className="text-[var(--color-text-muted)] text-xs block">Colors</span>{parentJob.no_of_colors ?? '—'}</div>
                 </div>
                 <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
-                  Board, box type, sheet size, die number, finishing and the production workflow are all carried over too.
+                  Board, box type, die number, finishing and the production workflow are all carried over too.
+                  Ups and sheet size are asked below — they belong to this run.
                 </p>
+              </div>
+            )}
+
+            {/* Layout — poochha jata hai, chup chaap naqal nahi hota. */}
+            {parentJob && (
+              <div className="space-y-1.5">
+                <label className={labelCls}>Layout for this run</label>
+                <RepeatLayoutFields
+                  value={repeat}
+                  onChange={patch => setRepeat(p => ({ ...p, ...patch }))}
+                  quantity={repeat.quantity || parentJob.quantity}
+                  runs={repeatFamily}
+                  idPrefix="newjob-repeat"
+                />
               </div>
             )}
 

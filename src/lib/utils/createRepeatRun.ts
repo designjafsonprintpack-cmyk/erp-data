@@ -32,6 +32,18 @@ export interface CreateRepeatRunInput {
   sameArtwork?: boolean
   /** Parent ke event par likhne ka note. */
   notes?: string | null
+  /**
+   * Is RUN ka apna layout. Die carton ki pehchan hai aur wo nahi badalti, magar
+   * ek run kam ups par chal sakta hai — screen printing wala spot UV, ya doosri
+   * qism ka board — aur us ke sath sheet size bhi badalta hai. Live par ye ho
+   * chuka hai: JOB-00401 12 ups par 15.5 × 27.5, JOB-00401-R2 18 ups par
+   * 20 × 27.5, die 28 dono par wohi.
+   *
+   * Na diya jaye to parent ka layout hi chalta hai — SO confirm isi par hai.
+   */
+  ups?: number | string | null
+  sheetWidthIn?: number | string | null
+  sheetHeightIn?: number | string | null
   /** SO se aaya ho to uska link — warna null. */
   salesOrderId?: string | null
   salesOrderItemId?: string | null
@@ -49,8 +61,16 @@ export async function createRepeatRun(
   const {
     companyId, parentJobId, userTableId,
     quantity, requiredDate, sameArtwork, notes,
+    ups, sheetWidthIn, sheetHeightIn,
     salesOrderId = null, salesOrderItemId = null,
   } = input
+
+  /** '' aur null dono ka matlab "kuch nahi bheja" — parent wali qeemat chalegi. */
+  const num = (v: unknown) => {
+    if (v === undefined || v === null || v === '') return null
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
 
   const { data: original, error: origErr } = await supabase.from('jobs' as any)
     .select('*').eq('id', parentJobId).eq('company_id', companyId).single()
@@ -67,6 +87,13 @@ export async function createRepeatRun(
   // Sheet Qty = ceil(Box Qty / Ups), so it is recomputed rather than copied —
   // the run may carry a different quantity than the parent.
   const newQty = quantity ? parseFloat(String(quantity)) : orig.quantity
+
+  // Layout: jo bheja gaya wo, warna parent wala. `sheet_qty` hamesha CHALTE
+  // HUE ups se banti hai — §4 ka `ceil(quantity / ups)` — warna 12-up run par
+  // 18-up wali sheet count chali jati aur board ka poora hisab ghalat hota.
+  const runUps    = num(ups) ?? orig.ups
+  const runWidth  = num(sheetWidthIn)  ?? orig.sheet_width_in
+  const runHeight = num(sheetHeightIn) ?? orig.sheet_height_in
 
   // The parent's template first, but copying it blindly was the bug: all 478
   // legacy jobs carry workflow_template_id = NULL by design, and a repeat of one
@@ -98,14 +125,14 @@ export async function createRepeatRun(
     size_l:               orig.size_l,
     size_w:               orig.size_w,
     size_h:               orig.size_h,
-    sheet_width_in:       orig.sheet_width_in,
-    sheet_height_in:      orig.sheet_height_in,
+    sheet_width_in:       runWidth,
+    sheet_height_in:      runHeight,
     box_type_id:          orig.box_type_id,
     grain_direction:      orig.grain_direction,
     gsm:                  orig.gsm,
     quantity:             newQty,
-    ups:                  orig.ups,
-    sheet_qty:            orig.ups && orig.ups > 0 ? Math.ceil(newQty / orig.ups) : null,
+    ups:                  runUps,
+    sheet_qty:            runUps && runUps > 0 ? Math.ceil(newQty / runUps) : null,
     no_of_colors:         orig.no_of_colors,
     die_number:           orig.die_number,
     board_type_id:        orig.board_type_id,
@@ -229,10 +256,18 @@ export async function createRepeatRun(
     }
   }
 
+  // Layout parent se alag ho to wo baat isi event mein likh do. Naya event type
+  // NAHI banaya — `job_stage_events` par CHECK hai aur usay barhaye bagair naya
+  // type khamoshi se reject ho jata hai (§5, 104 ki galti).
+  const layoutChanged = runUps !== orig.ups || runWidth !== orig.sheet_width_in || runHeight !== orig.sheet_height_in
+  const layoutNote = layoutChanged
+    ? ` — layout badla: ${orig.ups ?? '—'} ups / ${orig.sheet_width_in ?? '—'} × ${orig.sheet_height_in ?? '—'} se ${runUps ?? '—'} ups / ${runWidth ?? '—'} × ${runHeight ?? '—'}`
+    : ''
+
   await recordJobEvent({
     company_id: companyId, job_id: newJobData.id,
     event_type: 'created', new_value: newJobData.job_number,
-    notes: `Repeat job created from ${orig.job_number}`,
+    notes: `Repeat job created from ${orig.job_number}${layoutNote}`,
   }, supabase)
 
   await recordJobEvent({

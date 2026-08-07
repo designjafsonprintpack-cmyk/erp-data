@@ -28,6 +28,13 @@ export const jobRepeatSchema = z.object({
   required_date: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   same_artwork: z.boolean().optional(),
+  // Is RUN ka apna layout. Die wohi purani rehti hai, magar ek run screen
+  // printing wale spot UV ya doosre board ki wajah se kam ups par chal sakta
+  // hai — aur us ke sath sheet size bhi badalta hai. Na bheja jaye to parent
+  // wala layout hi chalta hai (purana behaviour).
+  ups: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_width_in: z.union([z.string(), z.number()]).optional().nullable(),
+  sheet_height_in: z.union([z.string(), z.number()]).optional().nullable(),
 })
 
 /**

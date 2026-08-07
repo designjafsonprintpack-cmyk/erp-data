@@ -34,6 +34,7 @@ interface ArtworkVersion {
 }
 import JobRunsPanel, { type JobRun } from './JobRunsPanel'
 import JobBoardLine, { type JobBoardDemand } from '@/components/jobs/JobBoardLine'
+import RepeatLayoutFields from '@/components/jobs/RepeatLayoutFields'
 
 interface Props {
   job: Job; stages: JobStageProgress[]; events: JobEvent[]; delayReasons: DelayReason[]
@@ -124,7 +125,15 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
 
   // Repeat modal
   const [repeatModal, setRepeatModal] = useState(false)
-  const [repeatForm, setRepeatForm] = useState({ quantity: String(job.quantity), required_date: '', notes: '', same_artwork: true })
+  // Layout (ups + sheet size) is job se bhar kar shuru hota hai magar EDITABLE
+  // hai: die wohi rehti hai, run kam ups par chal sakta hai (spot UV, doosra
+  // board). Pehle ye chup chaap naqal ho jata tha.
+  const [repeatForm, setRepeatForm] = useState({
+    quantity: String(job.quantity), required_date: '', notes: '', same_artwork: true,
+    ups: job.ups != null ? String(job.ups) : '',
+    sheet_width_in: job.sheet_width_in != null ? String(job.sheet_width_in) : '',
+    sheet_height_in: job.sheet_height_in != null ? String(job.sheet_height_in) : '',
+  })
 
   const [deleteModal, setDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -1030,7 +1039,7 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
         }>
         <div className="space-y-4">
           <div className="rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] p-3 text-sm text-[var(--color-text-secondary)]">
-            All product specifications will be copied from <span className="font-semibold text-[var(--color-accent)]">{job.job_number}</span>. You can change quantity and due date.
+            All product specifications will be copied from <span className="font-semibold text-[var(--color-accent)]">{job.job_number}</span>. You can change quantity, due date and this run&rsquo;s layout.
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -1041,6 +1050,19 @@ export default function JobDetailClient({ job: initialJob, stages: initialStages
               <label htmlFor="jobdetailclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Required Date</label>
               <input id="jobdetailclient-5" type="date" className={inputCls} value={repeatForm.required_date} onChange={e => setRepeatForm(p => ({ ...p, required_date: e.target.value }))} />
             </div>
+          </div>
+
+          {/* Is run ka layout — poochha jata hai, naqal nahi hota. Khandaan
+              (`runs`) page ke server component se pehle hi aa chuka hai. */}
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium text-[var(--color-text-primary)] block">Layout for this run</span>
+            <RepeatLayoutFields
+              value={repeatForm}
+              onChange={patch => setRepeatForm(p => ({ ...p, ...patch }))}
+              quantity={repeatForm.quantity}
+              runs={runs as any}
+              idPrefix="jobdetail-repeat"
+            />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="jobdetailclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>

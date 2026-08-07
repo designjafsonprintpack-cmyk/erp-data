@@ -32,7 +32,7 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
 
   const parsed = await parseBody(req, jobRepeatSchema)
   if ('error' in parsed) return parsed.error
-  const { quantity, required_date, notes, same_artwork } = parsed.data
+  const { quantity, required_date, notes, same_artwork, ups, sheet_width_in, sheet_height_in } = parsed.data
 
   const result = await createRepeatRun(supabase, {
     companyId,
@@ -42,6 +42,11 @@ export const POST = withErrorHandling(async function POST(req: NextRequest, { pa
     requiredDate: required_date,
     sameArtwork: same_artwork,
     notes,
+    // Is run ka apna layout — form ab ye poochhta hai bajaye chup chaap naqal
+    // karne ke. Khali chhoR do to parent wala hi chalta hai.
+    ups,
+    sheetWidthIn: sheet_width_in,
+    sheetHeightIn: sheet_height_in,
   })
 
   if (result.error) {

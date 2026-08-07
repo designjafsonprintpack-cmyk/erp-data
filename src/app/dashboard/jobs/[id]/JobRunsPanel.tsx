@@ -35,6 +35,10 @@ export interface JobRun {
   quantity: number | null
   sheet_qty: number | null
   ups: number | null
+  /** Is run ka apna sheet size (149) — ek hi carton ke do run alag layout par
+   *  chal sakte hain, die wohi rehti hai. */
+  sheet_width_in: number | string | null
+  sheet_height_in: number | string | null
   order_date: string | null
   required_date: string | null
   completed_date: string | null

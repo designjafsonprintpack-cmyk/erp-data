@@ -92,7 +92,7 @@ before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **148**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **149**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -522,7 +522,7 @@ The `JOB` counter is at 485; the 7 extra jobs are repeats, which append `-R2`
 rather than take a number. Take fresh counts before treating any of this as
 evidence.
 
-**Everything up to migration 148 has been run on live and verified** — probed
+**Everything up to migration 149 has been run on live and verified** — probed
 object by object on 2026-08-05, not assumed. 122 was found MISSING by that
 probe while this line claimed everything to 128 was on live, and was run the
 same day. The rest of
@@ -560,6 +560,7 @@ Rules that govern future work are in §4 and §5, not here.
 | 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
 | 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
 | 142 / 143 | repeat search sirf USI customer ke jobs mein, aur `no_of_colors` bhi wapas karta hai |
+| 149 | `get_job_family()` ab har run ka **sheet size** bhi deta hai (`ups` pehle se tha) — Repeat form ko khandaan ka layout dikhana tha. Return list badalne ke liye DROP + CREATE; dono pukarne wale naam se parhte hain |
 | 148 | **`machines.setup_hours`** — make-ready allowance; Planning ab machine ke hours khud bhar deta hai: `setup + qty ÷ capacity_per_hour`, 15 minute par gol. Folder gluer BOXES par chalta hai (`jobs.quantity`), baqi sab SHEETS (`sheet_qty`) — `src/lib/utils/machineHours.ts`. Sirf default hai, planner upar likh sakta hai; sab 9 machines par seed hua |
 | 147 | Board **badal kar** issue karo to purane board ka reserve bhi chhooTe — `consume_board_reservation()` demand ko issue hue item se dhoondta tha, is liye substitution par purani reservation hamesha phans jati thi |
 | 146 | **`user_departments`** — ek aadmi ke kai department; `users.department_id` ab sirf PRIMARY. Queue aur notifications isi table se |
@@ -568,6 +569,7 @@ Rules that govern future work are in §4 and §5, not here.
 
 **No-migration work, same rule — one line each:**
 
+- **Repeat ab LAYOUT poochhta hai, chup chaap naqal nahi karta.** `ups` aur sheet size RUN ke apne hain — die wohi purani rehti hai, magar spot UV (screen printing) ya doosre board par run kam ups par chalta hai. Pehle exact Repeat inhein parent se seedha copy karta tha, is liye ek istisna agla default ban jata. Ab dono form (New Job ka Repeat tab + Job Detail ka modal) `RepeatLayoutFields` dikhate hain: khane parent se bhare, live Sheet Qty, khandaan ke saare run apne layout ke sath aur ek click par "ye layout lo", aur **warning sirf tab jab khandaan mein sach much do alag layout chal chuke hon**. `createRepeatRun()` overrides leta hai — khali bhejo to purana behaviour bilkul waisa hi (SO confirm isi par hai). `sheet_qty` hamesha CHALTE HUE ups se: `ceil(quantity / ups)`.
 - **Board Stock ka "Stock (pkt)" khana `span: 1` par kat raha tha** — `DataList` har cell ko `truncate` (overflow:hidden + nowrap) mein lapetta hai, aur "100,000 reserved · 79,500 free" ko 159px chahiyen jab ke cell 1456px par 118px thi. `span: 2` (baqi columns 11 units le rahe the, barhwan khali para tha). Naya column banate waqt cell ki chaurai NAAPO — `truncate` khamoshi se kaat deta hai, error kahin nahi aata.
 - **MRN ki line par IKAI (unit)** — khana pehle din se tha, control kabhi nahi (live ki har line par NULL): board `Sht`, ink `KG`, glue/chemical `L` type se khud bhar jate hain, aur auto-MRN bhi ab `Sht` likhti hai. Saath: **board ki stock fehrist sirf board/paper lines par** (ink par board ka stock kat sakta tha aur board ke rate se ink ka kharcha job par chadh sakta tha), aur MRN create ki lines ka `error` ab parha jata hai — girne par adhoori MRN uthaa di jati hai (dono raaston par).
 - **Stock `<select>` par SHEET SIZE bhi** — gsm akela pehchan nahi (135 gsm+size se match karti hai); Issue window apna label alag banata tha, ab dono `stockLabel()` → `boardSpecText()` bulate hain, aur New MRN ki line ki `specification` bhi ab dono likhti hai.
