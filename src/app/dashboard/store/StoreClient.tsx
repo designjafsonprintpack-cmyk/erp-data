@@ -17,7 +17,7 @@ interface MRNItem { id: string; material_name: string; material_type: string | n
 interface MRN { id: string; mrn_number: string; status: string; required_date: string | null; notes: string | null; created_at: string; jobs?: { job_number: string; job_title: string; gsm?: number | null } | null; material_requisition_items?: MRNItem[] }
 interface Job { id: string; job_number: string; job_title: string }
 interface Unit { id: string; name: string; symbol: string }
-interface BoardInventoryItem { id: string; description: string; current_stock: number; reserved_stock?: number; unit_id: string | null; gsm?: number | null; board_type_id?: string | null }
+interface BoardInventoryItem { id: string; description: string; current_stock: number; reserved_stock?: number; unit_id: string | null; gsm?: number | null; sheet_width_in?: number | null; sheet_height_in?: number | null; board_type_id?: string | null }
 
 const STATUS_CFG = {
   pending:           { label: 'Pending',           color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
@@ -33,10 +33,16 @@ const EMPTY_ITEM = { material_name: '', material_type: '', specification: '', qu
 
 /** Stock ki row ka wahi label jo Issue window par likha hai — free stock ke
  *  sath, kul stock ke sath nahi. Dono jagah ek hi shakal, warna Store do
- *  alag fehristein parhta hai. */
-function stockLabel(b: { description: string; gsm?: number | null; current_stock: number; reserved_stock?: number }) {
+ *  alag fehristein parhta hai (Issue window apna alag label banata tha; ab
+ *  wo bhi yehi bulata hai).
+ *
+ *  GSM akela pehchan nahi hai: live par "Bleach Board" naam ki 23 rows hain
+ *  aur demand khud gsm + SHEET SIZE se match karti hai (135). Sirf gsm dikha
+ *  kar chunwana 300 gsm ki do alag sizes ko ek jaisa dikhata tha. */
+function stockLabel(b: { description: string; gsm?: number | null; sheet_width_in?: number | null; sheet_height_in?: number | null; current_stock: number; reserved_stock?: number }) {
   const free = Math.max(0, Number(b.current_stock) - Number(b.reserved_stock ?? 0))
-  return `${b.description}${b.gsm ? ` — ${b.gsm} gsm` : ''} (${free.toLocaleString()} free)`
+  const spec = boardSpecText(b)
+  return `${b.description}${spec ? ` — ${spec}` : ''} (${free.toLocaleString()} free)`
 }
 
 export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs, jobs, units, boardInventory }: { initialMRNs: MRN[]; initialTotal: number; boardIssueJobs: BoardIssueJob[]; jobs: Job[]; units: Unit[]; boardInventory: BoardInventoryItem[] }) {
@@ -90,7 +96,9 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
       board_item_id: boardId,
       material_name: l.material_name || (b?.description ?? ''),
       material_type: l.material_type || (b ? 'board' : ''),
-      specification: l.specification || (b?.gsm ? `${Number(b.gsm)} gsm` : ''),
+      // gsm + sheet size dono — yehi jora demand ko match karta hai (135), aur
+      // yehi MRN par chhap kar Store tak jata hai.
+      specification: l.specification || (b ? boardSpecText(b) : ''),
     }))
   }
 
@@ -525,22 +533,18 @@ export default function StoreClient({ initialMRNs, initialTotal, boardIssueJobs,
                   <p className="text-xs text-[var(--color-text-muted)]">Required: {item.quantity_required} | Issued so far: {item.quantity_issued}</p>
                 </div>
                 <select
-                  className="h-11 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full md:w-auto md:max-w-[180px]"
+                  className="h-11 md:h-8 px-2 rounded-md border text-xs bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full md:w-auto md:max-w-[260px]"
                   value={selectedBoardId}
                   onChange={e => setIssueBoardLinks(prev => ({ ...prev, [item.id]: e.target.value }))}>
                   <option value="">Not tracked in inventory</option>
-                  {boardInventory.map(b => {
-                    // KHALI stock, kul stock nahi. Har job ka board ab uske naam
-                    // reserve hota hai (135), is liye "1,79,500 pari hain" aur
-                    // "79,500 le sakte ho" do alag baaten hain — aur pehli wali
-                    // dikhana doosri job ka board issue karwa deta hai.
-                    const free = Math.max(0, Number(b.current_stock) - Number(b.reserved_stock ?? 0))
-                    return (
-                      <option key={b.id} value={b.id}>
-                        {b.description}{b.gsm ? ` — ${b.gsm} gsm` : ''} ({free.toLocaleString()} free)
-                      </option>
-                    )
-                  })}
+                  {/* Wahi label jo New MRN par hai — naam, gsm + sheet size, aur
+                      KHALI stock (kul nahi: har job ka board apne naam reserve
+                      hota hai, 135). Ye label yahan dobara likha hua tha, is
+                      liye sheet size sirf ek jagah lagti aur do fehristein
+                      alag ho jatin. */}
+                  {boardInventory.map(b => (
+                    <option key={b.id} value={b.id}>{stockLabel(b)}</option>
+                  ))}
                 </select>
                 <input type="number"
                   className="w-full md:w-24 h-11 md:h-8 px-2.5 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"

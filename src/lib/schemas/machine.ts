@@ -7,6 +7,9 @@ export const machineSchema = z.object({
   code: z.string().trim().min(1, 'Code is required'),
   machine_type: z.string().trim().min(1, 'machine_type is required'),
   capacity_per_hour: z.union([z.string(), z.number()]).optional().nullable(),
+  // Make-ready allowance (migration 148) — Production Planning adds it to the
+  // run time when it auto-fills a machine assignment's hours.
+  setup_hours: z.union([z.string(), z.number()]).optional().nullable(),
   status: z.string().optional(),
   current_operator_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -22,6 +25,9 @@ export const machineUpdateSchema = z.object({
   code: z.string().optional(),
   machine_type: z.string().optional(),
   capacity_per_hour: z.union([z.string(), z.number()]).optional().nullable(),
+  // Make-ready allowance (migration 148) — Production Planning adds it to the
+  // run time when it auto-fills a machine assignment's hours.
+  setup_hours: z.union([z.string(), z.number()]).optional().nullable(),
   status: z.string().optional(),
   current_operator_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional().nullable(),

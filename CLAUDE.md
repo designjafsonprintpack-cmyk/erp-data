@@ -92,7 +92,7 @@ before its migration means a 500 on save.
   `department_id`, `full_name`, `user_table_id`.
 
 ### Migrations
-Highest migration so far: **147**. **Always `ls supabase/migrations/` and check
+Highest migration so far: **148**. **Always `ls supabase/migrations/` and check
 the real highest number** before creating a new one — don't trust this line.
 Additive and reversible wherever possible. Say so in a header comment: what
 broke, why this fixes it, and how to undo it.
@@ -522,7 +522,7 @@ The `JOB` counter is at 485; the 7 extra jobs are repeats, which append `-R2`
 rather than take a number. Take fresh counts before treating any of this as
 evidence.
 
-**Everything up to migration 147 has been run on live and verified** — probed
+**Everything up to migration 148 has been run on live and verified** — probed
 object by object on 2026-08-05, not assumed. 122 was found MISSING by that
 probe while this line claimed everything to 128 was on live, and was run the
 same day. The rest of
@@ -560,12 +560,15 @@ Rules that govern future work are in §4 and §5, not here.
 | 140 | MRN ki board line par GSM + sheet size — jo MRN pehle se bani thi us par bhi |
 | 141 | **`repeat_of_job_id`** on quotation + SO lines, and `find_repeat_candidates()` — "ye carton pehle chala hai ya naya?" |
 | 142 / 143 | repeat search sirf USI customer ke jobs mein, aur `no_of_colors` bhi wapas karta hai |
+| 148 | **`machines.setup_hours`** — make-ready allowance; Planning ab machine ke hours khud bhar deta hai: `setup + qty ÷ capacity_per_hour`, 15 minute par gol. Folder gluer BOXES par chalta hai (`jobs.quantity`), baqi sab SHEETS (`sheet_qty`) — `src/lib/utils/machineHours.ts`. Sirf default hai, planner upar likh sakta hai; sab 9 machines par seed hua |
 | 147 | Board **badal kar** issue karo to purane board ka reserve bhi chhooTe — `consume_board_reservation()` demand ko issue hue item se dhoondta tha, is liye substitution par purani reservation hamesha phans jati thi |
 | 146 | **`user_departments`** — ek aadmi ke kai department; `users.department_id` ab sirf PRIMARY. Queue aur notifications isi table se |
 | 145 | `sales_orders.status` CHECK mein **`draft`** — SO ab draft mein paida hoti hai; Confirm par hi jobs banti hain |
 | 144 | **`jobs.is_superseded`** — jobs list par aik carton ka AIK row. Run khatam + naya run mojood = list se chhupa (row poori maujood). Zinda kaam kabhi nahi chhupta; proof naya run nahi ginta. Trigger `UPDATE OF` ki column list se chakkar rokta hai — `WHEN (pg_trigger_depth() = 1)` mat lagana, WHEN top-level par 0 dekhta hai aur trigger khamoshi se kabhi nahi chalta |
 
 **No-migration work, same rule — one line each:**
+
+- **Stock `<select>` par SHEET SIZE bhi** — gsm akela pehchan nahi (135 gsm+size se match karti hai); Issue window apna label alag banata tha, ab dono `stockLabel()` → `boardSpecText()` bulate hain, aur New MRN ki line ki `specification` bhi ab dono likhti hai.
 
 - **MRN ki line par stock ki row MRN BANTE waqt likhi jati hai, issue par nahi.**
   `board_item_id` sirf Issue window mein poochha jata tha, is liye jo baat system

@@ -12,7 +12,9 @@ export default async function PlanningPage() {
 
   const [plansRes, machinesRes, jobsRes] = await Promise.all([
     supabase.from('job_plans' as any)
-      .select('*, jobs(job_number,job_title,status,priority,customers(name)), job_machine_assignments(*, machines(name,machine_type))')
+      // sheet_qty + quantity feed the machine-hours auto-fill (148) when an
+      // existing plan is edited — without them the edit modal can't recompute.
+      .select('*, jobs(job_number,job_title,status,priority,sheet_qty,quantity,customers(name)), job_machine_assignments(*, machines(name,machine_type))')
       .eq('company_id', companyId).is('deleted_at', null)
       .gte('planned_date', today).lte('planned_date', in30)
       // Machines removed from a plan are deactivated, not deleted — filter them
@@ -23,9 +25,9 @@ export default async function PlanningPage() {
       // Postgres returned; without id two plans sharing a day_order still swap.
       .order('planned_date').order('day_order').order('id'),
     supabase.from('machines' as any)
-      .select('id,name,machine_type').eq('company_id', companyId).eq('is_active', true).order('name'),
+      .select('id,name,machine_type,capacity_per_hour,setup_hours').eq('company_id', companyId).eq('is_active', true).order('name'),
     supabase.from('jobs' as any)
-      .select('id,job_number,job_title,priority,required_date,customers(name)')
+      .select('id,job_number,job_title,priority,required_date,sheet_qty,quantity,customers(name)')
       .eq('company_id', companyId).is('deleted_at', null)
       .in('status', ['new','in_progress']).order('required_date').limit(100),
   ])

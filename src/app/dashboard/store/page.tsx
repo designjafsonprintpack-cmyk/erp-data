@@ -30,7 +30,9 @@ export default async function StorePage() {
       // reserved_stock (135) — issue karte waqt yehi asal sawal hai: kitna
       // KHALI hai. Sirf current_stock dikhana ek job ka reserve kiya hua board
       // doosri job ko issue kar dene ka seedha raasta hai.
-      .select('id,description,current_stock,reserved_stock,unit_id,gsm,board_type_id').eq('company_id', companyId)
+      // sheet_width_in / sheet_height_in — gsm akela stock row ki pehchan nahi
+      // hai; demand khud gsm + sheet size se match karti hai (135).
+      .select('id,description,current_stock,reserved_stock,unit_id,gsm,sheet_width_in,sheet_height_in,board_type_id').eq('company_id', companyId)
       .is('deleted_at', null).eq('is_active', true).order('description'),
   ])
 

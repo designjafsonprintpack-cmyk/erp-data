@@ -7,7 +7,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal'
 
 interface Machine {
   id: string; name: string; code: string; machine_type: string
-  capacity_per_hour: number | null; status: string; notes: string | null; is_active: boolean
+  capacity_per_hour: number | null; setup_hours: number | null; status: string; notes: string | null; is_active: boolean
 }
 interface DowntimeEntry {
   id: string; category: string; reason: string | null; started_at: string; ended_at: string | null
@@ -35,7 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   breakdown:   { label: 'Breakdown',   color: 'text-[var(--color-danger)] bg-[color:color-mix(in_srgb,var(--color-danger)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-danger)_20%,transparent)]',           icon: <AlertTriangle size={11} /> },
 }
 
-const EMPTY_FORM = { name: '', code: '', machine_type: 'printing', capacity_per_hour: '', status: 'idle', notes: '' }
+const EMPTY_FORM = { name: '', code: '', machine_type: 'printing', capacity_per_hour: '', setup_hours: '', status: 'idle', notes: '' }
 
 export default function MachinesClient({ initialMachines }: { initialMachines: Machine[] }) {
   const [machines, setMachines] = useState(initialMachines)
@@ -126,7 +126,7 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
   const openNew = () => { setEditingMachine(null); setForm(EMPTY_FORM); setModalOpen(true) }
   const openEdit = (m: Machine) => {
     setEditingMachine(m)
-    setForm({ name: m.name, code: m.code, machine_type: m.machine_type, capacity_per_hour: String(m.capacity_per_hour ?? ''), status: m.status, notes: m.notes ?? '' })
+    setForm({ name: m.name, code: m.code, machine_type: m.machine_type, capacity_per_hour: String(m.capacity_per_hour ?? ''), setup_hours: String(m.setup_hours ?? ''), status: m.status, notes: m.notes ?? '' })
     setModalOpen(true)
   }
 
@@ -134,7 +134,11 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
     if (!form.name || !form.code) { toast.error('Name and Code are required'); return }
     setLoading(true)
     try {
-      const payload = { ...form, capacity_per_hour: form.capacity_per_hour ? parseInt(form.capacity_per_hour) : null }
+      const payload = {
+        ...form,
+        capacity_per_hour: form.capacity_per_hour ? parseInt(form.capacity_per_hour) : null,
+        setup_hours: form.setup_hours ? parseFloat(form.setup_hours) : null,
+      }
       const isNew = !editingMachine
       const res = await fetch('/api/v1/machines', {
         method: isNew ? 'POST' : 'PATCH',
@@ -212,9 +216,10 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
                           {statusCfg.icon} {statusCfg.label}
                         </span>
                       </div>
-                      {(machine.capacity_per_hour || machine.notes) && (
+                      {(machine.capacity_per_hour || machine.setup_hours || machine.notes) && (
                         <div className="flex items-center gap-4 mt-1">
                           {machine.capacity_per_hour && <span className="text-xs text-[var(--color-text-muted)]">Capacity: {machine.capacity_per_hour.toLocaleString()}/hr</span>}
+                          {!!machine.setup_hours && <span className="text-xs text-[var(--color-text-muted)]">Setup: {machine.setup_hours}h</span>}
                           {machine.notes && <span className="text-xs text-[var(--color-text-muted)] truncate max-w-xs">{machine.notes}</span>}
                         </div>
                       )}
@@ -289,9 +294,19 @@ export default function MachinesClient({ initialMachines }: { initialMachines: M
               </select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="machinesclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Capacity / Hour</label>
-            <input id="machinesclient-5" className={inputCls} type="number" value={form.capacity_per_hour} onChange={e => setForm(p => ({ ...p, capacity_per_hour: e.target.value }))} placeholder="e.g. 3000 sheets/hr" />
+          {/* Both numbers feed Production Planning's machine-hours auto-fill:
+              hours = setup + qty ÷ capacity. A folder gluer's capacity is in
+              BOXES; every other machine's is in sheets. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="machinesclient-5" className="text-sm font-medium text-[var(--color-text-primary)]">Capacity / Hour</label>
+              <input id="machinesclient-5" className={inputCls} type="number" value={form.capacity_per_hour} onChange={e => setForm(p => ({ ...p, capacity_per_hour: e.target.value }))} placeholder="e.g. 3000 sheets/hr" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="machinesclient-7" className="text-sm font-medium text-[var(--color-text-primary)]">Setup / Make-ready Hours</label>
+              <input id="machinesclient-7" className={inputCls} type="number" step="0.25" value={form.setup_hours} onChange={e => setForm(p => ({ ...p, setup_hours: e.target.value }))} placeholder="e.g. 1.5" />
+              <p className="text-xs text-[var(--color-text-muted)]">Added to every job planned on this machine.</p>
+            </div>
           </div>
           <div className="space-y-1.5">
             <label htmlFor="machinesclient-6" className="text-sm font-medium text-[var(--color-text-primary)]">Notes</label>

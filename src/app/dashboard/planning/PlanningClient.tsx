@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils/format'
 import { JOB_PRIORITY_CONFIG } from '@/modules/jobs/types/job.types'
 import Link from 'next/link'
 import { JobThumbStrip, useJobThumbnails } from '@/components/artwork/ArtworkThumb'
+import { estimateMachineHours, explainMachineHours } from '@/lib/utils/machineHours'
 
 interface Assignment {
   id: string; machine_id: string; estimated_hours: number | null
@@ -19,11 +20,15 @@ interface Plan {
   // Running order within planned_date (migration 112). 0 only on a row nothing
   // has ever sequenced.
   day_order: number
-  jobs?: { job_number: string; job_title: string; status: string; priority: string; customers?: { name: string } | null } | null
+  jobs?: { job_number: string; job_title: string; status: string; priority: string; sheet_qty?: number | null; quantity?: number | null; customers?: { name: string } | null } | null
   job_machine_assignments?: Assignment[]
 }
-interface Machine { id: string; name: string; machine_type: string }
-interface Job { id: string; job_number: string; job_title: string; priority: string; required_date: string | null; customers?: { name: string } | null }
+interface Machine { id: string; name: string; machine_type: string; capacity_per_hour?: number | null; setup_hours?: number | null }
+// One row of the Machine Assignments list in either modal. `auto` is UI-only —
+// true while the hours shown are the ones this page worked out from the
+// machine's capacity, false once the value is the planner's own.
+interface MachineRow { id?: string; machine_id: string; estimated_hours: string; auto?: boolean }
+interface Job { id: string; job_number: string; job_title: string; priority: string; required_date: string | null; sheet_qty?: number | null; quantity?: number | null; customers?: { name: string } | null }
 
 const PLAN_STATUS_CONFIG = {
   scheduled:   { label: 'Scheduled',   color: 'text-[var(--color-accent)] bg-[color:color-mix(in_srgb,var(--color-accent)_10%,transparent)] border-[color:color-mix(in_srgb,var(--color-accent)_20%,transparent)]' },
@@ -43,6 +48,28 @@ const sortPlans = (arr: Plan[]) => [...arr].sort((a, b) =>
   a.id.localeCompare(b.id)
 )
 
+/**
+ * The one line under a machine row that shows where its hours came from, so the
+ * planner can see the sum rather than a number that appeared by itself — and
+ * knows whether to fix the machine's capacity or just retype the box.
+ */
+function HoursBasis({ row, job, machine }: { row: MachineRow; job: { sheet_qty?: number | null; quantity?: number | null } | null; machine: Machine | null }) {
+  if (!machine) return null
+  const basis = explainMachineHours(job, machine)
+  if (!basis) {
+    // Only worth saying on a row the planner is actually filling in.
+    return machine.capacity_per_hour ? null : (
+      <p className="text-xs text-[var(--color-text-muted)] mt-1 ml-0.5">No capacity set for {machine.name} — enter hours by hand.</p>
+    )
+  }
+  const auto = estimateMachineHours(job, machine)
+  return (
+    <p className="text-xs text-[var(--color-text-muted)] mt-1 ml-0.5">
+      {row.auto ? basis : `Auto: ${auto}h — ${basis}`}
+    </p>
+  )
+}
+
 const iconBtnCls = 'flex items-center justify-center rounded border border-[var(--color-border)] text-[var(--color-text-muted)] h-11 w-11 md:h-7 md:w-7 hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-elevated)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors flex-shrink-0'
 
 export default function PlanningClient({ initialPlans, machines, unplannedJobs: initialUnplanned }: { initialPlans: Plan[]; machines: Machine[]; unplannedJobs: Job[] }) {
@@ -53,7 +80,10 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
   const [planModal, setPlanModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ job_id: '', planned_date: new Date().toISOString().slice(0, 10), notes: '' })
-  const [selectedMachines, setSelectedMachines] = useState<{ machine_id: string; estimated_hours: string }[]>([])
+  // `auto` marks an hours value THIS page filled in from the machine's capacity
+  // (148). Only such a value is ever recomputed — the moment the planner types
+  // over it, or it came back saved from the server, it stops being ours.
+  const [selectedMachines, setSelectedMachines] = useState<MachineRow[]>([])
   const [activeTab, setActiveTab] = useState<'schedule' | 'unplanned'>('schedule')
   // Both tabs show real jobs; one batched lookup covers whichever is active
   // (and both, since switching tabs doesn't unmount the other's data).
@@ -61,7 +91,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
   const [scheduleView, setScheduleView] = useState<'timeline' | 'calendar'>('timeline')
   const [editPlan, setEditPlan] = useState<Plan | null>(null)
   const [editForm, setEditForm] = useState({ planned_date: '', notes: '' })
-  const [editMachines, setEditMachines] = useState<{ id?: string; machine_id: string; estimated_hours: string }[]>([])
+  const [editMachines, setEditMachines] = useState<MachineRow[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
   // One reorder in flight at a time — two overlapping calls for the same day
   // would race and the loser's order would win.
@@ -75,18 +105,53 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
     return acc
   }, {} as Record<string, Plan[]>)
 
+  // ── Machine hours auto-fill (148) ──────────────────────────────────────────
+  // The planner used to type this number every time, while the shop already knew
+  // it: the machine carries its run rate and make-ready, the job carries its
+  // sheet and box counts. Both modals share these three helpers.
+  const machineById = (id: string) => machines.find(mx => mx.id === id) ?? null
+
+  /** The job the create modal is planning — the source of its sheet/box counts. */
+  const planJob = unplannedJobs.find(j => j.id === form.job_id) ?? null
+
+  /** Recompute every row whose hours are still ours to set. */
+  const applyAuto = (rows: MachineRow[], job: { sheet_qty?: number | null; quantity?: number | null } | null): MachineRow[] =>
+    rows.map(r => {
+      if (r.estimated_hours && r.auto !== true) return r   // the planner's value stands
+      const h = estimateMachineHours(job, machineById(r.machine_id))
+      return { ...r, estimated_hours: h == null ? '' : String(h), auto: h != null }
+    })
+
   const addMachineRow = () => setSelectedMachines(p => [...p, { machine_id: '', estimated_hours: '' }])
   const removeMachineRow = (idx: number) => setSelectedMachines(p => p.filter((_, i) => i !== idx))
-  const setMachineField = (idx: number, key: string, val: string) =>
-    setSelectedMachines(p => p.map((m, i) => i === idx ? { ...m, [key]: val } : m))
+  const setMachineField = (idx: number, key: 'machine_id' | 'estimated_hours', val: string) =>
+    setSelectedMachines(p => p.map((m, i) => {
+      if (i !== idx) return m
+      // Typing in the box takes ownership of it; changing the machine re-runs
+      // the sum, but only while the value is still one we filled in.
+      if (key === 'estimated_hours') return { ...m, estimated_hours: val, auto: false }
+      return applyAuto([{ ...m, machine_id: val }], planJob)[0]
+    }))
 
   // Same three for the edit modal. A row keeps its `id` through every change, so
   // the server updates the existing assignment (and its recorded hours) instead
   // of deleting and reinserting it.
   const addEditMachineRow = () => setEditMachines(p => [...p, { machine_id: '', estimated_hours: '' }])
   const removeEditMachineRow = (idx: number) => setEditMachines(p => p.filter((_, i) => i !== idx))
-  const setEditMachineField = (idx: number, key: string, val: string) =>
-    setEditMachines(p => p.map((m, i) => i === idx ? { ...m, [key]: val } : m))
+  const setEditMachineField = (idx: number, key: 'machine_id' | 'estimated_hours', val: string) =>
+    setEditMachines(p => p.map((m, i) => {
+      if (i !== idx) return m
+      if (key === 'estimated_hours') return { ...m, estimated_hours: val, auto: false }
+      return applyAuto([{ ...m, machine_id: val }], editPlan?.jobs ?? null)[0]
+    }))
+
+  // Picking (or changing) the job refills the rows added before it was chosen —
+  // machines are usually added first, and without this they'd stay blank.
+  const setPlanJob = (jobId: string) => {
+    const job = unplannedJobs.find(j => j.id === jobId) ?? null
+    setForm(p => ({ ...p, job_id: jobId }))
+    setSelectedMachines(rows => applyAuto(rows, job))
+  }
 
   const createPlan = async () => {
     if (!form.job_id || !form.planned_date) { toast.error('Job and date required'); return }
@@ -149,11 +214,14 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
   const openEdit = (plan: Plan) => {
     setEditPlan(plan)
     setEditForm({ planned_date: plan.planned_date, notes: plan.notes ?? '' })
-    setEditMachines((plan.job_machine_assignments ?? []).map(m => ({
+    // A saved value is the planner's and is left exactly as it is; a row saved
+    // with no hours (every row created before 148) gets the auto-fill.
+    setEditMachines(applyAuto((plan.job_machine_assignments ?? []).map(m => ({
       id: m.id,
       machine_id: m.machine_id,
       estimated_hours: m.estimated_hours != null ? String(m.estimated_hours) : '',
-    })))
+      auto: false,
+    })), plan.jobs ?? null))
   }
 
   const saveEdit = async () => {
@@ -422,7 +490,7 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label htmlFor="planningclient-1" className="text-sm font-medium text-[var(--color-text-primary)]">Job <span className="text-[var(--color-danger)]">*</span></label>
-              <select id="planningclient-1" className={inputCls} value={form.job_id} onChange={e => setForm(p => ({ ...p, job_id: e.target.value }))}>
+              <select id="planningclient-1" className={inputCls} value={form.job_id} onChange={e => setPlanJob(e.target.value)}>
                 <option value="">Select job…</option>
                 {unplannedJobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.job_title}</option>)}
               </select>
@@ -446,18 +514,24 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
             ) : (
               <div className="space-y-2">
                 {selectedMachines.map((m, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <select className={inputCls} value={m.machine_id} onChange={e => setMachineField(idx, 'machine_id', e.target.value)}>
-                      <option value="">Select machine…</option>
-                      {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
-                    </select>
-                    <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-                      value={m.estimated_hours} onChange={e => setMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
-                    <button onClick={() => removeMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
+                  <div key={idx}>
+                    <div className="flex items-center gap-2">
+                      <select className={inputCls} value={m.machine_id} onChange={e => setMachineField(idx, 'machine_id', e.target.value)}>
+                        <option value="">Select machine…</option>
+                        {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
+                      </select>
+                      <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                        value={m.estimated_hours} onChange={e => setMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
+                      <button onClick={() => removeMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
+                    </div>
+                    <HoursBasis row={m} job={planJob} machine={machineById(m.machine_id)} />
                   </div>
                 ))}
               </div>
             )}
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+              Hours fill in from the machine&rsquo;s capacity and setup time — type over them any time.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -504,14 +578,17 @@ export default function PlanningClient({ initialPlans, machines, unplannedJobs: 
             ) : (
               <div className="space-y-2">
                 {editMachines.map((m, idx) => (
-                  <div key={m.id ?? `new-${idx}`} className="flex items-center gap-2">
-                    <select className={inputCls} value={m.machine_id} onChange={e => setEditMachineField(idx, 'machine_id', e.target.value)}>
-                      <option value="">Select machine…</option>
-                      {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
-                    </select>
-                    <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-                      value={m.estimated_hours} onChange={e => setEditMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
-                    <button onClick={() => removeEditMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
+                  <div key={m.id ?? `new-${idx}`}>
+                    <div className="flex items-center gap-2">
+                      <select className={inputCls} value={m.machine_id} onChange={e => setEditMachineField(idx, 'machine_id', e.target.value)}>
+                        <option value="">Select machine…</option>
+                        {machines.map(mx => <option key={mx.id} value={mx.id}>{mx.name} ({mx.machine_type})</option>)}
+                      </select>
+                      <input type="number" className="w-28 h-11 md:h-9 px-3 rounded-md border text-sm bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                        value={m.estimated_hours} onChange={e => setEditMachineField(idx, 'estimated_hours', e.target.value)} placeholder="Hours" />
+                      <button onClick={() => removeEditMachineRow(idx)} className="text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors flex-shrink-0">✕</button>
+                    </div>
+                    <HoursBasis row={m} job={editPlan?.jobs ?? null} machine={machineById(m.machine_id)} />
                   </div>
                 ))}
               </div>
